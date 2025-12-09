@@ -47,7 +47,7 @@ RUN chown nextjs:nodejs .next
 # Copy standalone output
 # Note: In monorepo, standalone output is inside apps/web/.next/standalone
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 USER nextjs
 

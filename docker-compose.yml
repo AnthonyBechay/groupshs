@@ -13,7 +13,7 @@ services:
     networks:
       - coolify
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 10s
       timeout: 5s
       retries: 3
