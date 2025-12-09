@@ -1,0 +1,14 @@
+{
+    "name": "@groupshs/shared",
+    "version": "0.0.0",
+    "main": "./index.ts",
+    "types": "./index.ts",
+    "license": "MIT",
+    "scripts": {
+        "lint": "eslint ."
+    },
+    "devDependencies": {
+        "typescript": "^5.0.0",
+        "eslint": "^9.0.0"
+    }
+}
