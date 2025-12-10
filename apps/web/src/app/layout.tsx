@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Group SHS - Scout du Liban",
   description: "Official website of the Scouts du Liban group at Sagesse High School. Join the adventure, leadership, and service.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

@@ -2,6 +2,7 @@ import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Tent, Users, Star, ArrowRight, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
@@ -145,8 +146,20 @@ export default function Home() {
               </ul>
             </div>
           </div>
-          <div className="border-t pt-8 text-center text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Group SHS. All rights reserved.
+          <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+            <p>&copy; {new Date().getFullYear()} Group SHS. All rights reserved.</p>
+            <div className="flex items-center gap-2">
+              <span>Made with ❤️ by</span>
+              <a
+                href="https://bechai.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 font-medium text-foreground hover:text-primary transition-colors bg-muted px-2 py-1 rounded-md"
+              >
+                <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" />
+                bechai.ai
+              </a>
+            </div>
           </div>
         </div>
       </footer>
