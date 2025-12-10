@@ -38,7 +38,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy public assets
-COPY --from=builder /app/apps/web/public ./public
+COPY --from=builder /app/apps/web/public ./apps/web/public
 
 # Set permission for prerender cache
 RUN mkdir .next
