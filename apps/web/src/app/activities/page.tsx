@@ -70,7 +70,7 @@ export default function ActivitiesPage() {
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 font-medium text-foreground hover:text-primary transition-colors bg-muted px-2 py-1 rounded-md"
                             >
-                                <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" />
+                                <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" unoptimized />
                                 bechai.ai
                             </a>
                         </div>
