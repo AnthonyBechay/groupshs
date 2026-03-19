@@ -25,10 +25,6 @@ COPY . .
 # Generate Prisma client
 RUN corepack enable pnpm && cd apps/web && npx prisma generate
 
-# Build needs DATABASE_URL at build time for Prisma (dummy value is fine)
-ARG DATABASE_URL="postgresql://postgres:postgres@localhost:5432/groupshs"
-ENV DATABASE_URL=${DATABASE_URL}
-
 # Build the web app
 RUN corepack enable pnpm && pnpm --filter web build
 
@@ -53,6 +49,11 @@ RUN chown nextjs:nodejs .next
 # Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+
+# Copy Prisma schema, migrations, config, and node_modules for migrate deploy
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/prisma ./apps/web/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/prisma.config.ts ./apps/web/prisma.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/node_modules ./apps/web/node_modules
 
 USER nextjs
 

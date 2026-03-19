@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
+    command: >
+      sh -c "cd /app/apps/web && npx prisma migrate deploy && cd /app && node apps/web/server.js"
     environment:
       NODE_ENV: production
       PORT: 3000
