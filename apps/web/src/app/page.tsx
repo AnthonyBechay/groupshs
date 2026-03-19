@@ -1,24 +1,30 @@
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
-import { Tent, Users, Star, ArrowRight, Calendar, MapPin } from "lucide-react";
+import { Tent, Users, Star, ArrowRight, Calendar, MapPin, Clock } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/db";
 
 export const dynamic = "force-dynamic";
 
+function formatDate(d: Date) {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 export default async function Home() {
   const currentYear = new Date().getFullYear();
 
   const upcomingActivities = await prisma.activity.findMany({
     where: { isUpcoming: true },
-    orderBy: { createdAt: "desc" },
+    include: { unit: { select: { name: true } } },
+    orderBy: { startDate: "asc" },
     take: 3,
   });
 
   const thisYearActivities = await prisma.activity.findMany({
     where: { year: currentYear, isUpcoming: false },
-    orderBy: { createdAt: "desc" },
+    include: { unit: { select: { name: true } } },
+    orderBy: { startDate: "desc" },
   });
 
   return (
@@ -61,31 +67,19 @@ export default async function Home() {
           <div className="container mx-auto px-4">
             <div className="grid md:grid-cols-3 gap-12 text-center">
               <div className="flex flex-col items-center">
-                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6">
-                  <Users className="w-7 h-7" />
-                </div>
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6"><Users className="w-7 h-7" /></div>
                 <h3 className="text-xl font-bold mb-3">Community & Brotherhood</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Building lifelong friendships and a strong sense of belonging within the Sagesse family.
-                </p>
+                <p className="text-muted-foreground leading-relaxed">Building lifelong friendships and a strong sense of belonging within the Sagesse family.</p>
               </div>
               <div className="flex flex-col items-center">
-                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6">
-                  <Star className="w-7 h-7" />
-                </div>
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6"><Star className="w-7 h-7" /></div>
                 <h3 className="text-xl font-bold mb-3">Leadership & Growth</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Developing character and leadership skills through hands-on experiences and challenges.
-                </p>
+                <p className="text-muted-foreground leading-relaxed">Developing character and leadership skills through hands-on experiences and challenges.</p>
               </div>
               <div className="flex flex-col items-center">
-                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6">
-                  <MapPin className="w-7 h-7" />
-                </div>
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6"><MapPin className="w-7 h-7" /></div>
                 <h3 className="text-xl font-bold mb-3">Service & Nature</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Connecting with nature and serving our community with the core values of Scouting.
-                </p>
+                <p className="text-muted-foreground leading-relaxed">Connecting with nature and serving our community with the core values of Scouting.</p>
               </div>
             </div>
           </div>
@@ -114,23 +108,22 @@ export default async function Home() {
                       {act.imageUrl ? (
                         <Image src={act.imageUrl} alt={act.title} fill className="object-cover" unoptimized />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
-                          <Tent className="w-12 h-12" />
-                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20"><Tent className="w-12 h-12" /></div>
                       )}
+                      <div className="absolute top-3 left-3">
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary text-primary-foreground">{act.unit.name}</span>
+                      </div>
                     </div>
                     <div className="p-6">
-                      <div className="flex items-center gap-2 text-xs font-medium text-primary mb-3">
+                      <div className="flex items-center gap-2 text-xs font-medium text-primary mb-2">
                         <Calendar className="w-3 h-3" />
-                        <span>{act.date}{act.endDate ? ` - ${act.endDate}` : ""}</span>
+                        <span>{formatDate(act.startDate)}{act.endDate ? ` - ${formatDate(act.endDate)}` : ""}</span>
                       </div>
                       <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
-                      {act.location && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                          <MapPin className="w-3 h-3" />
-                          <span>{act.location}</span>
-                        </div>
-                      )}
+                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-2">
+                        {act.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{act.location}</span>}
+                        {act.pickupTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{act.pickupTime}{act.dropoffTime ? ` - ${act.dropoffTime}` : ""}</span>}
+                      </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">{act.description}</p>
                     </div>
                   </div>
@@ -138,9 +131,7 @@ export default async function Home() {
               </div>
             )}
             <div className="mt-8 text-center md:hidden">
-              <Link href="/activities">
-                <Button variant="ghost" className="gap-2 text-primary">View all <ArrowRight className="w-4 h-4" /></Button>
-              </Link>
+              <Link href="/activities"><Button variant="ghost" className="gap-2 text-primary">View all <ArrowRight className="w-4 h-4" /></Button></Link>
             </div>
           </div>
         </section>
@@ -163,23 +154,19 @@ export default async function Home() {
                       {act.imageUrl ? (
                         <Image src={act.imageUrl} alt={act.title} fill className="object-cover" unoptimized />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
-                          <Tent className="w-12 h-12" />
-                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20"><Tent className="w-12 h-12" /></div>
                       )}
+                      <div className="absolute top-3 left-3">
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary text-primary-foreground">{act.unit.name}</span>
+                      </div>
                     </div>
                     <div className="p-6">
-                      <div className="flex items-center gap-2 text-xs font-medium text-primary mb-3">
+                      <div className="flex items-center gap-2 text-xs font-medium text-primary mb-2">
                         <Calendar className="w-3 h-3" />
-                        <span>{act.date}{act.endDate ? ` - ${act.endDate}` : ""}</span>
+                        <span>{formatDate(act.startDate)}{act.endDate ? ` - ${formatDate(act.endDate)}` : ""}</span>
                       </div>
                       <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
-                      {act.location && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                          <MapPin className="w-3 h-3" />
-                          <span>{act.location}</span>
-                        </div>
-                      )}
+                      {act.location && <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2"><MapPin className="w-3 h-3" /><span>{act.location}</span></div>}
                       <p className="text-sm text-muted-foreground line-clamp-2">{act.description}</p>
                     </div>
                   </div>
@@ -194,14 +181,8 @@ export default async function Home() {
         <div className="container mx-auto px-4 text-center md:text-left">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div className="col-span-1 md:col-span-2">
-              <h4 className="text-lg font-bold mb-4 flex items-center justify-center md:justify-start gap-2">
-                <Tent className="w-5 h-5 text-primary" />
-                Group SHS
-              </h4>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto md:mx-0">
-                Official website of the Scouts du Liban group at Sagesse High School.
-                Dedicated to fostering the next generation of leaders.
-              </p>
+              <h4 className="text-lg font-bold mb-4 flex items-center justify-center md:justify-start gap-2"><Tent className="w-5 h-5 text-primary" />Group SHS</h4>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto md:mx-0">Official website of the Scouts du Liban group at Sagesse High School. Dedicated to fostering the next generation of leaders.</p>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Quick Links</h4>
@@ -223,14 +204,8 @@ export default async function Home() {
             <p>&copy; {new Date().getFullYear()} Group SHS. All rights reserved.</p>
             <div className="flex items-center gap-2">
               <span>Made with &#10084;&#65039; by</span>
-              <a
-                href="https://bechai.ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 font-medium text-foreground hover:text-primary transition-colors bg-muted px-2 py-1 rounded-md"
-              >
-                <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" unoptimized />
-                bechai.ai
+              <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-medium text-foreground hover:text-primary transition-colors bg-muted px-2 py-1 rounded-md">
+                <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" unoptimized />bechai.ai
               </a>
             </div>
           </div>

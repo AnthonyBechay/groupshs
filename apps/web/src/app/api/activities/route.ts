@@ -7,14 +7,18 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const upcoming = searchParams.get("upcoming");
         const year = searchParams.get("year");
+        const unitId = searchParams.get("unitId");
 
         const where: Record<string, unknown> = {};
         if (upcoming === "true") where.isUpcoming = true;
+        if (upcoming === "false") where.isUpcoming = false;
         if (year) where.year = parseInt(year);
+        if (unitId) where.unitId = unitId;
 
         const activities = await prisma.activity.findMany({
             where,
-            orderBy: { createdAt: "desc" },
+            include: { unit: { select: { name: true, unitType: true } } },
+            orderBy: { startDate: "desc" },
         });
 
         return NextResponse.json(activities);
@@ -32,9 +36,14 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { title, description, date: actDate, endDate, location, imageUrl, isUpcoming: upcoming, year: actYear } = body;
+        const {
+            title, description, unitId, activityType,
+            startDate, endDate, pickupTime, dropoffTime,
+            pickupLocation, dropoffLocation, location,
+            imageUrl, isUpcoming, year,
+        } = body;
 
-        if (!title || !description || !actDate || !actYear) {
+        if (!title || !description || !unitId || !startDate || !year) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
@@ -42,12 +51,18 @@ export async function POST(request: NextRequest) {
             data: {
                 title,
                 description,
-                date: actDate,
-                endDate: endDate || null,
+                unitId,
+                activityType: activityType || "OTHER",
+                startDate: new Date(startDate),
+                endDate: endDate ? new Date(endDate) : null,
+                pickupTime: pickupTime || null,
+                dropoffTime: dropoffTime || null,
+                pickupLocation: pickupLocation || null,
+                dropoffLocation: dropoffLocation || null,
                 location: location || null,
                 imageUrl: imageUrl || null,
-                isUpcoming: upcoming ?? true,
-                year: actYear,
+                isUpcoming: isUpcoming ?? true,
+                year,
             },
         });
 

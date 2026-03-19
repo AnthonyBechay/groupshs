@@ -7,6 +7,8 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -18,6 +20,8 @@ model User {
 
   @@map("user")
 }
+
+// ─── Recruitment ─────────────────────────────────────────────────────────────
 
 model RecruitmentSubmission {
   id                String   @id @default(uuid())
@@ -36,18 +40,68 @@ model RecruitmentSubmission {
   @@map("recruitment_submission")
 }
 
-model Activity {
+// ─── Units ───────────────────────────────────────────────────────────────────
+
+model Unit {
+  id       String @id @default(uuid())
+  name     String // e.g. "Louveteaux 1", "Eclaireurs Aigle"
+  unitType String @map("unit_type") // LOUVETEAUX, ECLAIREURS, ROUTIERS, CHEFS
+
+  members    Member[]
+  activities Activity[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("unit")
+}
+
+// ─── Members ─────────────────────────────────────────────────────────────────
+
+model Member {
   id          String   @id @default(uuid())
+  firstName   String   @map("first_name")
+  lastName    String   @map("last_name")
+  dateOfBirth String?  @map("date_of_birth")
+  phone       String?
+  role        String?  // SOU, SI, SP, CP, SE, CE, CHEF
+  progression String?  // TENDREPATTES, 1_ETOILE, 2_ETOILES, TOTEMISE, PROMESSE, SECONDE_CLASSE, PREMIERE_CLASSE
+  joinedAt    DateTime @default(now()) @map("joined_at")
+
+  unitId String @map("unit_id")
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("member")
+}
+
+// ─── Activities ──────────────────────────────────────────────────────────────
+
+model Activity {
+  id          String @id @default(uuid())
   title       String
   description String
-  date        String
-  endDate     String?  @map("end_date")
-  location    String?
-  imageUrl    String?  @map("image_url")
-  isUpcoming  Boolean  @default(true) @map("is_upcoming")
-  year        Int
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  unitId String @map("unit_id")
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  activityType    String  @default("OTHER") @map("activity_type") // CAMP, JOURNEE, TEMPS, MARCHE, OTHER
+  startDate       DateTime @map("start_date")
+  endDate         DateTime? @map("end_date")
+  pickupTime      String?  @map("pickup_time")      // e.g. "08:00"
+  dropoffTime     String?  @map("dropoff_time")     // e.g. "17:00"
+  pickupLocation  String?  @map("pickup_location")
+  dropoffLocation String?  @map("dropoff_location")
+  location        String?                            // main activity location
+
+  imageUrl   String?  @map("image_url")
+  isUpcoming Boolean  @default(true) @map("is_upcoming")
+  year       Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("activity")
 }
