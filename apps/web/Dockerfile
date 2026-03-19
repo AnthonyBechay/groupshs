@@ -22,17 +22,23 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY . .
 
+# Generate Prisma client
+RUN corepack enable pnpm && cd apps/web && npx prisma generate
+
+# Build needs DATABASE_URL at build time for Prisma (dummy value is fine)
+ARG DATABASE_URL="postgresql://postgres:postgres@localhost:5432/groupshs"
+ENV DATABASE_URL=${DATABASE_URL}
+
 # Build the web app
-# We run build from the root, filtering for the web app
 RUN corepack enable pnpm && pnpm --filter web build
 
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -45,7 +51,6 @@ RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
 # Copy standalone output
-# Note: In monorepo, standalone output is inside apps/web/.next/standalone
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 

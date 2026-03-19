@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("user")
+}
+
+model RecruitmentSubmission {
+  id                String   @id @default(uuid())
+  fullName          String   @map("full_name")
+  dateOfBirth       String   @map("date_of_birth")
+  schoolLevel       String   @map("school_level")
+  memberPhone       String?  @map("member_phone")
+  parentWereScouts  Boolean  @map("parent_were_scouts")
+  parentScoutGroup  String?  @map("parent_scout_group")
+  parentContactInfo String   @map("parent_contact_info")
+  siblingsInGroup   Boolean  @map("siblings_in_group")
+  siblingNames      String?  @map("sibling_names")
+  otherComments     String?  @map("other_comments")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("recruitment_submission")
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  date        String
+  endDate     String?  @map("end_date")
+  location    String?
+  imageUrl    String?  @map("image_url")
+  isUpcoming  Boolean  @default(true) @map("is_upcoming")
+  year        Int
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("activity")
+}

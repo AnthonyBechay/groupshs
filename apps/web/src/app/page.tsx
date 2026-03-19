@@ -3,8 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Tent, Users, Star, ArrowRight, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { prisma } from "@/db";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const currentYear = new Date().getFullYear();
+
+  const upcomingActivities = await prisma.activity.findMany({
+    where: { isUpcoming: true },
+    orderBy: { createdAt: "desc" },
+    take: 3,
+  });
+
+  const thisYearActivities = await prisma.activity.findMany({
+    where: { year: currentYear, isUpcoming: false },
+    orderBy: { createdAt: "desc" },
+  });
+
   return (
     <div className="min-h-screen flex flex-col font-sans">
       <Navbar />
@@ -19,14 +35,14 @@ export default function Home() {
             </div>
             <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
               Scouts du Liban <br className="hidden md:block" />
-              <span className="text-green-100">Toujours Prêts</span>
+              <span className="text-green-100">Toujours Pr&ecirc;ts</span>
             </h1>
             <p className="text-lg md:text-xl text-green-50 mb-10 max-w-2xl mx-auto leading-relaxed">
               Empowering youth through adventure, leadership, and service.
               Join the Sagesse High School scout group and start your journey today.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/register">
+              <Link href="/join">
                 <Button size="lg" variant="secondary" className="w-full sm:w-auto font-semibold gap-2">
                   Join the Adventure <Tent className="w-4 h-4" />
                 </Button>
@@ -75,7 +91,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Latest Activities Preview */}
+        {/* Upcoming Activities */}
         <section className="py-24 bg-muted/30 border-t">
           <div className="container mx-auto px-4">
             <div className="flex justify-between items-end mb-12">
@@ -88,31 +104,88 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="group relative overflow-hidden rounded-xl bg-card border shadow-sm hover:shadow-md transition-all">
-                  <div className="aspect-video bg-muted relative">
-                    {/* Placeholder for activity images */}
-                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
-                      <Tent className="w-12 h-12" />
+            {upcomingActivities.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">No upcoming activities at the moment. Check back soon!</p>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {upcomingActivities.map((act) => (
+                  <div key={act.id} className="group relative overflow-hidden rounded-xl bg-card border shadow-sm hover:shadow-md transition-all">
+                    <div className="aspect-video bg-muted relative overflow-hidden">
+                      {act.imageUrl ? (
+                        <Image src={act.imageUrl} alt={act.title} fill className="object-cover" unoptimized />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
+                          <Tent className="w-12 h-12" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-center gap-2 text-xs font-medium text-primary mb-3">
+                        <Calendar className="w-3 h-3" />
+                        <span>{act.date}{act.endDate ? ` - ${act.endDate}` : ""}</span>
+                      </div>
+                      <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
+                      {act.location && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                          <MapPin className="w-3 h-3" />
+                          <span>{act.location}</span>
+                        </div>
+                      )}
+                      <p className="text-sm text-muted-foreground line-clamp-2">{act.description}</p>
                     </div>
                   </div>
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 text-xs font-medium text-primary mb-3">
-                      <Calendar className="w-3 h-3" />
-                      <span>Dec {10 + i}, 2025</span>
-                    </div>
-                    <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">Winter Camp Preparation</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      Getting ready for our annual winter expedition. Gear check, team building, and route planning.
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             <div className="mt-8 text-center md:hidden">
-              <Button variant="ghost" className="gap-2 text-primary">View all <ArrowRight className="w-4 h-4" /></Button>
+              <Link href="/activities">
+                <Button variant="ghost" className="gap-2 text-primary">View all <ArrowRight className="w-4 h-4" /></Button>
+              </Link>
             </div>
+          </div>
+        </section>
+
+        {/* This Year's Activities */}
+        <section className="py-24 bg-background border-t">
+          <div className="container mx-auto px-4">
+            <div className="mb-12">
+              <h2 className="text-3xl font-bold tracking-tight mb-2">This Year&apos;s Activities</h2>
+              <p className="text-muted-foreground">A look at what we&apos;ve accomplished in {currentYear}.</p>
+            </div>
+
+            {thisYearActivities.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">No past activities recorded for {currentYear} yet.</p>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {thisYearActivities.map((act) => (
+                  <div key={act.id} className="group relative overflow-hidden rounded-xl bg-card border shadow-sm hover:shadow-md transition-all">
+                    <div className="aspect-video bg-muted relative overflow-hidden">
+                      {act.imageUrl ? (
+                        <Image src={act.imageUrl} alt={act.title} fill className="object-cover" unoptimized />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
+                          <Tent className="w-12 h-12" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-center gap-2 text-xs font-medium text-primary mb-3">
+                        <Calendar className="w-3 h-3" />
+                        <span>{act.date}{act.endDate ? ` - ${act.endDate}` : ""}</span>
+                      </div>
+                      <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
+                      {act.location && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                          <MapPin className="w-3 h-3" />
+                          <span>{act.location}</span>
+                        </div>
+                      )}
+                      <p className="text-sm text-muted-foreground line-clamp-2">{act.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>
@@ -135,7 +208,7 @@ export default function Home() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link href="/about" className="hover:text-primary">About Us</Link></li>
                 <li><Link href="/activities" className="hover:text-primary">Activities</Link></li>
-                <li><Link href="/register" className="hover:text-primary">Join Now</Link></li>
+                <li><Link href="/join" className="hover:text-primary">Join Now</Link></li>
               </ul>
             </div>
             <div>
@@ -149,7 +222,7 @@ export default function Home() {
           <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
             <p>&copy; {new Date().getFullYear()} Group SHS. All rights reserved.</p>
             <div className="flex items-center gap-2">
-              <span>Made with ❤️ by</span>
+              <span>Made with &#10084;&#65039; by</span>
               <a
                 href="https://bechai.ai"
                 target="_blank"

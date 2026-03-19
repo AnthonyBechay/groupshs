@@ -1,19 +1,56 @@
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { db } from "../db";
+import { SignJWT, jwtVerify } from "jose";
+import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
 
-export const auth = betterAuth({
-    database: drizzleAdapter(db, {
-        provider: "pg",
-    }),
-    emailAndPassword: {
-        enabled: true,
-    },
-    secret: (process.env.BETTER_AUTH_SECRET && process.env.BETTER_AUTH_SECRET.length >= 32)
-        ? process.env.BETTER_AUTH_SECRET
-        : "4s9d8f7g6h5j4k3l2m1n0b9v8c7x6z5a4s3d2f1g0h9j8k7l6m5n4b3v2c1x0z",
-    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-});
+const SECRET = new TextEncoder().encode(
+    process.env.AUTH_SECRET || "default-secret-change-me-in-production-32chars!"
+);
 
-console.log("BETTER_AUTH_SECRET length:", auth.options.secret?.length);
-console.log("BETTER_AUTH_URL:", auth.options.baseURL);
+const COOKIE_NAME = "auth-token";
+
+export async function hashPassword(password: string) {
+    return bcrypt.hash(password, 10);
+}
+
+export async function verifyPassword(password: string, hash: string) {
+    return bcrypt.compare(password, hash);
+}
+
+export async function createToken(userId: string, role: string) {
+    return new SignJWT({ userId, role })
+        .setProtectedHeader({ alg: "HS256" })
+        .setExpirationTime("7d")
+        .sign(SECRET);
+}
+
+export async function verifyToken(token: string) {
+    try {
+        const { payload } = await jwtVerify(token, SECRET);
+        return payload as { userId: string; role: string };
+    } catch {
+        return null;
+    }
+}
+
+export async function getSession() {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+    if (!token) return null;
+    return verifyToken(token);
+}
+
+export async function setSessionCookie(token: string) {
+    const cookieStore = await cookies();
+    cookieStore.set(COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: "/",
+    });
+}
+
+export async function clearSessionCookie() {
+    const cookieStore = await cookies();
+    cookieStore.delete(COOKIE_NAME);
+}

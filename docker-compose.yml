@@ -8,8 +8,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      AUTH_SECRET: ${AUTH_SECRET}
     networks:
       - coolify
     healthcheck:

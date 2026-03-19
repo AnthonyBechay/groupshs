@@ -17,8 +17,11 @@ export function Navbar() {
                     <Link href="/news" className="text-sm font-medium hover:text-primary transition-colors">
                         News
                     </Link>
-                    <Link href="/register">
-                        <Button className="font-semibold shadow-sm">Register</Button>
+                    <Link href="/join" className="text-sm font-medium hover:text-primary transition-colors">
+                        Join Us
+                    </Link>
+                    <Link href="/login">
+                        <Button className="font-semibold shadow-sm">Login</Button>
                     </Link>
                 </div>
             </div>
