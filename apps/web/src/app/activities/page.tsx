@@ -80,7 +80,7 @@ export default async function ActivitiesPage() {
                                     <div className="p-6 flex-1 flex flex-col">
                                         <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-3">
                                             <Calendar className="w-3.5 h-3.5" />
-                                            <span>{formatDate(act.startDate)}{act.endDate ? ` — ${formatDate(act.endDate)}` : ""}</span>
+                                            <span>{formatDate(act.startDate)}{act.endDate ? ` -${formatDate(act.endDate)}` : ""}</span>
                                         </div>
                                         <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                                         <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-4">
@@ -88,7 +88,7 @@ export default async function ActivitiesPage() {
                                             {act.pickupTime && (
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="w-3.5 h-3.5" />
-                                                    {act.pickupTime}{act.dropoffTime ? ` — ${act.dropoffTime}` : ""}
+                                                    {act.pickupTime}{act.dropoffTime ? ` -${act.dropoffTime}` : ""}
                                                 </span>
                                             )}
                                         </div>
@@ -107,7 +107,7 @@ export default async function ActivitiesPage() {
             <footer className="bg-card border-t py-12">
                 <div className="container mx-auto px-4">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-                        <p>&copy; {new Date().getFullYear()} Group SHS &mdash; Les Scouts du Liban. All rights reserved.</p>
+                        <p>&copy; {new Date().getFullYear()} Group SHS - Les Scouts du Liban. All rights reserved.</p>
                         <div className="flex items-center gap-2">
                             <span>Made with &#10084;&#65039; by</span>
                             <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">

@@ -226,7 +226,7 @@ export default function AdminActivitiesPage() {
                                 <td className="p-3">
                                     {a.imageUrl ? (
                                         <div className="relative w-16 h-10 rounded overflow-hidden"><Image src={a.imageUrl} alt={a.title} fill className="object-cover" unoptimized /></div>
-                                    ) : <div className="w-16 h-10 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">—</div>}
+                                    ) : <div className="w-16 h-10 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">-</div>}
                                 </td>
                                 <td className="p-3 text-sm font-medium">{a.title}</td>
                                 <td className="p-3 text-sm"><span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">{a.unit.name}</span></td>

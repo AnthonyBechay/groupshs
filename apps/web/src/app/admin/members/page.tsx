@@ -189,9 +189,9 @@ export default function AdminMembersPage() {
                             <tr key={m.id} className="border-t">
                                 <td className="p-3 text-sm font-medium">{m.firstName} {m.lastName}</td>
                                 <td className="p-3 text-sm"><span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">{m.unit.name}</span></td>
-                                <td className="p-3 text-sm text-muted-foreground">{m.role || "—"}</td>
-                                <td className="p-3 text-sm text-muted-foreground">{m.progression || "—"}</td>
-                                <td className="p-3 text-sm text-muted-foreground">{m.phone || "—"}</td>
+                                <td className="p-3 text-sm text-muted-foreground">{m.role || "-"}</td>
+                                <td className="p-3 text-sm text-muted-foreground">{m.progression || "-"}</td>
+                                <td className="p-3 text-sm text-muted-foreground">{m.phone || "-"}</td>
                                 <td className="p-3 text-right">
                                     <Button variant="ghost" size="sm" onClick={() => startEdit(m)}><Pencil className="w-4 h-4" /></Button>
                                     <Button variant="ghost" size="sm" onClick={() => handleDelete(m.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>

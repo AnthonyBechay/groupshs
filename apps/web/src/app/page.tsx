@@ -54,12 +54,13 @@ export default async function Home() {
             <div className="max-w-3xl mx-auto text-center">
               <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-8">
                 <Compass className="w-4 h-4 mr-2 text-scout-gold" />
-                <span className="text-white/90">Les Scouts du Liban &mdash; Groupe Sagesse High School</span>
+                <span className="text-white/90">Les Scouts du Liban - Groupe Sagesse High School</span>
               </div>
 
               <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.1]">
-                <span className="block">Toujours</span>
-                <span className="block bg-gradient-to-r from-scout-gold via-yellow-300 to-scout-gold bg-clip-text text-transparent">Pr&ecirc;ts</span>
+                <span className="block text-white">Always Ready</span>
+                <span className="block text-red-500">to Serve</span>
+                <span className="block text-scout-gold">Our Best</span>
               </h1>
 
               <p className="text-lg md:text-xl text-white/80 mb-10 max-w-xl mx-auto leading-relaxed">
@@ -113,7 +114,7 @@ export default async function Home() {
               {[
                 { icon: Users, title: "Brotherhood", desc: "Lifelong friendships forged through shared adventures and challenges within the Sagesse scout family.", color: "bg-primary/10 text-primary" },
                 { icon: Mountain, title: "Adventure", desc: "From mountain hikes to winter camps, we push boundaries and discover the beauty of Lebanon together.", color: "bg-scout-gold/10 text-scout-gold" },
-                { icon: Heart, title: "Service", desc: "Giving back to our community through volunteer work, helping those in need, and protecting nature.", color: "bg-scout-brown/10 text-scout-brown" },
+                { icon: Heart, title: "Service", desc: "Giving back to our community through volunteer work, helping those in need, and protecting nature.", color: "bg-red-50 text-red-600" },
               ].map((item, i) => (
                 <div key={i} className="group relative bg-card rounded-2xl border p-8 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
                   <div className={`h-14 w-14 rounded-xl ${item.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
@@ -191,12 +192,12 @@ export default async function Home() {
                     <div className="p-6">
                       <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-3">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>{formatDate(act.startDate)}{act.endDate ? ` — ${formatDate(act.endDate)}` : ""}</span>
+                        <span>{formatDate(act.startDate)}{act.endDate ? ` -${formatDate(act.endDate)}` : ""}</span>
                       </div>
                       <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-3">
                         {act.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{act.location}</span>}
-                        {act.pickupTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{act.pickupTime}{act.dropoffTime ? ` — ${act.dropoffTime}` : ""}</span>}
+                        {act.pickupTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{act.pickupTime}{act.dropoffTime ? ` -${act.dropoffTime}` : ""}</span>}
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">{act.description}</p>
                     </div>
@@ -238,7 +239,7 @@ export default async function Home() {
                     <div className="p-6">
                       <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-3">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>{formatDate(act.startDate)}{act.endDate ? ` — ${formatDate(act.endDate)}` : ""}</span>
+                        <span>{formatDate(act.startDate)}{act.endDate ? ` -${formatDate(act.endDate)}` : ""}</span>
                       </div>
                       <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                       {act.location && <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2"><MapPin className="w-3 h-3" /><span>{act.location}</span></div>}
@@ -261,7 +262,7 @@ export default async function Home() {
             <Tent className="w-12 h-12 mx-auto mb-6 text-scout-gold" />
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-6">Ready for the Adventure?</h2>
             <p className="text-lg text-white/80 max-w-lg mx-auto mb-10">
-              Boys aged 8-18 are welcome to join Les Scouts du Liban &mdash; Group Sagesse High School, Ain Saade.
+              Boys aged 8-18 are welcome to join Les Scouts du Liban - Group Sagesse High School, Ain Saade.
             </p>
             <Link href="/join">
               <Button size="lg" className="font-bold gap-2 bg-scout-gold hover:bg-scout-gold/90 text-scout-brown shadow-lg shadow-scout-gold/20 px-10">
@@ -302,13 +303,13 @@ export default async function Home() {
               <h4 className="font-bold mb-4 text-sm uppercase tracking-wider">Contact</h4>
               <ul className="space-y-2.5 text-sm text-muted-foreground">
                 <li>Ain Saade, Metn, Lebanon</li>
-                <li>CG Johnny Saad — 71 297 333</li>
+                <li>CG Johnny Saad -71 297 333</li>
                 <li>info@groupshs.org</li>
               </ul>
             </div>
           </div>
           <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} Group SHS &mdash; Les Scouts du Liban. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Group SHS - Les Scouts du Liban. All rights reserved.</p>
             <div className="flex items-center gap-2">
               <span>Made with &#10084;&#65039; by</span>
               <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">

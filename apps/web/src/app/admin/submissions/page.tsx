@@ -26,7 +26,7 @@ export default async function AdminSubmissionsPage() {
                             <div className="grid md:grid-cols-2 gap-3 text-sm">
                                 <div><strong>Date of Birth:</strong> {s.dateOfBirth}</div>
                                 <div><strong>School Level:</strong> {s.schoolLevel}</div>
-                                <div><strong>Member Phone:</strong> {s.memberPhone || "—"}</div>
+                                <div><strong>Member Phone:</strong> {s.memberPhone || "-"}</div>
                                 <div><strong>Parent Contact:</strong> {s.parentContactInfo}</div>
                                 <div><strong>Parent were Scouts:</strong> {s.parentWereScouts ? "Yes" : "No"}{s.parentScoutGroup ? ` (${s.parentScoutGroup})` : ""}</div>
                                 <div><strong>Siblings in Group:</strong> {s.siblingsInGroup ? "Yes" : "No"}{s.siblingNames ? ` (${s.siblingNames})` : ""}</div>
