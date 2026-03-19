@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Plus, Pencil, Upload, X } from "lucide-react";
 import { ACTIVITY_TYPES } from "@/lib/scout-config";
-import Image from "next/image";
 
 type Unit = { id: string; name: string; unitType: string };
 type Activity = {
@@ -58,11 +57,18 @@ export default function AdminActivitiesPage() {
         formData.append("file", file);
         try {
             const res = await fetch("/api/upload", { method: "POST", body: formData });
-            if (!res.ok) { alert("Upload failed"); return; }
-            const { url } = await res.json();
-            setImageUrl(url);
-        } catch { alert("Upload failed"); }
-        finally { setUploading(false); }
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error || "Upload failed");
+                return;
+            }
+            setImageUrl(data.url);
+        } catch {
+            alert("Upload failed");
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
     }
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -185,9 +191,18 @@ export default function AdminActivitiesPage() {
                                 <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="gap-2">
                                     <Upload className="w-4 h-4" /> {uploading ? "Uploading..." : "Upload"}
                                 </Button>
-                                {imageUrl && <Button type="button" variant="ghost" size="sm" onClick={() => setImageUrl(null)} className="text-destructive"><X className="w-4 h-4" /></Button>}
+                                {imageUrl && (
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => setImageUrl(null)} className="text-destructive">
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                )}
                             </div>
-                            {imageUrl && <div className="mt-2 relative w-40 h-24 rounded-md overflow-hidden border"><Image src={imageUrl} alt="Preview" fill className="object-cover" unoptimized /></div>}
+                            {imageUrl && (
+                                <div className="mt-2">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={imageUrl} alt="Preview" className="w-40 h-24 object-cover rounded-md border" />
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -225,7 +240,8 @@ export default function AdminActivitiesPage() {
                             <tr key={a.id} className="border-t">
                                 <td className="p-3">
                                     {a.imageUrl ? (
-                                        <div className="relative w-16 h-10 rounded overflow-hidden"><Image src={a.imageUrl} alt={a.title} fill className="object-cover" unoptimized /></div>
+                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                        <img src={a.imageUrl} alt={a.title} className="w-16 h-10 object-cover rounded" />
                                     ) : <div className="w-16 h-10 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">-</div>}
                                 </td>
                                 <td className="p-3 text-sm font-medium">{a.title}</td>

@@ -62,7 +62,7 @@ export default async function NewsPage() {
                                 <div key={article.id} className="group flex flex-col bg-card border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
                                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                                         {article.imageUrl ? (
-                                            <Image src={article.imageUrl} alt={article.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized />
+                                            <img src={article.imageUrl} alt={article.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                         ) : (
                                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                                                 <Newspaper className="w-16 h-16 text-primary/20" />
