@@ -59,7 +59,7 @@ export default async function Home() {
 
               <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.1]">
                 <span className="block text-white">Always Ready</span>
-                <span className="block text-red-500">to Serve</span>
+                <span className="block text-[#800020]">to Serve</span>
                 <span className="block text-scout-gold">Our Best</span>
               </h1>
 

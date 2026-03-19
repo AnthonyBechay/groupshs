@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { verifyPassword, createToken, setSessionCookie } from "@/lib/auth";
+import { verifyPassword, createToken } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -21,9 +21,20 @@ export async function POST(request: Request) {
         }
 
         const token = await createToken(user.id, user.role);
-        await setSessionCookie(token);
 
-        return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+        const response = NextResponse.json({
+            user: { id: user.id, name: user.name, email: user.email, role: user.role },
+        });
+
+        response.cookies.set("auth-token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 60 * 60 * 24 * 7, // 7 days
+            path: "/",
+        });
+
+        return response;
     } catch (error) {
         console.error("Login error:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
