@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Calendar, FileText, Shield, UserCheck } from "lucide-react";
+import { Users, Calendar, FileText, Shield, UserCheck, ImageIcon } from "lucide-react";
 
 export default function AdminPage() {
     return (
@@ -20,6 +20,11 @@ export default function AdminPage() {
                     <Calendar className="w-8 h-8 text-primary mb-4" />
                     <h2 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">Activities</h2>
                     <p className="text-sm text-muted-foreground">Manage camps, journées, and events</p>
+                </Link>
+                <Link href="/admin/gallery" className="border rounded-xl p-6 hover:shadow-md transition-all group">
+                    <ImageIcon className="w-8 h-8 text-primary mb-4" />
+                    <h2 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">Gallery</h2>
+                    <p className="text-sm text-muted-foreground">Manage homepage carousel photos</p>
                 </Link>
                 <Link href="/admin/users" className="border rounded-xl p-6 hover:shadow-md transition-all group">
                     <Users className="w-8 h-8 text-primary mb-4" />

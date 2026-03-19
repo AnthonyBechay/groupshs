@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const r2 = new S3Client({
     region: "auto",
@@ -12,8 +12,8 @@ const r2 = new S3Client({
 const BUCKET = process.env.R2_BUCKET_NAME || "";
 const PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
 
-export async function uploadToR2(file: Buffer, filename: string, contentType: string): Promise<string> {
-    const key = `activities/${Date.now()}-${filename}`;
+export async function uploadToR2(file: Buffer, filename: string, contentType: string, folder: string = "activities"): Promise<string> {
+    const key = `${folder}/${Date.now()}-${filename}`;
 
     await r2.send(
         new PutObjectCommand({
@@ -24,5 +24,20 @@ export async function uploadToR2(file: Buffer, filename: string, contentType: st
         })
     );
 
-    return `${PUBLIC_URL}/${key}`;
+    // R2 public access includes bucket name in path
+    return `${PUBLIC_URL}/${BUCKET}/${key}`;
+}
+
+export async function deleteFromR2(url: string): Promise<void> {
+    // Extract key from full URL: https://pub-xxx.r2.dev/bucketname/folder/file.png
+    const prefix = `${PUBLIC_URL}/${BUCKET}/`;
+    if (!url.startsWith(prefix)) return;
+    const key = url.slice(prefix.length);
+
+    await r2.send(
+        new DeleteObjectCommand({
+            Bucket: BUCKET,
+            Key: key,
+        })
+    );
 }

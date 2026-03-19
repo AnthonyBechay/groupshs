@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
+import { GalleryCarousel } from "@/components/gallery-carousel";
 import { Tent, Users, Star, ArrowRight, Calendar, MapPin, Clock, Compass, TreePine, Mountain, Heart } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -23,6 +24,10 @@ export default async function Home() {
     include: { unit: { select: { name: true } } },
     orderBy: { startDate: "asc" },
     take: 3,
+  });
+
+  const galleryPhotos = await prisma.galleryPhoto.findMany({
+    orderBy: { sortOrder: "asc" },
   });
 
   const thisYearActivities = await prisma.activity.findMany({
@@ -84,6 +89,19 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* Gallery Carousel */}
+        {galleryPhotos.length > 0 && (
+          <section className="py-20 bg-background">
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-10">
+                <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">Our Life</span>
+                <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">Moments That Define Us</h2>
+              </div>
+              <GalleryCarousel photos={galleryPhotos} />
+            </div>
+          </section>
+        )}
+
         {/* Values Section */}
         <section className="py-24 bg-background relative">
           <div className="container mx-auto px-4">
@@ -116,12 +134,11 @@ export default async function Home() {
               <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">Our Branches</span>
               <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">A Path for Every Age</h2>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-3 max-w-2xl mx-auto gap-6">
               {[
                 { name: "Louveteaux", age: "8-12 ans", icon: TreePine, desc: "Learning by playing" },
                 { name: "Eclaireurs", age: "12-16 ans", icon: Compass, desc: "Exploring the path" },
-                { name: "Routiers", age: "16-18 ans", icon: Mountain, desc: "Serving the community" },
-                { name: "Chefs", age: "18+ ans", icon: Star, desc: "Leading the way" },
+                { name: "Routiers", age: "16+ ans", icon: Mountain, desc: "Serving the community" },
               ].map((unit, i) => (
                 <div key={i} className="text-center group">
                   <div className="mx-auto w-20 h-20 rounded-2xl bg-card border flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm">
