@@ -24,13 +24,12 @@ export async function uploadToR2(file: Buffer, filename: string, contentType: st
         })
     );
 
-    // R2 public access includes bucket name in path
-    return `${PUBLIC_URL}/${BUCKET}/${key}`;
+    return `${PUBLIC_URL}/${key}`;
 }
 
 export async function deleteFromR2(url: string): Promise<void> {
-    // Extract key from full URL: https://pub-xxx.r2.dev/bucketname/folder/file.png
-    const prefix = `${PUBLIC_URL}/${BUCKET}/`;
+    // Extract key from full URL: https://pub-xxx.r2.dev/folder/file.png
+    const prefix = `${PUBLIC_URL}/`;
     if (!url.startsWith(prefix)) return;
     const key = url.slice(prefix.length);
 
