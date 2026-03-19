@@ -3,8 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect } from "react";
-import { Trash2, Plus, Pencil } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Trash2, Plus, Pencil, Upload, X } from "lucide-react";
+import Image from "next/image";
 
 type Activity = {
     id: string;
@@ -23,6 +24,9 @@ export default function AdminActivitiesPage() {
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState<Activity | null>(null);
     const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     async function fetchActivities() {
         const res = await fetch("/api/activities");
@@ -32,6 +36,30 @@ export default function AdminActivitiesPage() {
     }
 
     useEffect(() => { fetchActivities(); }, []);
+
+    async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const res = await fetch("/api/upload", { method: "POST", body: formData });
+            if (!res.ok) {
+                const data = await res.json();
+                alert(data.error || "Upload failed");
+                return;
+            }
+            const { url } = await res.json();
+            setImageUrl(url);
+        } catch {
+            alert("Upload failed");
+        } finally {
+            setUploading(false);
+        }
+    }
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -44,7 +72,7 @@ export default function AdminActivitiesPage() {
             date: formData.get("date"),
             endDate: formData.get("endDate") || null,
             location: formData.get("location") || null,
-            imageUrl: formData.get("imageUrl") || null,
+            imageUrl: imageUrl,
             isUpcoming: formData.get("isUpcoming") === "on",
             year: parseInt(formData.get("year") as string),
         };
@@ -65,6 +93,7 @@ export default function AdminActivitiesPage() {
 
         setShowForm(false);
         setEditing(null);
+        setImageUrl(null);
         fetchActivities();
     }
 
@@ -76,7 +105,14 @@ export default function AdminActivitiesPage() {
 
     function startEdit(activity: Activity) {
         setEditing(activity);
+        setImageUrl(activity.imageUrl);
         setShowForm(true);
+    }
+
+    function openNew() {
+        setEditing(null);
+        setImageUrl(null);
+        setShowForm(!showForm);
     }
 
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
@@ -85,7 +121,7 @@ export default function AdminActivitiesPage() {
         <div>
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold">Activities</h1>
-                <Button onClick={() => { setEditing(null); setShowForm(!showForm); }} className="gap-2">
+                <Button onClick={openNew} className="gap-2">
                     <Plus className="w-4 h-4" /> Add Activity
                 </Button>
             </div>
@@ -115,8 +151,42 @@ export default function AdminActivitiesPage() {
                             <Input id="year" name="year" type="number" defaultValue={editing?.year || new Date().getFullYear()} required />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="imageUrl">Image URL (R2 bucket URL)</Label>
-                            <Input id="imageUrl" name="imageUrl" defaultValue={editing?.imageUrl || ""} placeholder="https://your-r2-bucket.example.com/image.jpg" />
+                            <Label>Activity Image</Label>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    onChange={handleImageUpload}
+                                    className="hidden"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className="gap-2"
+                                >
+                                    <Upload className="w-4 h-4" />
+                                    {uploading ? "Uploading..." : "Upload Image"}
+                                </Button>
+                                {imageUrl && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setImageUrl(null)}
+                                        className="text-destructive hover:text-destructive"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                )}
+                            </div>
+                            {imageUrl && (
+                                <div className="mt-2 relative w-40 h-24 rounded-md overflow-hidden border">
+                                    <Image src={imageUrl} alt="Preview" fill className="object-cover" unoptimized />
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -135,7 +205,7 @@ export default function AdminActivitiesPage() {
                     </div>
                     <div className="flex gap-2">
                         <Button type="submit">{editing ? "Update" : "Create"}</Button>
-                        <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); }}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setImageUrl(null); }}>Cancel</Button>
                     </div>
                 </form>
             )}
@@ -144,6 +214,7 @@ export default function AdminActivitiesPage() {
                 <table className="w-full">
                     <thead className="bg-muted/50">
                         <tr>
+                            <th className="text-left p-3 text-sm font-medium">Image</th>
                             <th className="text-left p-3 text-sm font-medium">Title</th>
                             <th className="text-left p-3 text-sm font-medium">Date</th>
                             <th className="text-left p-3 text-sm font-medium">Location</th>
@@ -154,9 +225,18 @@ export default function AdminActivitiesPage() {
                     </thead>
                     <tbody>
                         {activities.length === 0 ? (
-                            <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No activities yet</td></tr>
+                            <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No activities yet</td></tr>
                         ) : activities.map((a) => (
                             <tr key={a.id} className="border-t">
+                                <td className="p-3">
+                                    {a.imageUrl ? (
+                                        <div className="relative w-16 h-10 rounded overflow-hidden">
+                                            <Image src={a.imageUrl} alt={a.title} fill className="object-cover" unoptimized />
+                                        </div>
+                                    ) : (
+                                        <div className="w-16 h-10 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">—</div>
+                                    )}
+                                </td>
                                 <td className="p-3 text-sm font-medium">{a.title}</td>
                                 <td className="p-3 text-sm text-muted-foreground">{a.date}{a.endDate ? ` - ${a.endDate}` : ""}</td>
                                 <td className="p-3 text-sm text-muted-foreground">{a.location || "—"}</td>
