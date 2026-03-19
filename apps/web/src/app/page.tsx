@@ -59,12 +59,12 @@ export default async function Home() {
 
               <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.1]">
                 <span className="block text-white">Always Ready</span>
-                <span className="block text-[#A4133C]">to Serve</span>
+                <span className="block text-[#C2185B]">to Serve</span>
                 <span className="block text-scout-gold">Our Best</span>
               </h1>
 
               <p className="text-lg md:text-xl text-white/80 mb-10 max-w-xl mx-auto leading-relaxed">
-                Building tomorrow&apos;s leaders through adventure, service, and brotherhood since the heart of Ain Saade.
+                Building tomorrow&apos;s leaders through adventure, service, and brotherhood since 2014.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">

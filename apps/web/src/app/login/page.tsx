@@ -4,7 +4,7 @@ import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shield } from "lucide-react";
 
@@ -14,9 +14,14 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const submittingRef = useRef(false);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+
+        // Prevent double-submit
+        if (submittingRef.current) return;
+        submittingRef.current = true;
         setLoading(true);
         setError("");
 
@@ -31,14 +36,17 @@ export default function LoginPage() {
                 const data = await res.json();
                 setError(data.error || "Invalid credentials");
                 setLoading(false);
+                submittingRef.current = false;
                 return;
             }
 
+            // Small delay to ensure cookie is set before navigation
+            await new Promise((r) => setTimeout(r, 100));
             router.push("/admin");
-            router.refresh();
         } catch {
             setError("Something went wrong");
             setLoading(false);
+            submittingRef.current = false;
         }
     }
 

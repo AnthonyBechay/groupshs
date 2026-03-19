@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { verifyPassword, createToken } from "@/lib/auth";
+import { verifyPassword, createToken, buildSessionCookie } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -21,17 +21,18 @@ export async function POST(request: Request) {
         }
 
         const token = await createToken(user.id, user.role);
+        const cookie = buildSessionCookie(token);
 
         const response = NextResponse.json({
             user: { id: user.id, name: user.name, email: user.email, role: user.role },
         });
 
-        response.cookies.set("auth-token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            maxAge: 60 * 60 * 24 * 7, // 7 days
-            path: "/",
+        response.cookies.set(cookie.name, cookie.value, {
+            httpOnly: cookie.httpOnly,
+            secure: cookie.secure,
+            sameSite: cookie.sameSite,
+            maxAge: cookie.maxAge,
+            path: cookie.path,
         });
 
         return response;

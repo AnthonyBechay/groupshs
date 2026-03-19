@@ -7,6 +7,7 @@ const SECRET = new TextEncoder().encode(
 );
 
 const COOKIE_NAME = "auth-token";
+const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
 export async function hashPassword(password: string) {
     return bcrypt.hash(password, 10);
@@ -19,6 +20,7 @@ export async function verifyPassword(password: string, hash: string) {
 export async function createToken(userId: string, role: string) {
     return new SignJWT({ userId, role })
         .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
         .setExpirationTime("7d")
         .sign(SECRET);
 }
@@ -33,24 +35,24 @@ export async function verifyToken(token: string) {
 }
 
 export async function getSession() {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
-    if (!token) return null;
-    return verifyToken(token);
+    try {
+        const cookieStore = await cookies();
+        const token = cookieStore.get(COOKIE_NAME)?.value;
+        if (!token) return null;
+        return verifyToken(token);
+    } catch {
+        return null;
+    }
 }
 
-export async function setSessionCookie(token: string) {
-    const cookieStore = await cookies();
-    cookieStore.set(COOKIE_NAME, token, {
+export function buildSessionCookie(token: string) {
+    return {
+        name: COOKIE_NAME,
+        value: token,
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        sameSite: "lax" as const,
+        maxAge: SEVEN_DAYS,
         path: "/",
-    });
-}
-
-export async function clearSessionCookie() {
-    const cookieStore = await cookies();
-    cookieStore.delete(COOKIE_NAME);
+    };
 }
