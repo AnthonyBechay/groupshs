@@ -59,7 +59,7 @@ export default async function Home() {
 
               <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.1]">
                 <span className="block text-white">Always Ready</span>
-                <span className="block text-[#C2185B]">to Serve</span>
+                <span className="block text-[#D4456A]">to Serve</span>
                 <span className="block text-scout-gold">Our Best</span>
               </h1>
 
@@ -114,7 +114,7 @@ export default async function Home() {
               {[
                 { icon: Users, title: "Brotherhood", desc: "Lifelong friendships forged through shared adventures and challenges within the Sagesse scout family.", color: "bg-primary/10 text-primary" },
                 { icon: Mountain, title: "Adventure", desc: "From mountain hikes to winter camps, we push boundaries and discover the beauty of Lebanon together.", color: "bg-scout-gold/10 text-scout-gold" },
-                { icon: Heart, title: "Service", desc: "Giving back to our community through volunteer work, helping those in need, and protecting nature.", color: "bg-red-50 text-red-600" },
+                { icon: Heart, title: "Service", desc: "Giving back to our community through volunteer work, helping those in need, and protecting nature.", color: "bg-red-50 text-red-700" },
               ].map((item, i) => (
                 <div key={i} className="group relative bg-card rounded-2xl border p-8 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
                   <div className={`h-14 w-14 rounded-xl ${item.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
@@ -192,7 +192,7 @@ export default async function Home() {
                     <div className="p-6">
                       <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-3">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>{formatDate(act.startDate)}{act.endDate ? ` -${formatDate(act.endDate)}` : ""}</span>
+                        <span>{formatDate(act.startDate)}{act.endDate ? ` - ${formatDate(act.endDate)}` : ""}</span>
                       </div>
                       <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-3">
@@ -239,7 +239,7 @@ export default async function Home() {
                     <div className="p-6">
                       <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-3">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>{formatDate(act.startDate)}{act.endDate ? ` -${formatDate(act.endDate)}` : ""}</span>
+                        <span>{formatDate(act.startDate)}{act.endDate ? ` - ${formatDate(act.endDate)}` : ""}</span>
                       </div>
                       <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                       {act.location && <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2"><MapPin className="w-3 h-3" /><span>{act.location}</span></div>}
