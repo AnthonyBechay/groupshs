@@ -28,6 +28,10 @@ RUN cd apps/web && npx prisma generate
 # Build the web app
 RUN pnpm --filter web build
 
+# Copy public and static assets to where standalone server expects them
+RUN cp -r apps/web/public apps/web/.next/standalone/apps/web/public
+RUN cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
