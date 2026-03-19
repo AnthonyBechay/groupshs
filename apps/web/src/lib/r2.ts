@@ -13,7 +13,9 @@ const BUCKET = process.env.R2_BUCKET_NAME || "";
 const PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
 
 export async function uploadToR2(file: Buffer, filename: string, contentType: string, folder: string = "activities"): Promise<string> {
-    const key = `${folder}/${Date.now()}-${filename}`;
+    // Sanitize filename: replace spaces and special chars with underscores
+    const sanitized = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const key = `${folder}/${Date.now()}-${sanitized}`;
 
     await r2.send(
         new PutObjectCommand({
@@ -24,11 +26,11 @@ export async function uploadToR2(file: Buffer, filename: string, contentType: st
         })
     );
 
+    // Public URL is simply PUBLIC_URL/key (no bucket name in path)
     return `${PUBLIC_URL}/${key}`;
 }
 
 export async function deleteFromR2(url: string): Promise<void> {
-    // Extract key from full URL: https://pub-xxx.r2.dev/folder/file.png
     const prefix = `${PUBLIC_URL}/`;
     if (!url.startsWith(prefix)) return;
     const key = url.slice(prefix.length);
