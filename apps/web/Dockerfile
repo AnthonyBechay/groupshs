@@ -1,62 +1,38 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine
 
-# Install dependencies only when needed
-FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat bash
+
+# Enable pnpm
+RUN corepack enable && corepack prepare pnpm@10.18.0 --activate
+
 WORKDIR /app
 
-# Copy root workspace files
+# Copy workspace manifests first (better layer caching)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-
-# Copy app package.json (and shared packages if added later)
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 
-# Install dependencies
-RUN corepack enable pnpm && pnpm i --frozen-lockfile
+# Copy Prisma schema before install so postinstall can find it if needed
+COPY apps/web/prisma ./apps/web/prisma
+COPY apps/web/prisma.config.ts ./apps/web/prisma.config.ts
 
-# Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy the rest of the source
 COPY . .
 
 # Generate Prisma client
-RUN corepack enable pnpm && cd apps/web && npx prisma generate
+RUN cd apps/web && npx prisma generate
 
 # Build the web app
-RUN corepack enable pnpm && pnpm --filter web build
-
-# Production image, copy all the files and run next
-FROM base AS runner
-WORKDIR /app
+RUN pnpm --filter web build
 
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copy public assets
-COPY --from=builder /app/apps/web/public ./apps/web/public
-
-# Set permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
-
-# Copy standalone output
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
-
-# Copy Prisma schema, migrations, config, and node_modules for migrate deploy
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/prisma ./apps/web/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/prisma.config.ts ./apps/web/prisma.config.ts
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/node_modules ./apps/web/node_modules
-
-USER nextjs
-
 EXPOSE 3000
 
-CMD ["node", "apps/web/server.js"]
+# Default command - overridden by docker-compose
+CMD ["node", "apps/web/.next/standalone/apps/web/server.js"]
