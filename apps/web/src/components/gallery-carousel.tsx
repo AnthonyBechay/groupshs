@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -11,21 +11,25 @@ type Photo = {
 };
 
 export function GalleryCarousel({ photos }: { photos: Photo[] }) {
-    const [current, setCurrent] = useState(0);
+    const [offset, setOffset] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Number of visible items depends on screen size, but we'll use CSS for responsive
+    const maxOffset = Math.max(0, photos.length - 1);
 
     const next = useCallback(() => {
-        setCurrent((c) => (c + 1) % photos.length);
-    }, [photos.length]);
+        setOffset((o) => (o >= maxOffset ? 0 : o + 1));
+    }, [maxOffset]);
 
     const prev = useCallback(() => {
-        setCurrent((c) => (c - 1 + photos.length) % photos.length);
-    }, [photos.length]);
+        setOffset((o) => (o <= 0 ? maxOffset : o - 1));
+    }, [maxOffset]);
 
-    // Auto-advance every 4 seconds
+    // Auto-advance
     useEffect(() => {
-        if (isHovered || photos.length <= 1) return;
-        const timer = setInterval(next, 4000);
+        if (isHovered || photos.length <= 4) return;
+        const timer = setInterval(next, 3000);
         return () => clearInterval(timer);
     }, [next, isHovered, photos.length]);
 
@@ -33,75 +37,71 @@ export function GalleryCarousel({ photos }: { photos: Photo[] }) {
 
     return (
         <div
-            className="relative w-full overflow-hidden rounded-2xl"
+            className="relative group"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Main image */}
-            <div className="relative aspect-[21/9] md:aspect-[21/8] bg-muted">
-                {photos.map((photo, i) => (
-                    <div
-                        key={photo.id}
-                        className="absolute inset-0 transition-all duration-700 ease-in-out"
-                        style={{
-                            opacity: i === current ? 1 : 0,
-                            transform: i === current ? "scale(1)" : "scale(1.05)",
-                        }}
-                    >
-                        <Image
-                            src={photo.imageUrl}
-                            alt={photo.caption || "Scout life"}
-                            fill
-                            className="object-cover"
-                            priority={i === 0}
-                        />
-                    </div>
-                ))}
-
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
-
-                {/* Caption */}
-                {photos[current]?.caption && (
-                    <div className="absolute bottom-6 left-6 right-6">
-                        <p className="text-white text-lg md:text-xl font-semibold drop-shadow-lg">
-                            {photos[current].caption}
-                        </p>
-                    </div>
-                )}
-
-                {/* Navigation arrows */}
-                {photos.length > 1 && (
-                    <>
-                        <button
-                            onClick={prev}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/30 transition-all opacity-0 group-hover:opacity-100 hover:opacity-100 focus:opacity-100"
-                            style={{ opacity: isHovered ? 1 : 0 }}
+            {/* Overflow container */}
+            <div className="overflow-hidden rounded-2xl" ref={containerRef}>
+                <div
+                    className="flex transition-transform duration-500 ease-in-out"
+                    style={{
+                        transform: `translateX(-${offset * (100 / 4)}%)`,
+                    }}
+                >
+                    {/* Duplicate photos for seamless looping */}
+                    {[...photos, ...photos.slice(0, 4)].map((photo, i) => (
+                        <div
+                            key={`${photo.id}-${i}`}
+                            className="shrink-0 w-1/2 md:w-1/3 lg:w-1/4 px-1.5"
                         >
-                            <ChevronLeft className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={next}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/30 transition-all"
-                            style={{ opacity: isHovered ? 1 : 0 }}
-                        >
-                            <ChevronRight className="w-5 h-5" />
-                        </button>
-                    </>
-                )}
+                            <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-muted group/item">
+                                <Image
+                                    src={photo.imageUrl}
+                                    alt={photo.caption || "Scout life"}
+                                    fill
+                                    className="object-cover transition-transform duration-500 group-hover/item:scale-105"
+                                />
+                                {photo.caption && (
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 flex items-end">
+                                        <p className="text-white text-sm font-medium p-3 leading-snug">{photo.caption}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            {/* Dots */}
-            {photos.length > 1 && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+            {/* Navigation arrows */}
+            {photos.length > 4 && (
+                <>
+                    <button
+                        onClick={prev}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-card border shadow-lg flex items-center justify-center text-foreground hover:bg-primary hover:text-white hover:border-primary transition-all opacity-0 group-hover:opacity-100 z-10"
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={next}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-10 h-10 rounded-full bg-card border shadow-lg flex items-center justify-center text-foreground hover:bg-primary hover:text-white hover:border-primary transition-all opacity-0 group-hover:opacity-100 z-10"
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+                </>
+            )}
+
+            {/* Progress dots */}
+            {photos.length > 4 && (
+                <div className="flex justify-center gap-1.5 mt-4">
                     {photos.map((_, i) => (
                         <button
                             key={i}
-                            onClick={() => setCurrent(i)}
+                            onClick={() => setOffset(i)}
                             className={`h-1.5 rounded-full transition-all duration-300 ${
-                                i === current
-                                    ? "w-6 bg-white"
-                                    : "w-1.5 bg-white/40 hover:bg-white/60"
+                                i === offset
+                                    ? "w-6 bg-primary"
+                                    : "w-1.5 bg-primary/20 hover:bg-primary/40"
                             }`}
                         />
                     ))}
