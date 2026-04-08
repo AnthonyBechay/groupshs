@@ -28,18 +28,27 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { name, unitType } = await request.json();
+        const { name, unitType, description, contactName, contactPhone, imageUrl } = await request.json();
 
         if (!name || !unitType) {
             return NextResponse.json({ error: "Name and unit type are required" }, { status: 400 });
         }
 
-        const validTypes = ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS", "CHEFS"];
+        const validTypes = ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS"];
         if (!validTypes.includes(unitType)) {
             return NextResponse.json({ error: "Invalid unit type" }, { status: 400 });
         }
 
-        const unit = await prisma.unit.create({ data: { name, unitType } });
+        const unit = await prisma.unit.create({
+            data: {
+                name,
+                unitType,
+                description: description || null,
+                contactName: contactName || null,
+                contactPhone: contactPhone || null,
+                imageUrl: imageUrl || null,
+            },
+        });
         return NextResponse.json(unit);
     } catch (error) {
         console.error("Error creating unit:", error);

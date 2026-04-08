@@ -10,23 +10,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         }
 
         const { id } = await params;
-        const { name, unitType, description, contactName, contactPhone, imageUrl } = await request.json();
+        const { status, statusNote } = await request.json();
 
-        const updated = await prisma.unit.update({
+        const validStatuses = ["PENDING", "CONTACTED", "WAITING_LIST", "RECRUITED", "REJECTED"];
+        if (!validStatuses.includes(status)) {
+            return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+        }
+
+        const submission = await prisma.recruitmentSubmission.update({
             where: { id },
-            data: {
-                name,
-                unitType,
-                description: description || null,
-                contactName: contactName || null,
-                contactPhone: contactPhone || null,
-                imageUrl: imageUrl !== undefined ? (imageUrl || null) : undefined,
-            },
+            data: { status, statusNote: statusNote || null },
         });
 
-        return NextResponse.json(updated);
+        return NextResponse.json(submission);
     } catch (error) {
-        console.error("Error updating unit:", error);
+        console.error("Error updating submission:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
@@ -39,11 +37,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         }
 
         const { id } = await params;
-        await prisma.unit.delete({ where: { id } });
-
+        await prisma.recruitmentSubmission.delete({ where: { id } });
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error("Error deleting unit:", error);
+        console.error("Error deleting submission:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

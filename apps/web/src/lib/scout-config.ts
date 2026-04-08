@@ -1,4 +1,4 @@
-export const UNIT_TYPES = ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS", "CHEFS"] as const;
+export const UNIT_TYPES = ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS"] as const;
 
 export const ACTIVITY_TYPES = [
     { value: "CAMP", label: "Camp" },
@@ -24,9 +24,6 @@ export const ROLES_BY_UNIT_TYPE: Record<string, { value: string; label: string }
         { value: "SE", label: "SE (Second d'equipe)" },
         { value: "CE", label: "CE (Chef d'Equipe)" },
     ],
-    CHEFS: [
-        { value: "CHEF", label: "Chef" },
-    ],
 };
 
 export const PROGRESSION_BY_UNIT_TYPE: Record<string, { value: string; label: string }[]> = {
@@ -47,5 +44,4 @@ export const PROGRESSION_BY_UNIT_TYPE: Record<string, { value: string; label: st
         { value: "PremiereVeille", label: "Promesse" },
         { value: "Depart", label: "Seconde Classe" },
     ],
-    CHEFS: [],
 };

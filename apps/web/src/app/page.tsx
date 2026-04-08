@@ -59,7 +59,7 @@ export default async function Home() {
 
               <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.1]">
                 <span className="block text-white">Always Ready</span>
-                <span className="block text-[#D4456A]">to Serve</span>
+                <span className="block text-[#DC2626]">to Serve</span>
                 <span className="block text-scout-gold">Our Best</span>
               </h1>
 
@@ -138,8 +138,8 @@ export default async function Home() {
             <div className="grid grid-cols-3 max-w-2xl mx-auto gap-6">
               {[
                 { name: "Louveteaux", age: "8-12 ans", icon: TreePine, desc: "Learning by playing" },
-                { name: "Eclaireurs", age: "12-16 ans", icon: Compass, desc: "Exploring the path" },
-                { name: "Routiers", age: "16+ ans", icon: Mountain, desc: "Serving the community" },
+                { name: "Eclaireurs", age: "12-17 ans", icon: Compass, desc: "Exploring the path" },
+                { name: "Routiers", age: "17+ ans", icon: Mountain, desc: "Serving the community" },
               ].map((unit, i) => (
                 <div key={i} className="text-center group">
                   <div className="mx-auto w-20 h-20 rounded-2xl bg-card border flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm">

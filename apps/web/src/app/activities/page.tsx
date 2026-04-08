@@ -1,8 +1,10 @@
 import { Navbar } from "@/components/navbar";
-import { Calendar, MapPin, Tent, Clock, Compass } from "lucide-react";
+import { Calendar, MapPin, Tent, Clock, Compass, TreePine, Mountain } from "lucide-react";
 import { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { prisma } from "@/db";
+import { UnitTabs } from "./unit-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -11,17 +13,18 @@ export const metadata: Metadata = {
     description: "Upcoming camps, meetings, and events for Scouts du Liban at Sagesse High School.",
 };
 
-const TYPE_LABELS: Record<string, string> = {
-    CAMP: "Camp", JOURNEE: "Journée", TEMPS: "Temps", MARCHE: "Marche", OTHER: "Autre",
-};
-
-function formatDate(d: Date) {
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
 export default async function ActivitiesPage() {
-    const activities = await prisma.activity.findMany({
-        include: { unit: { select: { name: true } } },
+    const units = await prisma.unit.findMany({
+        include: {
+            activities: {
+                orderBy: { startDate: "desc" },
+            },
+        },
+        orderBy: { name: "asc" },
+    });
+
+    const allActivities = await prisma.activity.findMany({
+        include: { unit: { select: { name: true, id: true } } },
         orderBy: { startDate: "desc" },
     });
 
@@ -37,7 +40,7 @@ export default async function ActivitiesPage() {
                     <div className="container mx-auto px-4 relative z-10 text-center">
                         <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-6">
                             <Compass className="w-4 h-4 mr-2 text-scout-gold" />
-                            <span className="text-white/90">Camps, Marches, Journées & More</span>
+                            <span className="text-white/90">Camps, Marches, Journees & More</span>
                         </div>
                         <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-6">
                             Our <span className="bg-gradient-to-r from-scout-gold to-yellow-300 bg-clip-text text-transparent">Activities</span>
@@ -53,68 +56,62 @@ export default async function ActivitiesPage() {
                     </div>
                 </section>
 
-                {/* Activities Grid */}
-                <section className="py-16 md:py-24 container mx-auto px-4">
-                    {activities.length === 0 ? (
-                        <div className="text-center py-20 bg-muted/30 rounded-2xl border border-dashed">
-                            <Tent className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                            <p className="text-muted-foreground">No activities yet. Check back soon!</p>
-                        </div>
-                    ) : (
-                        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                            {activities.map((act) => (
-                                <div key={act.id} className="group flex flex-col bg-card border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
-                                    <div className="aspect-[16/10] bg-muted relative overflow-hidden">
-                                        {act.imageUrl ? (
-                                            <img src={act.imageUrl} alt={act.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                        ) : (
-                                            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                                                <Tent className="h-16 w-16 text-primary/20" />
+                {/* Unit Cards */}
+                <section className="py-12 border-b">
+                    <div className="container mx-auto px-4">
+                        <h2 className="text-xl font-bold mb-6 text-center">Browse by Unit</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+                            {units.map(unit => {
+                                const iconMap: Record<string, typeof Tent> = { LOUVETEAUX: TreePine, ECLAIREURS: Compass, ROUTIERS: Mountain };
+                                const Icon = iconMap[unit.unitType] || Tent;
+                                return (
+                                    <Link key={unit.id} href={`/units/${unit.id}`} className="group">
+                                        <div className="flex items-center gap-3 p-4 rounded-xl border bg-card hover:bg-primary hover:text-white hover:border-primary transition-all duration-200 shadow-sm">
+                                            <Icon className="w-6 h-6 text-primary group-hover:text-white transition-colors shrink-0" />
+                                            <div>
+                                                <div className="font-bold text-sm">{unit.name}</div>
+                                                <div className="text-xs text-muted-foreground group-hover:text-white/70 transition-colors">{unit.activities.length} activities</div>
                                             </div>
-                                        )}
-                                        <div className="absolute top-3 left-3 flex gap-2">
-                                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-primary text-white shadow-lg">{act.unit.name}</span>
-                                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/90 text-foreground shadow-lg backdrop-blur-sm">{TYPE_LABELS[act.activityType] || act.activityType}</span>
                                         </div>
-                                    </div>
-                                    <div className="p-6 flex-1 flex flex-col">
-                                        <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-3">
-                                            <Calendar className="w-3.5 h-3.5" />
-                                            <span>{formatDate(act.startDate)}{act.endDate ? ` -${formatDate(act.endDate)}` : ""}</span>
-                                        </div>
-                                        <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
-                                        <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-4">
-                                            {act.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{act.location}</span>}
-                                            {act.pickupTime && (
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="w-3.5 h-3.5" />
-                                                    {act.pickupTime}{act.dropoffTime ? ` -${act.dropoffTime}` : ""}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mb-4 flex-1">{act.description}</p>
-                                        {act.isUpcoming && (
-                                            <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary w-fit">Upcoming</span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                                    </Link>
+                                );
+                            })}
                         </div>
-                    )}
+                    </div>
+                </section>
+
+                {/* Activities with filter tabs */}
+                <section className="py-16 md:py-24 container mx-auto px-4">
+                    <UnitTabs
+                        units={units.map(u => ({ id: u.id, name: u.name, unitType: u.unitType }))}
+                        activities={allActivities.map(a => ({
+                            id: a.id,
+                            title: a.title,
+                            description: a.description,
+                            activityType: a.activityType,
+                            startDate: a.startDate.toISOString(),
+                            endDate: a.endDate?.toISOString() || null,
+                            pickupTime: a.pickupTime,
+                            dropoffTime: a.dropoffTime,
+                            location: a.location,
+                            imageUrl: a.imageUrl,
+                            isUpcoming: a.isUpcoming,
+                            unitId: a.unitId,
+                            unitName: a.unit.name,
+                        }))}
+                    />
                 </section>
             </main>
 
             <footer className="bg-card border-t py-12">
-                <div className="container mx-auto px-4">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-                        <p>&copy; {new Date().getFullYear()} Group SHS - Les Scouts du Liban. All rights reserved.</p>
-                        <div className="flex items-center gap-2">
-                            <span>Made with &#10084;&#65039; by</span>
-                            <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
-                                <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" />
-                                bechai.ai
-                            </a>
-                        </div>
+                <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+                    <p>&copy; {new Date().getFullYear()} Group SHS - Les Scouts du Liban. All rights reserved.</p>
+                    <div className="flex items-center gap-2">
+                        <span>Made with &#10084;&#65039; by</span>
+                        <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
+                            <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" />
+                            bechai.ai
+                        </a>
                     </div>
                 </div>
             </footer>

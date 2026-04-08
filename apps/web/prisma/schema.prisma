@@ -35,6 +35,8 @@ model RecruitmentSubmission {
   siblingsInGroup   Boolean  @map("siblings_in_group")
   siblingNames      String?  @map("sibling_names")
   otherComments     String?  @map("other_comments")
+  status            String   @default("PENDING") // PENDING, CONTACTED, WAITING_LIST, RECRUITED, REJECTED
+  statusNote        String?  @map("status_note")
   createdAt         DateTime @default(now()) @map("created_at")
 
   @@map("recruitment_submission")
@@ -43,9 +45,13 @@ model RecruitmentSubmission {
 // ─── Units ───────────────────────────────────────────────────────────────────
 
 model Unit {
-  id       String @id @default(uuid())
-  name     String // e.g. "Louveteaux 1", "Eclaireurs Aigle"
-  unitType String @map("unit_type") // LOUVETEAUX, ECLAIREURS, ROUTIERS, CHEFS
+  id          String  @id @default(uuid())
+  name        String // e.g. "Louveteaux 1", "Eclaireurs Aigle"
+  unitType    String  @map("unit_type") // LOUVETEAUX, ECLAIREURS, ROUTIERS
+  description String? // About this unit
+  contactName String? @map("contact_name")  // Responsible person name
+  contactPhone String? @map("contact_phone") // Responsible person phone
+  imageUrl    String? @map("image_url")      // Unit photo
 
   members    Member[]
   activities Activity[]
