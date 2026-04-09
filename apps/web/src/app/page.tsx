@@ -197,7 +197,7 @@ export default async function Home() {
                       <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-3">
                         {act.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{act.location}</span>}
-                        {act.pickupTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{act.pickupTime}{act.dropoffTime ? ` -${act.dropoffTime}` : ""}</span>}
+                        {(act.dropoffTime || act.pickupTime) && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{act.dropoffTime || ""}{act.dropoffTime && act.pickupTime ? ` - ${act.pickupTime}` : act.pickupTime || ""}</span>}
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">{act.description}</p>
                     </div>

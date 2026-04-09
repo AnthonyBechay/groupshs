@@ -11,6 +11,7 @@ const UNIT_TYPES = [
     { value: "LOUVETEAUX", label: "Louveteaux" },
     { value: "ECLAIREURS", label: "Eclaireurs" },
     { value: "ROUTIERS", label: "Routiers" },
+    { value: "GROUP", label: "Group" },
 ];
 
 type Unit = {

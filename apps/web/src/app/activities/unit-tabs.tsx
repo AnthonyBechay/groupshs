@@ -91,10 +91,10 @@ export function UnitTabs({ units, activities }: { units: Unit[]; activities: Act
                                 <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                                 <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-4">
                                     {act.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{act.location}</span>}
-                                    {act.pickupTime && (
+                                    {(act.dropoffTime || act.pickupTime) && (
                                         <span className="flex items-center gap-1">
                                             <Clock className="w-3.5 h-3.5" />
-                                            {act.pickupTime}{act.dropoffTime ? ` - ${act.dropoffTime}` : ""}
+                                            {act.dropoffTime || ""}{act.dropoffTime && act.pickupTime ? ` - ${act.pickupTime}` : act.pickupTime || ""}
                                         </span>
                                     )}
                                 </div>

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Name and unit type are required" }, { status: 400 });
         }
 
-        const validTypes = ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS"];
+        const validTypes = ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS", "GROUP"];
         if (!validTypes.includes(unitType)) {
             return NextResponse.json({ error: "Invalid unit type" }, { status: 400 });
         }

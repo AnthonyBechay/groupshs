@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/navbar";
 import { prisma } from "@/db";
 import { notFound } from "next/navigation";
-import { Calendar, MapPin, Clock, Tent, Phone, User, ArrowRight, Compass, TreePine, Mountain } from "lucide-react";
+import { Calendar, MapPin, Clock, Tent, Phone, User, ArrowRight, Compass, TreePine, Mountain, Shield } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -12,6 +12,7 @@ const UNIT_META: Record<string, { icon: typeof Tent; ageRange: string; color: st
     LOUVETEAUX: { icon: TreePine, ageRange: "8-12 ans", color: "text-emerald-600", gradient: "from-emerald-700 via-emerald-800 to-emerald-900" },
     ECLAIREURS: { icon: Compass, ageRange: "12-17 ans", color: "text-blue-600", gradient: "from-blue-700 via-blue-800 to-blue-900" },
     ROUTIERS: { icon: Mountain, ageRange: "17+ ans", color: "text-amber-600", gradient: "from-amber-700 via-amber-800 to-amber-900" },
+    GROUP: { icon: Shield, ageRange: "Leadership", color: "text-primary", gradient: "from-primary via-primary to-emerald-800" },
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -177,7 +178,7 @@ function ActivityCard({ act }: { act: { id: string; title: string; description: 
                 <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-3">
                     {act.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{act.location}</span>}
-                    {act.pickupTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{act.pickupTime}{act.dropoffTime ? ` - ${act.dropoffTime}` : ""}</span>}
+                    {(act.dropoffTime || act.pickupTime) && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{act.dropoffTime || ""}{act.dropoffTime && act.pickupTime ? ` - ${act.pickupTime}` : act.pickupTime || ""}</span>}
                 </div>
                 <p className="text-sm text-muted-foreground line-clamp-2 flex-1">{act.description}</p>
                 {act.isUpcoming && (

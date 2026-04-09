@@ -165,12 +165,12 @@ export default function AdminActivitiesPage() {
                             <Input id="year" name="year" type="number" defaultValue={editing?.year || new Date().getFullYear()} required />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="pickupTime">Pickup Time</Label>
-                            <Input id="pickupTime" name="pickupTime" type="time" defaultValue={editing?.pickupTime || ""} />
+                            <Label htmlFor="dropoffTime">Dropoff Time (Start)</Label>
+                            <Input id="dropoffTime" name="dropoffTime" type="time" defaultValue={editing?.dropoffTime || ""} />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="dropoffTime">Dropoff Time</Label>
-                            <Input id="dropoffTime" name="dropoffTime" type="time" defaultValue={editing?.dropoffTime || ""} />
+                            <Label htmlFor="pickupTime">Pickup Time (End)</Label>
+                            <Input id="pickupTime" name="pickupTime" type="time" defaultValue={editing?.pickupTime || ""} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="location">Location</Label>
