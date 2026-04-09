@@ -29,7 +29,8 @@ export default function JoinPage() {
             memberPhone: formData.get("memberPhone") as string || null,
             parentWereScouts: parentWereScouts === "yes",
             parentScoutGroup: formData.get("parentScoutGroup") as string || null,
-            parentContactInfo: formData.get("parentContactInfo") as string,
+            parentName: formData.get("parentName") as string,
+            parentPhone: formData.get("parentPhone") as string,
             siblingsInGroup: siblingsInGroup === "yes",
             siblingNames: formData.get("siblingNames") as string || null,
             otherComments: formData.get("otherComments") as string || null,
@@ -148,8 +149,13 @@ export default function JoinPage() {
                         )}
 
                         <div className="space-y-2">
-                            <Label htmlFor="parentContactInfo">Name and Phone Number of Parent/Guardian <span className="text-destructive">*</span></Label>
-                            <Input id="parentContactInfo" name="parentContactInfo" required className="h-11" />
+                            <Label htmlFor="parentName">Name of Parent/Guardian <span className="text-destructive">*</span></Label>
+                            <Input id="parentName" name="parentName" required className="h-11" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="parentPhone">Phone Number of Parent/Guardian <span className="text-destructive">*</span></Label>
+                            <Input id="parentPhone" name="parentPhone" type="tel" required className="h-11" />
                         </div>
 
                         <div className="space-y-3">

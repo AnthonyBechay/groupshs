@@ -31,7 +31,9 @@ model RecruitmentSubmission {
   memberPhone       String?  @map("member_phone")
   parentWereScouts  Boolean  @map("parent_were_scouts")
   parentScoutGroup  String?  @map("parent_scout_group")
-  parentContactInfo String   @map("parent_contact_info")
+  parentContactInfo String?  @map("parent_contact_info") // legacy combined field
+  parentName        String?  @map("parent_name")
+  parentPhone       String?  @map("parent_phone")
   siblingsInGroup   Boolean  @map("siblings_in_group")
   siblingNames      String?  @map("sibling_names")
   otherComments     String?  @map("other_comments")

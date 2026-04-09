@@ -21,7 +21,9 @@ type Submission = {
     memberPhone: string | null;
     parentWereScouts: boolean;
     parentScoutGroup: string | null;
-    parentContactInfo: string;
+    parentContactInfo: string | null;
+    parentName: string | null;
+    parentPhone: string | null;
     siblingsInGroup: boolean;
     siblingNames: string | null;
     otherComments: string | null;
@@ -61,9 +63,10 @@ export default function AdminSubmissionsPage() {
     }
 
     function exportCSV() {
-        const headers = ["Full Name", "Date of Birth", "School Level", "Member Phone", "Parent Contact", "Parent Were Scouts", "Parent Scout Group", "Siblings in Group", "Sibling Names", "Comments", "Status", "Status Note", "Submitted"];
+        const headers = ["Full Name", "Date of Birth", "School Level", "Member Phone", "Parent Name", "Parent Phone", "Parent Were Scouts", "Parent Scout Group", "Siblings in Group", "Sibling Names", "Comments", "Status", "Status Note", "Submitted"];
         const rows = filtered.map(s => [
-            s.fullName, s.dateOfBirth, s.schoolLevel, s.memberPhone || "", s.parentContactInfo,
+            s.fullName, s.dateOfBirth, s.schoolLevel, s.memberPhone || "",
+            s.parentName || "", s.parentPhone || "",
             s.parentWereScouts ? "Yes" : "No", s.parentScoutGroup || "", s.siblingsInGroup ? "Yes" : "No",
             s.siblingNames || "", s.otherComments || "", s.status, s.statusNote || "",
             new Date(s.createdAt).toLocaleDateString(),
@@ -81,7 +84,7 @@ export default function AdminSubmissionsPage() {
 
     const filtered = submissions
         .filter(s => filter === "ALL" || s.status === filter)
-        .filter(s => !search || s.fullName.toLowerCase().includes(search.toLowerCase()) || s.parentContactInfo.toLowerCase().includes(search.toLowerCase()));
+        .filter(s => !search || s.fullName.toLowerCase().includes(search.toLowerCase()) || (s.parentName || s.parentContactInfo || "").toLowerCase().includes(search.toLowerCase()));
 
     const statusCounts = submissions.reduce((acc, s) => {
         acc[s.status] = (acc[s.status] || 0) + 1;
@@ -154,7 +157,7 @@ export default function AdminSubmissionsPage() {
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
                                         </div>
                                         <div className="text-xs text-muted-foreground mt-0.5">
-                                            {s.schoolLevel} - {s.parentContactInfo} - {new Date(s.createdAt).toLocaleDateString()}
+                                            {s.schoolLevel} - {s.parentName || s.parentContactInfo || "-"}{s.parentPhone ? ` - ${s.parentPhone}` : ""} - {new Date(s.createdAt).toLocaleDateString()}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
@@ -180,7 +183,8 @@ export default function AdminSubmissionsPage() {
                                             <div><strong>Date of Birth:</strong> {s.dateOfBirth}</div>
                                             <div><strong>School Level:</strong> {s.schoolLevel}</div>
                                             <div><strong>Member Phone:</strong> {s.memberPhone || "-"}</div>
-                                            <div><strong>Parent Contact:</strong> {s.parentContactInfo}</div>
+                                            <div><strong>Parent Name:</strong> {s.parentName || s.parentContactInfo || "-"}</div>
+                                            <div><strong>Parent Phone:</strong> {s.parentPhone || "-"}</div>
                                             <div><strong>Parent were Scouts:</strong> {s.parentWereScouts ? "Yes" : "No"}{s.parentScoutGroup ? ` (${s.parentScoutGroup})` : ""}</div>
                                             <div><strong>Siblings in Group:</strong> {s.siblingsInGroup ? "Yes" : "No"}{s.siblingNames ? ` (${s.siblingNames})` : ""}</div>
                                             {s.otherComments && (
