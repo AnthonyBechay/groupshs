@@ -13,8 +13,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://groupshs.org"),
   title: "Group SHS - Scout du Liban",
   description: "Official website of the Scouts du Liban group at Sagesse High School. Join the adventure, leadership, and service.",
+  openGraph: {
+    title: "Group SHS - Scout du Liban",
+    description: "Official website of the Scouts du Liban group at Sagesse High School. Join the adventure, leadership, and service.",
+    siteName: "Group SHS",
+    type: "website",
+    images: [
+      {
+        url: "/logo-original.png",
+        width: 1080,
+        height: 1080,
+        alt: "Group SHS - Scouts du Liban Logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "Group SHS - Scout du Liban",
+    description: "Official website of the Scouts du Liban group at Sagesse High School.",
+    images: ["/logo-original.png"],
+  },
 };
 
 export default function RootLayout({
