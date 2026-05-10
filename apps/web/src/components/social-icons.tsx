@@ -13,9 +13,12 @@ export function SocialIcon({ platform, className = "w-5 h-5" }: { platform: stri
                 </svg>
             );
         case "anghami":
+            // Generic music-note icon; Anghami doesn't license a public SVG mark
             return (
-                <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.14 17.157c-.203.33-.636.432-.966.229-2.648-1.618-5.981-1.985-9.908-1.088-.378.087-.756-.15-.843-.528-.087-.378.15-.756.528-.843 4.296-.983 7.98-.56 10.96 1.264.33.203.432.636.229.966zm1.372-3.063c-.255.414-.798.544-1.212.29-3.03-1.863-7.649-2.403-11.234-1.315-.471.143-.97-.122-1.113-.593-.143-.471.122-.97.593-1.113 4.095-1.243 9.182-.641 12.676 1.519.414.255.544.798.29 1.212zm.118-3.192C14.812 8.785 8.604 8.567 5.012 9.65c-.565.17-1.162-.148-1.332-.713-.17-.565.148-1.162.713-1.332 4.126-1.245 10.981-.983 15.31 1.537.521.304.694.98.39 1.5-.303.521-.98.694-1.5.39h.037z" />
+                <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18V5l12-2v13" />
+                    <circle cx="6" cy="18" r="3" />
+                    <circle cx="18" cy="16" r="3" />
                 </svg>
             );
         case "facebook":
