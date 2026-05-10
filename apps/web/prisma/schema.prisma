@@ -147,11 +147,12 @@ model GalleryPhoto {
 // ─── Partners & Sponsors ─────────────────────────────────────────────────────
 
 model Partner {
-  id         String  @id @default(uuid())
-  name       String
-  logoUrl    String  @map("logo_url")
-  websiteUrl String? @map("website_url")
-  sortOrder  Int     @default(0) @map("sort_order")
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  logoUrl     String  @map("logo_url")
+  websiteUrl  String? @map("website_url")
+  sortOrder   Int     @default(0) @map("sort_order")
 
   createdAt DateTime @default(now()) @map("created_at")
 

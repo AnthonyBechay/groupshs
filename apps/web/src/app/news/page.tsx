@@ -3,6 +3,7 @@ import { Footer } from "@/components/footer";
 import { Metadata } from "next";
 import { prisma } from "@/db";
 import { Calendar, Newspaper, Compass } from "lucide-react";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,14 @@ export default async function NewsPage() {
                                 <div key={article.id} className="group flex flex-col bg-card border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
                                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                                         {article.imageUrl ? (
-                                            <img src={article.imageUrl} alt={article.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                            <Image
+                                                src={article.imageUrl}
+                                                alt={article.title}
+                                                fill
+                                                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                                                loading="lazy"
+                                                className="object-cover group-hover:scale-110 transition-transform duration-700"
+                                            />
                                         ) : (
                                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                                                 <Newspaper className="w-16 h-16 text-primary/20" />

@@ -17,6 +17,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             where: { id },
             data: {
                 name: body.name,
+                description: body.description ?? null,
                 websiteUrl: body.websiteUrl ?? null,
                 sortOrder: body.sortOrder ?? undefined,
             },

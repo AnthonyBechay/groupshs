@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
         const name = formData.get("name") as string;
+        const description = (formData.get("description") as string) || null;
         const websiteUrl = (formData.get("websiteUrl") as string) || null;
 
         if (!file || !name) {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
         const sortOrder = (last?.sortOrder ?? -1) + 1;
 
         const partner = await prisma.partner.create({
-            data: { name, logoUrl, websiteUrl, sortOrder },
+            data: { name, description, logoUrl, websiteUrl, sortOrder },
         });
 
         return NextResponse.json(partner);

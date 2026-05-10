@@ -4,6 +4,7 @@ import { prisma } from "@/db";
 import { notFound } from "next/navigation";
 import { Calendar, MapPin, Clock, Tent, Phone, User, ArrowRight, Compass, TreePine, Mountain, Shield } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -153,10 +154,17 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
 
 function ActivityCard({ act }: { act: { id: string; title: string; description: string; activityType: string; startDate: Date; endDate: Date | null; pickupTime: string | null; dropoffTime: string | null; location: string | null; imageUrl: string | null; isUpcoming: boolean } }) {
     return (
-        <div className="group flex flex-col bg-card border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
+        <div className="group flex flex-col bg-card border rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 hover:-translate-y-1.5">
             <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                 {act.imageUrl ? (
-                    <img src={act.imageUrl} alt={act.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <Image
+                        src={act.imageUrl}
+                        alt={act.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        loading="lazy"
+                        className="object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
                 ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                         <Tent className="h-12 w-12 text-primary/20" />
