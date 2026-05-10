@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Calendar, MapPin, Clock, Tent, Sparkles, History } from "lucide-react";
+import { Calendar, MapPin, Clock, Tent, Sparkles, History, Backpack, ExternalLink, ChevronDown } from "lucide-react";
 import Image from "next/image";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -12,12 +12,18 @@ type Activity = {
     id: string;
     title: string;
     description: string;
+    whatToBring: string | null;
     activityType: string;
     startDate: string;
     endDate: string | null;
     pickupTime: string | null;
     dropoffTime: string | null;
+    pickupLocation: string | null;
+    dropoffLocation: string | null;
     location: string | null;
+    pickupLocationUrl: string | null;
+    dropoffLocationUrl: string | null;
+    locationUrl: string | null;
     imageUrl: string | null;
     isUpcoming: boolean;
     unitId: string;
@@ -32,8 +38,7 @@ function formatDate(d: string) {
 
 function isActivityUpcoming(a: Activity, now: Date): boolean {
     const end = a.endDate ? new Date(a.endDate) : new Date(a.startDate);
-    if (end >= now) return true;
-    return a.isUpcoming;
+    return end >= now;
 }
 
 export function UnitTabs({ units, activities }: { units: Unit[]; activities: Activity[] }) {
@@ -127,6 +132,10 @@ export function UnitTabs({ units, activities }: { units: Unit[]; activities: Act
 }
 
 function ActivityCard({ act, isUpcoming }: { act: Activity; isUpcoming: boolean }) {
+    const [expanded, setExpanded] = useState(false);
+    const hasDetails = !!(act.whatToBring || act.pickupLocation || act.dropoffLocation || act.locationUrl || act.pickupLocationUrl || act.dropoffLocationUrl);
+    const bringList = act.whatToBring?.split("\n").map(l => l.trim()).filter(Boolean) ?? [];
+
     return (
         <div className="group flex flex-col bg-card border rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 hover:-translate-y-1.5">
             <div className="aspect-[16/10] bg-muted relative overflow-hidden">
@@ -166,7 +175,16 @@ function ActivityCard({ act, isUpcoming }: { act: Activity; isUpcoming: boolean 
                 </div>
                 <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{act.title}</h3>
                 <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-4">
-                    {act.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{act.location}</span>}
+                    {act.location && (
+                        act.locationUrl ? (
+                            <a href={act.locationUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-primary transition-colors">
+                                <MapPin className="w-3.5 h-3.5" />{act.location}
+                                <ExternalLink className="w-3 h-3 opacity-60" />
+                            </a>
+                        ) : (
+                            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{act.location}</span>
+                        )
+                    )}
                     {(act.dropoffTime || act.pickupTime) && (
                         <span className="flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
@@ -175,7 +193,74 @@ function ActivityCard({ act, isUpcoming }: { act: Activity; isUpcoming: boolean 
                     )}
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{act.description}</p>
+
+                {hasDetails && (
+                    <button
+                        onClick={() => setExpanded(!expanded)}
+                        className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/80 transition-colors w-fit"
+                    >
+                        {expanded ? "Hide details" : "Show details"}
+                        <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                    </button>
+                )}
+
+                {expanded && hasDetails && (
+                    <div className="mt-4 space-y-4 border-t pt-4">
+                        {(act.dropoffLocation || act.pickupLocation) && (
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                    <MapPin className="w-3.5 h-3.5" /> Pickup & Dropoff
+                                </h4>
+                                {act.dropoffLocation && (
+                                    <LocationLine
+                                        label={`Dropoff${act.dropoffTime ? ` (${act.dropoffTime})` : ""}`}
+                                        text={act.dropoffLocation}
+                                        url={act.dropoffLocationUrl}
+                                    />
+                                )}
+                                {act.pickupLocation && (
+                                    <LocationLine
+                                        label={`Pickup${act.pickupTime ? ` (${act.pickupTime})` : ""}`}
+                                        text={act.pickupLocation}
+                                        url={act.pickupLocationUrl}
+                                    />
+                                )}
+                            </div>
+                        )}
+                        {bringList.length > 0 && (
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                    <Backpack className="w-3.5 h-3.5" /> What to bring
+                                </h4>
+                                <ul className="text-sm text-foreground space-y-1">
+                                    {bringList.map((item, i) => (
+                                        <li key={i} className="flex items-start gap-2">
+                                            <span className="text-primary mt-0.5">•</span>
+                                            <span>{item.replace(/^[-•*]\s*/, "")}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
+        </div>
+    );
+}
+
+function LocationLine({ label, text, url }: { label: string; text: string; url: string | null }) {
+    return (
+        <div className="text-sm flex items-start gap-2">
+            <span className="font-semibold text-foreground min-w-[100px]">{label}:</span>
+            {url ? (
+                <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+                    {text}
+                    <ExternalLink className="w-3 h-3 opacity-60" />
+                </a>
+            ) : (
+                <span className="text-muted-foreground">{text}</span>
+            )}
         </div>
     );
 }

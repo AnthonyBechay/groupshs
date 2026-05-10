@@ -59,8 +59,8 @@ export default function LoginPage() {
                         <div className="mx-auto w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
                             <Shield className="w-7 h-7 text-primary" />
                         </div>
-                        <h1 className="text-2xl font-black">Admin Login</h1>
-                        <p className="text-sm text-muted-foreground mt-1">Sign in to manage your scout group</p>
+                        <h1 className="text-2xl font-black">Login</h1>
+                        <p className="text-sm text-muted-foreground mt-1">Sign in to your scout account</p>
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-5 bg-card border rounded-2xl p-6 shadow-sm">
                         <div className="space-y-2">

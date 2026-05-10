@@ -16,10 +16,11 @@ export const metadata: Metadata = {
 export default async function ActivitiesPage() {
     const [units, allActivities, socialLinks] = await Promise.all([
         prisma.unit.findMany({
-            include: { activities: true },
+            include: { activities: { where: { hidden: false } } },
             orderBy: { name: "asc" },
         }),
         prisma.activity.findMany({
+            where: { hidden: false },
             include: { unit: { select: { name: true, id: true } } },
             orderBy: { startDate: "desc" },
         }),
@@ -29,7 +30,7 @@ export default async function ActivitiesPage() {
     const now = new Date();
     const upcomingCount = allActivities.filter(a => {
         const end = a.endDate ? new Date(a.endDate) : new Date(a.startDate);
-        return end >= now || a.isUpcoming;
+        return end >= now;
     }).length;
 
     return (
@@ -103,12 +104,18 @@ export default async function ActivitiesPage() {
                             id: a.id,
                             title: a.title,
                             description: a.description,
+                            whatToBring: a.whatToBring,
                             activityType: a.activityType,
                             startDate: a.startDate.toISOString(),
                             endDate: a.endDate?.toISOString() || null,
                             pickupTime: a.pickupTime,
                             dropoffTime: a.dropoffTime,
+                            pickupLocation: a.pickupLocation,
+                            dropoffLocation: a.dropoffLocation,
                             location: a.location,
+                            pickupLocationUrl: a.pickupLocationUrl,
+                            dropoffLocationUrl: a.dropoffLocationUrl,
+                            locationUrl: a.locationUrl,
                             imageUrl: a.imageUrl,
                             isUpcoming: a.isUpcoming,
                             unitId: a.unitId,

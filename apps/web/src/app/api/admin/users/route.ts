@@ -1,16 +1,36 @@
 import { prisma } from "@/db";
-import { getSession, hashPassword } from "@/lib/auth";
+import { getSession, hashPassword, type SessionUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+
+function requireSuperAdmin(session: SessionUser | null) {
+    return session?.isSuperAdmin === true;
+}
 
 export async function GET() {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin") {
+        if (!requireSuperAdmin(session)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const users = await prisma.user.findMany({
-            select: { id: true, name: true, email: true, role: true, createdAt: true },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+                canManageUnits: true,
+                canManageMembers: true,
+                canManageActivities: true,
+                canManageGallery: true,
+                canManagePartners: true,
+                canManageSocialLinks: true,
+                canManageNews: true,
+                canViewSubmissions: true,
+                canManageSettings: true,
+                allowedUnitIds: true,
+            },
             orderBy: { createdAt: "desc" },
         });
 
@@ -24,11 +44,18 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin") {
+        if (!requireSuperAdmin(session)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { name, email, password, role } = await request.json();
+        const body = await request.json();
+        const {
+            name, email, password, role,
+            canManageUnits, canManageMembers, canManageActivities,
+            canManageGallery, canManagePartners, canManageSocialLinks,
+            canManageNews, canViewSubmissions, canManageSettings,
+            allowedUnitIds,
+        } = body;
 
         if (!name || !email || !password) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -46,7 +73,17 @@ export async function POST(request: NextRequest) {
                 name,
                 email,
                 password: hashedPassword,
-                role: role || "user",
+                role: role || "admin",
+                canManageUnits: !!canManageUnits,
+                canManageMembers: !!canManageMembers,
+                canManageActivities: !!canManageActivities,
+                canManageGallery: !!canManageGallery,
+                canManagePartners: !!canManagePartners,
+                canManageSocialLinks: !!canManageSocialLinks,
+                canManageNews: !!canManageNews,
+                canViewSubmissions: !!canViewSubmissions,
+                canManageSettings: !!canManageSettings,
+                allowedUnitIds: Array.isArray(allowedUnitIds) ? allowedUnitIds : [],
             },
             select: { id: true, name: true, email: true, role: true },
         });

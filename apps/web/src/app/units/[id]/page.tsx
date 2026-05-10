@@ -30,7 +30,12 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
     const [unit, socialLinks] = await Promise.all([
         prisma.unit.findUnique({
             where: { id },
-            include: { activities: { orderBy: { startDate: "desc" } } },
+            include: {
+                activities: {
+                    where: { hidden: false },
+                    orderBy: { startDate: "desc" },
+                },
+            },
         }),
         prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
     ]);

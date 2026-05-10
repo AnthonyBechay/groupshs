@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -8,12 +8,22 @@ export async function GET(request: NextRequest) {
         const upcoming = searchParams.get("upcoming");
         const year = searchParams.get("year");
         const unitId = searchParams.get("unitId");
+        const includeHidden = searchParams.get("includeHidden") === "true";
 
         const where: Record<string, unknown> = {};
         if (upcoming === "true") where.isUpcoming = true;
         if (upcoming === "false") where.isUpcoming = false;
         if (year) where.year = parseInt(year);
         if (unitId) where.unitId = unitId;
+
+        if (!includeHidden) {
+            where.hidden = false;
+        } else {
+            const session = await getSession();
+            if (!isAdmin(session)) {
+                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            }
+        }
 
         const activities = await prisma.activity.findMany({
             where,
@@ -31,16 +41,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin") {
+        if (!isAdmin(session)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const body = await request.json();
         const {
-            title, description, unitId, activityType,
+            title, description, whatToBring, unitId, activityType,
             startDate, endDate, pickupTime, dropoffTime,
             pickupLocation, dropoffLocation, location,
-            imageUrl, isUpcoming, year,
+            pickupLocationUrl, dropoffLocationUrl, locationUrl,
+            imageUrl, hidden, year,
         } = body;
 
         if (!title || !description || !unitId || !startDate || !year) {
@@ -51,6 +62,7 @@ export async function POST(request: NextRequest) {
             data: {
                 title,
                 description,
+                whatToBring: whatToBring || null,
                 unitId,
                 activityType: activityType || "OTHER",
                 startDate: new Date(startDate),
@@ -60,8 +72,11 @@ export async function POST(request: NextRequest) {
                 pickupLocation: pickupLocation || null,
                 dropoffLocation: dropoffLocation || null,
                 location: location || null,
+                pickupLocationUrl: pickupLocationUrl || null,
+                dropoffLocationUrl: dropoffLocationUrl || null,
+                locationUrl: locationUrl || null,
                 imageUrl: imageUrl || null,
-                isUpcoming: isUpcoming ?? true,
+                hidden: hidden ?? false,
                 year,
             },
         });

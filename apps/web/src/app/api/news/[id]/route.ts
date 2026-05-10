@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const session = await getSession();
-    if (!session || session.role !== "admin") {
+    if (!session || session.role !== "admin" && session.role !== "super_admin") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -28,7 +28,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const session = await getSession();
-    if (!session || session.role !== "admin") {
+    if (!session || session.role !== "admin" && session.role !== "super_admin") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

@@ -30,9 +30,10 @@ export const ROLES_BY_UNIT_TYPE: Record<string, { value: string; label: string }
         { value: "EA", label: "EA (Equipe Administrative)" },
         { value: "CT", label: "CT (Chef Troupe)" },
         { value: "ACT", label: "ACT (Assistant Chef Troupe)" },
-        { value: "CL", label: "CL (Cheftaine Louveteaux)" },
-        { value: "ACL", label: "ACL (Assistante Cheftaine Louveteaux)" },
+        { value: "CM", label: "CM (Cheftaine Meute)" },
+        { value: "ACM", label: "ACM (Assistante Cheftaine Meute)" },
         { value: "CC", label: "CC (Chef Clan)" },
+        { value: "CE", label: "CE (Chef d'equipe)" },
         { value: "ACC", label: "ACC (Assistant Chef Clan)" },
     ],
 };

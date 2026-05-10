@@ -22,9 +22,10 @@ export default async function Home() {
   const currentYear = new Date().getFullYear();
   const now = new Date();
 
-  const [upcomingActivities, galleryPhotos, partners, socialLinks, thisYearActivities, memberCount, unitCount] = await Promise.all([
+  const [upcomingActivities, galleryPhotos, partners, socialLinks, thisYearActivities, memberCount, unitCount, totalActivitiesCount, settings] = await Promise.all([
     prisma.activity.findMany({
       where: {
+        hidden: false,
         OR: [
           { endDate: { gte: now } },
           { endDate: null, startDate: { gte: now } },
@@ -39,6 +40,7 @@ export default async function Home() {
     prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.activity.findMany({
       where: {
+        hidden: false,
         year: currentYear,
         AND: [
           {
@@ -54,7 +56,14 @@ export default async function Home() {
     }),
     prisma.member.count(),
     prisma.unit.count(),
+    prisma.activity.count({ where: { hidden: false } }),
+    prisma.siteSettings.findUnique({ where: { id: "default" } }),
   ]);
+
+  const groupFoundedYear = settings?.groupFoundedYear ?? 2014;
+  const yearsStrong = currentYear - groupFoundedYear;
+  const displayedUnitCount = settings?.manualUnitCount ?? unitCount;
+  const displayedMemberCount = settings?.manualMemberCount ?? memberCount;
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
@@ -130,10 +139,10 @@ export default async function Home() {
           <div className="container mx-auto">
             <div className="bg-card border rounded-3xl shadow-2xl shadow-primary/5 max-w-4xl mx-auto p-6 md:p-8 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {[
-                { value: "10+", label: "Years strong", icon: Award },
-                { value: memberCount > 0 ? `${memberCount}+` : "100+", label: "Members", icon: Users },
-                { value: unitCount > 0 ? unitCount.toString() : "5", label: "Units", icon: Tent },
-                { value: thisYearActivities.length.toString(), label: `Activities ${currentYear}`, icon: Sparkles },
+                { value: `${yearsStrong}+`, label: "Years strong", icon: Award },
+                { value: `${displayedMemberCount}+`, label: "Members", icon: Users },
+                { value: displayedUnitCount.toString(), label: "Units", icon: Tent },
+                { value: totalActivitiesCount.toString(), label: "Activities", icon: Sparkles },
               ].map((stat, i) => (
                 <div key={i} className="text-center group">
                   <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary mb-2 group-hover:scale-110 transition-transform">
