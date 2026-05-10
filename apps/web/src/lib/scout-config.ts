@@ -38,9 +38,25 @@ export const ROLES_BY_UNIT_TYPE: Record<string, { value: string; label: string }
     ],
 };
 
+// Naming for the second-level group inside a unit
+export const SUBGROUP_LABEL_BY_UNIT_TYPE: Record<string, { singular: string; plural: string; lead: string; assistant: string }> = {
+    LOUVETEAUX: { singular: "Sizaine", plural: "Sizaines", lead: "SI", assistant: "SE" },
+    ECLAIREURS: { singular: "Patrouille", plural: "Patrouilles", lead: "CP", assistant: "SP" },
+    ROUTIERS:   { singular: "Equipe",    plural: "Equipes",    lead: "CE", assistant: "SE" },
+    GROUP:      { singular: "Group",     plural: "Groups",     lead: "Lead", assistant: "Asst" },
+};
+
+export const UNIT_CONTAINER_NAME: Record<string, string> = {
+    LOUVETEAUX: "Meute",
+    ECLAIREURS: "Troupe",
+    ROUTIERS:   "Clan",
+    GROUP:      "Group",
+};
+
 export const PROGRESSION_BY_UNIT_TYPE: Record<string, { value: string; label: string }[]> = {
     LOUVETEAUX: [
         { value: "PATTETENDRE", label: "Pattes Tendres" },
+        { value: "PROMESSE", label: "Promesse" },
         { value: "1_ETOILE", label: "1 Etoile" },
         { value: "2_ETOILES", label: "2 Etoiles" },
     ],

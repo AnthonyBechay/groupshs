@@ -72,11 +72,29 @@ model Unit {
 
   members    Member[]
   activities Activity[]
+  subgroups  Subgroup[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("unit")
+}
+
+// Sizaine (Louveteaux) / Patrouille (Eclaireurs) / Equipe (Routiers)
+model Subgroup {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  unitId String @map("unit_id")
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  members Member[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("subgroup")
 }
 
 // ─── Members ─────────────────────────────────────────────────────────────────
@@ -86,18 +104,140 @@ model Member {
   firstName   String   @map("first_name")
   lastName    String   @map("last_name")
   dateOfBirth String?  @map("date_of_birth")
+  placeOfBirth String? @map("place_of_birth")
   phone       String?
-  role        String?  // SOU, SI, SP, CP, SE, CE, CHEF
-  progression String?  // TENDREPATTES, 1_ETOILE, 2_ETOILES, TOTEMISE, PROMESSE, SECONDE_CLASSE, PREMIERE_CLASSE
+  email       String?
+  bloodType   String?  @map("blood_type")
+  role        String?
+  progression String?
   joinedAt    DateTime @default(now()) @map("joined_at")
 
   unitId String @map("unit_id")
   unit   Unit   @relation(fields: [unitId], references: [id])
 
+  subgroupId String?   @map("subgroup_id")
+  subgroup   Subgroup? @relation(fields: [subgroupId], references: [id], onDelete: SetNull)
+
+  // Address
+  city       String?
+  street     String?
+  building   String?
+  floor      String?
+  homePhone  String?  @map("home_phone")
+
+  // Family counts
+  numberOfBrothers Int? @map("number_of_brothers")
+  numberOfSisters  Int? @map("number_of_sisters")
+
+  // Family doctor
+  doctorName          String? @map("doctor_name")
+  doctorPhone         String? @map("doctor_phone")
+  doctorClinicAddress String? @map("doctor_clinic_address")
+
+  // Emergency contact
+  emergencyContactName     String? @map("emergency_contact_name")
+  emergencyContactRelation String? @map("emergency_contact_relation")
+  emergencyContactPhone    String? @map("emergency_contact_phone")
+
+  // Father
+  fatherName       String? @map("father_name")
+  fatherPhone      String? @map("father_phone")
+  fatherProfession String? @map("father_profession")
+  fatherEmail      String? @map("father_email")
+  fatherOldScout   String? @map("father_old_scout")
+
+  // Mother
+  motherName       String? @map("mother_name")
+  motherPhone      String? @map("mother_phone")
+  motherProfession String? @map("mother_profession")
+  motherEmail      String? @map("mother_email")
+  motherOldScout   String? @map("mother_old_scout")
+
+  // Medical
+  allergySeasonal   String? @map("allergy_seasonal")
+  allergyMedication String? @map("allergy_medication")
+  allergyFood       String? @map("allergy_food")
+  allergyAnimals    String? @map("allergy_animals")
+  chronicIllnesses  String? @map("chronic_illnesses")
+  sportsToAvoid     String? @map("sports_to_avoid")
+  previousSurgeries String? @map("previous_surgeries")
+  antiTetanusDate   String? @map("anti_tetanus_date")
+
+  // Authorization
+  legalGuardianName String?   @map("legal_guardian_name")
+  consentSignedAt   DateTime? @map("consent_signed_at")
+
+  // Photo
+  photoUrl String? @map("photo_url")
+
+  groupSiblings GroupSibling[]
+  medications   MemberMedication[]
+  moves         MemberMove[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("member")
+  @@index([unitId])
+  @@index([subgroupId])
+}
+
+// Brothers/sisters of the member that are also in the group
+model GroupSibling {
+  id       String  @id @default(uuid())
+  memberId String  @map("member_id")
+  member   Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  name        String
+  schoolClass String? @map("school_class")
+  unitName    String? @map("unit_name") // free text since may be in another group
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("group_sibling")
+  @@index([memberId])
+}
+
+// Current medication during scouts activities
+model MemberMedication {
+  id       String  @id @default(uuid())
+  memberId String  @map("member_id")
+  member   Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  startDate  String? @map("start_date")
+  endDate    String? @map("end_date")
+  name       String
+  dosage     String?
+  timeToTake String? @map("time_to_take") // e.g. "08:00 am"
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("member_medication")
+  @@index([memberId])
+}
+
+// Move history: unit/subgroup/role transitions
+model MemberMove {
+  id       String @id @default(uuid())
+  memberId String @map("member_id")
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  fromUnitId     String? @map("from_unit_id")
+  toUnitId       String? @map("to_unit_id")
+  fromSubgroupId String? @map("from_subgroup_id")
+  toSubgroupId   String? @map("to_subgroup_id")
+  fromRole       String? @map("from_role")
+  toRole         String? @map("to_role")
+  fromProgression String? @map("from_progression")
+  toProgression   String? @map("to_progression")
+
+  moveDate DateTime @default(now()) @map("move_date")
+  notes    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("member_move")
+  @@index([memberId])
 }
 
 // ─── Activities ──────────────────────────────────────────────────────────────
