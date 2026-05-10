@@ -1,6 +1,7 @@
 import { prisma } from "@/db";
-import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { deleteFromR2 } from "@/lib/r2";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -11,36 +12,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
         const { id } = await params;
         const body = await request.json();
-        const {
-            title, description, unitId, activityType,
-            startDate, endDate, pickupTime, dropoffTime,
-            pickupLocation, dropoffLocation, location,
-            imageUrl, isUpcoming, year,
-        } = body;
 
-        const updated = await prisma.activity.update({
+        const updated = await prisma.partner.update({
             where: { id },
             data: {
-                title,
-                description,
-                unitId,
-                activityType: activityType || "OTHER",
-                startDate: startDate ? new Date(startDate) : undefined,
-                endDate: endDate ? new Date(endDate) : null,
-                pickupTime: pickupTime || null,
-                dropoffTime: dropoffTime || null,
-                pickupLocation: pickupLocation || null,
-                dropoffLocation: dropoffLocation || null,
-                location: location || null,
-                imageUrl: imageUrl ?? undefined,
-                isUpcoming: isUpcoming ?? undefined,
-                year: year ?? undefined,
+                name: body.name,
+                websiteUrl: body.websiteUrl ?? null,
+                sortOrder: body.sortOrder ?? undefined,
             },
         });
 
         return NextResponse.json(updated);
     } catch (error) {
-        console.error("Error updating activity:", error);
+        console.error("Error updating partner:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
@@ -53,11 +37,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         }
 
         const { id } = await params;
-        await prisma.activity.delete({ where: { id } });
+        const partner = await prisma.partner.findUnique({ where: { id } });
+        if (partner) {
+            await deleteFromR2(partner.logoUrl).catch(() => {});
+        }
+        await prisma.partner.delete({ where: { id } });
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error("Error deleting activity:", error);
+        console.error("Error deleting partner:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

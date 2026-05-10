@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth";
+import { compressImage } from "@/lib/image";
 import { uploadToR2 } from "@/lib/r2";
 import { NextResponse } from "next/server";
 
@@ -26,8 +27,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "File too large. Max 10MB" }, { status: 400 });
         }
 
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const url = await uploadToR2(buffer, file.name, file.type);
+        const rawBuffer = Buffer.from(await file.arrayBuffer());
+        const { buffer, contentType } = await compressImage(rawBuffer, {
+            maxWidth: 1600,
+            maxHeight: 1200,
+            quality: 80,
+        });
+        const url = await uploadToR2(buffer, file.name, contentType);
 
         return NextResponse.json({ url });
     } catch (error) {

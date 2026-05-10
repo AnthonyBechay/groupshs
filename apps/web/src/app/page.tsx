@@ -1,10 +1,12 @@
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { GalleryCarousel } from "@/components/gallery-carousel";
-import { Tent, Users, Star, ArrowRight, Calendar, MapPin, Clock, Compass, TreePine, Mountain, Heart } from "lucide-react";
+import { Tent, Users, ArrowRight, Calendar, MapPin, Clock, Compass, TreePine, Mountain, Heart, Sparkles } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/db";
+import { SocialIcon } from "@/components/social-icons";
 
 export const dynamic = "force-dynamic";
 
@@ -13,46 +15,61 @@ function formatDate(d: Date) {
 }
 
 const ACTIVITY_TYPE_LABELS: Record<string, string> = {
-  CAMP: "Camp", JOURNEE: "Journée", TEMPS: "Temps", MARCHE: "Marche", OTHER: "Activité",
+  CAMP: "Camp", JOURNEE: "Journee", TEMPS: "Temps", MARCHE: "Marche", OTHER: "Activite",
 };
 
 export default async function Home() {
   const currentYear = new Date().getFullYear();
+  const now = new Date();
 
-  const upcomingActivities = await prisma.activity.findMany({
-    where: { isUpcoming: true },
-    include: { unit: { select: { name: true } } },
-    orderBy: { startDate: "asc" },
-    take: 3,
-  });
-
-  const galleryPhotos = await prisma.galleryPhoto.findMany({
-    orderBy: { sortOrder: "asc" },
-  });
-
-  const thisYearActivities = await prisma.activity.findMany({
-    where: { year: currentYear, isUpcoming: false },
-    include: { unit: { select: { name: true } } },
-    orderBy: { startDate: "desc" },
-  });
+  const [upcomingActivities, galleryPhotos, partners, socialLinks, thisYearActivities] = await Promise.all([
+    prisma.activity.findMany({
+      where: {
+        OR: [
+          { endDate: { gte: now } },
+          { endDate: null, startDate: { gte: now } },
+        ],
+      },
+      include: { unit: { select: { name: true } } },
+      orderBy: { startDate: "asc" },
+      take: 3,
+    }),
+    prisma.galleryPhoto.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.partner.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.activity.findMany({
+      where: {
+        year: currentYear,
+        AND: [
+          {
+            OR: [
+              { endDate: { lt: now } },
+              { endDate: null, startDate: { lt: now } },
+            ],
+          },
+        ],
+      },
+      include: { unit: { select: { name: true } } },
+      orderBy: { startDate: "desc" },
+    }),
+  ]);
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
       <Navbar />
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-emerald-800 text-white py-28 lg:py-40">
-          {/* Decorative background elements */}
+        {/* ═══ Hero ═══ */}
+        <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-emerald-800 text-white py-28 lg:py-44">
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-white/20 blur-3xl" />
-            <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-emerald-300/20 blur-3xl" />
+            <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-white/20 blur-3xl animate-pulse" />
+            <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-emerald-300/20 blur-3xl animate-pulse [animation-delay:1s]" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-yellow-300/10 blur-3xl" />
           </div>
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE0YTIgMiAwIDEgMSAwLTQgMiAyIDAgMCAxIDAgNHptMCAyOGEyIDIgMCAxIDEgMC00IDIgMiAwIDAgMSAwIDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-50" />
 
           <div className="container mx-auto px-4 relative z-10">
             <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-8">
+              <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-8 animate-fade-in">
                 <Compass className="w-4 h-4 mr-2 text-scout-gold" />
                 <span className="text-white/90">Les Scouts du Liban - Groupe Sagesse High School</span>
               </div>
@@ -69,7 +86,7 @@ export default async function Home() {
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/join">
-                  <Button size="lg" className="w-full sm:w-auto font-bold gap-2 bg-scout-gold hover:bg-scout-gold/90 text-scout-brown shadow-lg shadow-scout-gold/20 px-8">
+                  <Button size="lg" className="w-full sm:w-auto font-bold gap-2 bg-scout-gold hover:bg-scout-gold/90 text-scout-brown shadow-lg shadow-scout-gold/20 px-8 transition-transform hover:scale-105">
                     Join the Adventure <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
@@ -79,10 +96,27 @@ export default async function Home() {
                   </Button>
                 </Link>
               </div>
+
+              {/* Social icons in hero */}
+              {socialLinks.length > 0 && (
+                <div className="flex items-center justify-center gap-3 mt-10">
+                  {socialLinks.map((link) => (
+                    <a
+                      key={link.id}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 border border-white/10 text-white/70 hover:text-white flex items-center justify-center transition-all duration-200 hover:scale-110 backdrop-blur-sm"
+                      title={link.platform}
+                    >
+                      <SocialIcon platform={link.platform} className="w-[18px] h-[18px]" />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Bottom wave */}
           <div className="absolute bottom-0 left-0 right-0">
             <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
               <path d="M0,40 C360,80 720,0 1080,40 C1260,60 1380,50 1440,40 L1440,80 L0,80 Z" className="fill-background" />
@@ -90,7 +124,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Gallery Carousel */}
+        {/* ═══ Gallery ═══ */}
         {galleryPhotos.length > 0 && (
           <section className="py-20 bg-background">
             <div className="container mx-auto px-4">
@@ -103,21 +137,21 @@ export default async function Home() {
           </section>
         )}
 
-        {/* Values Section */}
+        {/* ═══ Values ═══ */}
         <section className="py-24 bg-background relative">
           <div className="container mx-auto px-4">
             <div className="text-center mb-16">
               <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">Our Values</span>
               <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">What Makes Us Scouts</h2>
             </div>
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               {[
-                { icon: Users, title: "Brotherhood", desc: "Lifelong friendships forged through shared adventures and challenges within the Sagesse scout family.", color: "bg-primary/10 text-primary" },
-                { icon: Mountain, title: "Adventure", desc: "From mountain hikes to winter camps, we push boundaries and discover the beauty of Lebanon together.", color: "bg-scout-gold/10 text-scout-gold" },
-                { icon: Heart, title: "Service", desc: "Giving back to our community through volunteer work, helping those in need, and protecting nature.", color: "bg-red-50 text-red-700" },
+                { icon: Users, title: "Brotherhood", desc: "Lifelong friendships forged through shared adventures and challenges within the Sagesse scout family.", color: "bg-primary/10 text-primary", border: "hover:border-primary/30" },
+                { icon: Mountain, title: "Adventure", desc: "From mountain hikes to winter camps, we push boundaries and discover the beauty of Lebanon together.", color: "bg-scout-gold/10 text-scout-gold", border: "hover:border-scout-gold/30" },
+                { icon: Heart, title: "Service", desc: "Giving back to our community through volunteer work, helping those in need, and protecting nature.", color: "bg-red-100 text-red-600", border: "hover:border-red-200" },
               ].map((item, i) => (
-                <div key={i} className="group relative bg-card rounded-2xl border p-8 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
-                  <div className={`h-14 w-14 rounded-xl ${item.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                <div key={i} className={`group relative bg-card rounded-2xl border p-8 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1.5 ${item.border}`}>
+                  <div className={`h-14 w-14 rounded-xl ${item.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                     <item.icon className="w-7 h-7" />
                   </div>
                   <h3 className="text-xl font-bold mb-3">{item.title}</h3>
@@ -128,7 +162,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Units Banner */}
+        {/* ═══ Units Banner ═══ */}
         <section className="py-20 bg-gradient-to-r from-primary/5 via-scout-gold/5 to-primary/5 border-y">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
@@ -141,8 +175,8 @@ export default async function Home() {
                 { name: "Eclaireurs", age: "12-17 ans", icon: Compass, desc: "Exploring the path" },
                 { name: "Routiers", age: "17+ ans", icon: Mountain, desc: "Serving the community" },
               ].map((unit, i) => (
-                <div key={i} className="text-center group">
-                  <div className="mx-auto w-20 h-20 rounded-2xl bg-card border flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm">
+                <div key={i} className="text-center group cursor-default">
+                  <div className="mx-auto w-20 h-20 rounded-2xl bg-card border flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm group-hover:shadow-lg group-hover:shadow-primary/20 group-hover:scale-105">
                     <unit.icon className="w-8 h-8 text-primary group-hover:text-white transition-colors" />
                   </div>
                   <h3 className="font-bold text-lg mb-0.5">{unit.name}</h3>
@@ -154,7 +188,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Upcoming Activities */}
+        {/* ═══ Upcoming Activities ═══ */}
         <section className="py-24 bg-background">
           <div className="container mx-auto px-4">
             <div className="flex justify-between items-end mb-12">
@@ -163,7 +197,7 @@ export default async function Home() {
                 <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">Upcoming Activities</h2>
               </div>
               <Link href="/activities" className="hidden md:block">
-                <Button variant="outline" className="gap-2 font-semibold">View All <ArrowRight className="w-4 h-4" /></Button>
+                <Button variant="outline" className="gap-2 font-semibold hover:bg-primary hover:text-white hover:border-primary transition-colors">View All <ArrowRight className="w-4 h-4" /></Button>
               </Link>
             </div>
 
@@ -175,7 +209,7 @@ export default async function Home() {
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {upcomingActivities.map((act) => (
-                  <div key={act.id} className="group relative overflow-hidden rounded-2xl bg-card border shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
+                  <div key={act.id} className="group relative overflow-hidden rounded-2xl bg-card border shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1.5">
                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                       {act.imageUrl ? (
                         <img src={act.imageUrl} alt={act.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -211,7 +245,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* This Year's Activities */}
+        {/* ═══ This Year ═══ */}
         {thisYearActivities.length > 0 && (
           <section className="py-24 bg-muted/30 border-t">
             <div className="container mx-auto px-4">
@@ -220,10 +254,9 @@ export default async function Home() {
                 <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">This Year&apos;s Activities</h2>
                 <p className="text-muted-foreground mt-2">A look at what we&apos;ve accomplished in {currentYear}.</p>
               </div>
-
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {thisYearActivities.map((act) => (
-                  <div key={act.id} className="group relative overflow-hidden rounded-2xl bg-card border shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1">
+                  <div key={act.id} className="group relative overflow-hidden rounded-2xl bg-card border shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1.5">
                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                       {act.imageUrl ? (
                         <img src={act.imageUrl} alt={act.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -252,20 +285,55 @@ export default async function Home() {
           </section>
         )}
 
-        {/* CTA Section */}
+        {/* ═══ Partners & Sponsors ═══ */}
+        {partners.length > 0 && (
+          <section className="py-20 bg-background border-t">
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-14">
+                <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">Together</span>
+                <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">Our Partners & Sponsors</h2>
+                <p className="text-muted-foreground mt-3 max-w-md mx-auto">Proud to work alongside organizations that share our vision for youth development.</p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 max-w-4xl mx-auto">
+                {partners.map((partner) => {
+                  const content = (
+                    <div className="group flex flex-col items-center gap-3 p-6 rounded-2xl hover:bg-muted/50 transition-all duration-300">
+                      <div className="h-20 w-40 flex items-center justify-center grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={partner.logoUrl} alt={partner.name} className="max-h-full max-w-full object-contain" />
+                      </div>
+                      <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">{partner.name}</span>
+                    </div>
+                  );
+                  return partner.websiteUrl ? (
+                    <a key={partner.id} href={partner.websiteUrl} target="_blank" rel="noopener noreferrer">
+                      {content}
+                    </a>
+                  ) : (
+                    <div key={partner.id}>{content}</div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ═══ CTA ═══ */}
         <section className="py-24 bg-gradient-to-br from-primary via-primary to-emerald-800 text-white relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-scout-gold/30 blur-3xl" />
             <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full bg-white/20 blur-3xl" />
           </div>
           <div className="container mx-auto px-4 relative z-10 text-center">
-            <Tent className="w-12 h-12 mx-auto mb-6 text-scout-gold" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 border border-white/10 mb-6 backdrop-blur-sm">
+              <Tent className="w-8 h-8 text-scout-gold" />
+            </div>
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-6">Ready for the Adventure?</h2>
             <p className="text-lg text-white/80 max-w-lg mx-auto mb-10">
               Boys aged 8-18 are welcome to join Les Scouts du Liban - Group Sagesse High School, Ain Saade.
             </p>
             <Link href="/join">
-              <Button size="lg" className="font-bold gap-2 bg-scout-gold hover:bg-scout-gold/90 text-scout-brown shadow-lg shadow-scout-gold/20 px-10">
+              <Button size="lg" className="font-bold gap-2 bg-scout-gold hover:bg-scout-gold/90 text-scout-brown shadow-lg shadow-scout-gold/20 px-10 transition-transform hover:scale-105">
                 Join Now <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
@@ -273,53 +341,7 @@ export default async function Home() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-card border-t py-16">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-10 mb-10">
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2.5 mb-4">
-                <Image src="/logo.png" alt="Logo" width={36} height={36} className="w-9 h-9 object-contain" />
-                <div>
-                  <h4 className="text-lg font-extrabold text-primary leading-none">Group SHS</h4>
-                  <span className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Scouts du Liban</span>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                Official website of Les Scouts du Liban group at Sagesse High School, Ain Saade.
-                Fostering the next generation of leaders since the heart of Metn.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4 text-sm uppercase tracking-wider">Links</h4>
-              <ul className="space-y-2.5 text-sm text-muted-foreground">
-                <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
-                <li><Link href="/activities" className="hover:text-primary transition-colors">Activities</Link></li>
-                <li><Link href="/join" className="hover:text-primary transition-colors">Join Now</Link></li>
-                <li><Link href="/news" className="hover:text-primary transition-colors">News</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4 text-sm uppercase tracking-wider">Contact</h4>
-              <ul className="space-y-2.5 text-sm text-muted-foreground">
-                <li>Ain Saade, Metn, Lebanon</li>
-                <li>CG Johnny Saad -71 297 333</li>
-                <li>info@groupshs.org</li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} Group SHS - Les Scouts du Liban. All rights reserved.</p>
-            <div className="flex items-center gap-2">
-              <span>Made with &#10084;&#65039; by</span>
-              <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
-                <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" />
-                bechai.ai
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer socialLinks={socialLinks} />
     </div>
   );
 }

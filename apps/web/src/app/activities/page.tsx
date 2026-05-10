@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import { Calendar, MapPin, Tent, Clock, Compass, TreePine, Mountain } from "lucide-react";
 import { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/db";
 import { UnitTabs } from "./unit-tabs";
@@ -27,6 +27,8 @@ export default async function ActivitiesPage() {
         include: { unit: { select: { name: true, id: true } } },
         orderBy: { startDate: "desc" },
     });
+
+    const socialLinks = await prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } });
 
     return (
         <div className="min-h-screen flex flex-col font-sans">
@@ -103,18 +105,7 @@ export default async function ActivitiesPage() {
                 </section>
             </main>
 
-            <footer className="bg-card border-t py-12">
-                <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-                    <p>&copy; {new Date().getFullYear()} Group SHS - Les Scouts du Liban. All rights reserved.</p>
-                    <div className="flex items-center gap-2">
-                        <span>Made with &#10084;&#65039; by</span>
-                        <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
-                            <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" />
-                            bechai.ai
-                        </a>
-                    </div>
-                </div>
-            </footer>
+            <Footer socialLinks={socialLinks} />
         </div>
     );
 }

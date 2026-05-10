@@ -143,3 +143,30 @@ model GalleryPhoto {
 
   @@map("gallery_photo")
 }
+
+// ─── Partners & Sponsors ─────────────────────────────────────────────────────
+
+model Partner {
+  id         String  @id @default(uuid())
+  name       String
+  logoUrl    String  @map("logo_url")
+  websiteUrl String? @map("website_url")
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("partner")
+}
+
+// ─── Social Links ────────────────────────────────────────────────────────────
+
+model SocialLink {
+  id        String @id @default(uuid())
+  platform  String // instagram, youtube, anghami, facebook, tiktok, etc.
+  url       String
+  sortOrder Int    @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("social_link")
+}

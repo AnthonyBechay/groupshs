@@ -1,8 +1,8 @@
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import { Metadata } from "next";
 import { prisma } from "@/db";
 import { Calendar, Newspaper, Compass } from "lucide-react";
-import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +16,10 @@ function formatDate(d: Date) {
 }
 
 export default async function NewsPage() {
-    const articles = await prisma.newsArticle.findMany({
-        where: { published: true },
-        orderBy: { date: "desc" },
-    });
+    const [articles, socialLinks] = await Promise.all([
+        prisma.newsArticle.findMany({ where: { published: true }, orderBy: { date: "desc" } }),
+        prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
+    ]);
 
     return (
         <div className="min-h-screen flex flex-col font-sans">
@@ -87,20 +87,7 @@ export default async function NewsPage() {
                 </section>
             </main>
 
-            <footer className="bg-card border-t py-12">
-                <div className="container mx-auto px-4">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-                        <p>&copy; {new Date().getFullYear()} Group SHS - Les Scouts du Liban. All rights reserved.</p>
-                        <div className="flex items-center gap-2">
-                            <span>Made with &#10084;&#65039; by</span>
-                            <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
-                                <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" />
-                                bechai.ai
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            <Footer socialLinks={socialLinks} />
         </div>
     );
 }

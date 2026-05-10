@@ -60,6 +60,8 @@ export function GalleryCarousel({ photos }: { photos: Photo[] }) {
                                     src={photo.imageUrl}
                                     alt={photo.caption || "Scout life"}
                                     fill
+                                    sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                                    priority={i < 4}
                                     className="object-cover transition-transform duration-500 group-hover/item:scale-105"
                                 />
                                 {photo.caption && (

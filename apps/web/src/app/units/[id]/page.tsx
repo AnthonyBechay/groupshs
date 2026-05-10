@@ -1,10 +1,10 @@
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import { prisma } from "@/db";
 import { notFound } from "next/navigation";
 import { Calendar, MapPin, Clock, Tent, Phone, User, ArrowRight, Compass, TreePine, Mountain, Shield } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +26,13 @@ function formatDate(d: Date) {
 export default async function UnitPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const unit = await prisma.unit.findUnique({
-        where: { id },
-        include: {
-            activities: { orderBy: { startDate: "desc" } },
-        },
-    });
+    const [unit, socialLinks] = await Promise.all([
+        prisma.unit.findUnique({
+            where: { id },
+            include: { activities: { orderBy: { startDate: "desc" } } },
+        }),
+        prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
+    ]);
 
     if (!unit) notFound();
 
@@ -39,8 +40,14 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
     const Icon = meta.icon;
 
     const now = new Date();
-    const upcoming = unit.activities.filter(a => a.isUpcoming || new Date(a.startDate) >= now);
-    const past = unit.activities.filter(a => !a.isUpcoming && new Date(a.startDate) < now);
+    const upcoming = unit.activities.filter(a => {
+        const end = a.endDate ? new Date(a.endDate) : new Date(a.startDate);
+        return end >= now;
+    });
+    const past = unit.activities.filter(a => {
+        const end = a.endDate ? new Date(a.endDate) : new Date(a.startDate);
+        return end < now;
+    });
 
     return (
         <div className="min-h-screen flex flex-col font-sans">
@@ -139,18 +146,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
                 </section>
             </main>
 
-            <footer className="bg-card border-t py-12">
-                <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-                    <p>&copy; {new Date().getFullYear()} Group SHS - Les Scouts du Liban. All rights reserved.</p>
-                    <div className="flex items-center gap-2">
-                        <span>Made with &#10084;&#65039; by</span>
-                        <a href="https://bechai.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary transition-colors">
-                            <Image src="/bechai-logo.png" width={16} height={16} alt="Bechai.ai Logo" className="rounded-sm w-4 h-4 object-contain" />
-                            bechai.ai
-                        </a>
-                    </div>
-                </div>
-            </footer>
+            <Footer socialLinks={socialLinks} />
         </div>
     );
 }
