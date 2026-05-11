@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, hasPermission, canAccessUnit } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -23,6 +23,10 @@ export async function GET(request: NextRequest) {
             if (!isAdmin(session)) {
                 return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
+            // Scope to allowed units if restricted
+            if (session && !session.isSuperAdmin && session.allowedUnitIds.length > 0) {
+                where.unitId = { in: session.allowedUnitIds };
+            }
         }
 
         const activities = await prisma.activity.findMany({
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const session = await getSession();
-        if (!isAdmin(session)) {
+        if (!hasPermission(session, "canManageActivities")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -56,6 +60,10 @@ export async function POST(request: NextRequest) {
 
         if (!title || !description || !unitId || !startDate || !year) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        }
+
+        if (!canAccessUnit(session, unitId)) {
+            return NextResponse.json({ error: "Forbidden: cannot create activities for this unit" }, { status: 403 });
         }
 
         const newActivity = await prisma.activity.create({

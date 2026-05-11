@@ -1,17 +1,25 @@
 import { prisma } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import type { Prisma } from "@/generated/prisma/client";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession();
-        if (!isAdmin(session)) {
+        if (!hasPermission(session, "canManageActivities")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { id } = await params;
+        const existing = await prisma.activity.findUnique({ where: { id } });
+        if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        if (!canAccessUnit(session, existing.unitId)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
         const body = await request.json();
+        if ("unitId" in body && body.unitId && !canAccessUnit(session, body.unitId)) {
+            return NextResponse.json({ error: "Forbidden: target unit not allowed" }, { status: 403 });
+        }
         const data: Prisma.ActivityUpdateInput = {};
 
         if ("title" in body) data.title = body.title;
@@ -43,16 +51,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession();
-        if (!isAdmin(session)) {
+        if (!hasPermission(session, "canManageActivities")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-
         const { id } = await params;
+        const existing = await prisma.activity.findUnique({ where: { id } });
+        if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        if (!canAccessUnit(session, existing.unitId)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
         await prisma.activity.delete({ where: { id } });
-
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Error deleting activity:", error);

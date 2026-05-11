@@ -4,7 +4,7 @@ import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Shield } from "lucide-react";
 
 export default function LoginPage() {
@@ -12,7 +12,22 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [checking, setChecking] = useState(true);
     const submittingRef = useRef(false);
+
+    useEffect(() => {
+        // If already logged in, send them to admin
+        fetch("/api/auth/me", { credentials: "same-origin" })
+            .then(r => r.ok ? r.json() : { user: null })
+            .then(d => {
+                if (d.user && (d.user.role === "admin" || d.user.role === "super_admin")) {
+                    window.location.href = "/admin";
+                } else {
+                    setChecking(false);
+                }
+            })
+            .catch(() => setChecking(false));
+    }, []);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -45,6 +60,17 @@ export default function LoginPage() {
             setLoading(false);
             submittingRef.current = false;
         }
+    }
+
+    if (checking) {
+        return (
+            <div className="min-h-screen flex flex-col">
+                <Navbar />
+                <main className="flex-1 flex items-center justify-center">
+                    <p className="text-muted-foreground text-sm">Checking session...</p>
+                </main>
+            </div>
+        );
     }
 
     return (

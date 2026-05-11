@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { getSession, hasPermission } from "@/lib/auth";
+import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,6 +10,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         }
 
         const { id } = await params;
+        const existing = await prisma.subgroup.findUnique({ where: { id } });
+        if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        if (!canAccessUnit(session, existing.unitId)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
         const body = await request.json();
 
         const updated = await prisma.subgroup.update({
@@ -27,7 +33,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession();
         if (!hasPermission(session, "canManageMembers") && !hasPermission(session, "canManageUnits")) {
@@ -35,6 +41,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         }
 
         const { id } = await params;
+        const existing = await prisma.subgroup.findUnique({ where: { id } });
+        if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        if (!canAccessUnit(session, existing.unitId)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
         await prisma.subgroup.delete({ where: { id } });
 
         return NextResponse.json({ success: true });

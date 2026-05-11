@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, hasPermission } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
@@ -9,7 +9,12 @@ export async function GET() {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const where = session && !session.isSuperAdmin && session.allowedUnitIds.length > 0
+            ? { id: { in: session.allowedUnitIds } }
+            : {};
+
         const units = await prisma.unit.findMany({
+            where,
             include: {
                 _count: { select: { members: true, activities: true } },
                 contacts: {
@@ -32,8 +37,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const session = await getSession();
-        if (!isAdmin(session)) {
+        // Only super admins can create new units (creating a unit you can't access would be weird)
+        if (!session?.isSuperAdmin && !hasPermission(session, "canManageUnits")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        // Non-super-admins with restricted unit access cannot create new units
+        if (session && !session.isSuperAdmin && session.allowedUnitIds.length > 0) {
+            return NextResponse.json({ error: "Only super admins can create new units" }, { status: 403 });
         }
 
         const { name, unitType, description, contactName, contactPhone, imageUrl, contactMemberIds } = await request.json();

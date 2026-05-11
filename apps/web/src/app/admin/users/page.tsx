@@ -39,6 +39,70 @@ const PERMISSIONS = [
 
 type PermissionKey = typeof PERMISSIONS[number]["key"];
 
+type RolePreset = {
+    key: string;
+    title: string;
+    subtitle: string;
+    permissions: Partial<Record<PermissionKey, boolean>>;
+    restrictUnits: boolean;
+    role: "admin" | "super_admin";
+};
+
+// Common scout leadership presets
+const ROLE_PRESETS: RolePreset[] = [
+    {
+        key: "ct",
+        title: "Unit Chef (CT / ACT / CM / ACM / CC / ACC)",
+        subtitle: "Manages activities, members, and details of their unit",
+        role: "admin",
+        restrictUnits: true,
+        permissions: {
+            canManageActivities: true,
+            canManageMembers: true,
+            canManageUnits: true,
+        },
+    },
+    {
+        key: "cg",
+        title: "Chef de Groupe (CG / ACG)",
+        subtitle: "Manages everything across all units",
+        role: "admin",
+        restrictUnits: false,
+        permissions: {
+            canManageActivities: true,
+            canManageMembers: true,
+            canManageUnits: true,
+            canManageGallery: true,
+            canManagePartners: true,
+            canManageSocialLinks: true,
+            canManageNews: true,
+            canViewSubmissions: true,
+            canManageSettings: true,
+        },
+    },
+    {
+        key: "comm",
+        title: "Communications team",
+        subtitle: "Gallery, news, partners, social only",
+        role: "admin",
+        restrictUnits: false,
+        permissions: {
+            canManageGallery: true,
+            canManageNews: true,
+            canManagePartners: true,
+            canManageSocialLinks: true,
+        },
+    },
+    {
+        key: "super",
+        title: "Super Admin",
+        subtitle: "Full access, can manage users",
+        role: "super_admin",
+        restrictUnits: false,
+        permissions: Object.fromEntries(PERMISSIONS.map(p => [p.key, true])) as Record<PermissionKey, boolean>,
+    },
+];
+
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
@@ -48,6 +112,7 @@ export default function AdminUsersPage() {
     const [error, setError] = useState("");
 
     // Form state for permissions
+    const [role, setRole] = useState<"admin" | "super_admin">("admin");
     const [permissions, setPermissions] = useState<Record<PermissionKey, boolean>>({
         canManageUnits: false, canManageMembers: false, canManageActivities: false,
         canManageGallery: false, canManagePartners: false, canManageSocialLinks: false,
@@ -55,6 +120,21 @@ export default function AdminUsersPage() {
     });
     const [allowedUnitIds, setAllowedUnitIds] = useState<string[]>([]);
     const [restrictUnits, setRestrictUnits] = useState(false);
+
+    function applyPreset(preset: RolePreset) {
+        const newPerms: Record<PermissionKey, boolean> = {
+            canManageUnits: false, canManageMembers: false, canManageActivities: false,
+            canManageGallery: false, canManagePartners: false, canManageSocialLinks: false,
+            canManageNews: false, canViewSubmissions: false, canManageSettings: false,
+        };
+        for (const k of Object.keys(preset.permissions) as PermissionKey[]) {
+            newPerms[k] = preset.permissions[k] === true;
+        }
+        setPermissions(newPerms);
+        setRole(preset.role);
+        setRestrictUnits(preset.restrictUnits);
+        if (!preset.restrictUnits) setAllowedUnitIds([]);
+    }
 
     async function fetchData() {
         const [uRes, unitsRes] = await Promise.all([
@@ -70,6 +150,7 @@ export default function AdminUsersPage() {
 
     function startCreate() {
         setEditing(null);
+        setRole("admin");
         setPermissions({
             canManageUnits: false, canManageMembers: false, canManageActivities: false,
             canManageGallery: false, canManagePartners: false, canManageSocialLinks: false,
@@ -82,6 +163,7 @@ export default function AdminUsersPage() {
 
     function startEdit(u: User) {
         setEditing(u);
+        setRole(u.role === "super_admin" ? "super_admin" : "admin");
         setPermissions({
             canManageUnits: u.canManageUnits,
             canManageMembers: u.canManageMembers,
@@ -106,7 +188,7 @@ export default function AdminUsersPage() {
         const body: Record<string, unknown> = {
             name: fd.get("name"),
             email: fd.get("email"),
-            role: fd.get("role"),
+            role,
             ...permissions,
             allowedUnitIds: restrictUnits ? allowedUnitIds : [],
         };
@@ -176,6 +258,27 @@ export default function AdminUsersPage() {
                         </button>
                     </div>
 
+                    {/* Quick presets */}
+                    <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 space-y-3">
+                        <div>
+                            <h3 className="text-sm font-bold">Quick role preset</h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">Pre-fills permissions for typical scout leadership roles. You can still tweak after applying.</p>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-2">
+                            {ROLE_PRESETS.map(p => (
+                                <button
+                                    key={p.key}
+                                    type="button"
+                                    onClick={() => applyPreset(p)}
+                                    className="text-left px-3 py-2 rounded-lg bg-background border hover:border-primary hover:bg-primary/5 transition-colors"
+                                >
+                                    <div className="text-sm font-bold">{p.title}</div>
+                                    <div className="text-xs text-muted-foreground">{p.subtitle}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="name">Name *</Label>
@@ -191,7 +294,13 @@ export default function AdminUsersPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="role">Role *</Label>
-                            <select id="role" name="role" defaultValue={editing?.role || "admin"} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                            <select
+                                id="role"
+                                value={role}
+                                onChange={(e) => setRole(e.target.value as "admin" | "super_admin")}
+                                required
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            >
                                 <option value="admin">Admin</option>
                                 <option value="super_admin">Super Admin</option>
                             </select>

@@ -1,15 +1,19 @@
 import { prisma } from "@/db";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession();
-        if (!isAdmin(session)) {
+        if (!hasPermission(session, "canManageUnits")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { id } = await params;
+        if (!canAccessUnit(session, id)) {
+            return NextResponse.json({ error: "Forbidden: not your unit" }, { status: 403 });
+        }
+
         const body = await request.json();
         const { name, unitType, description, contactName, contactPhone, imageUrl, contactMemberIds } = body;
 
@@ -26,7 +30,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                 },
             });
 
-            // Replace contacts if provided
             if (Array.isArray(contactMemberIds)) {
                 await tx.unitContact.deleteMany({ where: { unitId: id } });
                 if (contactMemberIds.length > 0) {
@@ -50,11 +53,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession();
-        if (!isAdmin(session)) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        // Only super admins can delete units
+        if (!session?.isSuperAdmin) {
+            return NextResponse.json({ error: "Only super admins can delete units" }, { status: 403 });
         }
 
         const { id } = await params;

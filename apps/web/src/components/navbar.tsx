@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "./ui/button";
 import { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Shield } from "lucide-react";
 
 const links = [
     { href: "/about", label: "About" },
@@ -13,9 +13,13 @@ const links = [
     { href: "/join", label: "Join Us" },
 ];
 
+type CurrentUser = { id: string; name: string; role: string } | null;
+
 export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
     const [open, setOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const [user, setUser] = useState<CurrentUser>(null);
+    const [authChecked, setAuthChecked] = useState(false);
     const pathname = usePathname();
     const src = logoUrl || "/logo.png";
 
@@ -25,6 +29,20 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
         window.addEventListener("scroll", onScroll, { passive: true });
         return () => window.removeEventListener("scroll", onScroll);
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/auth/me", { credentials: "same-origin" })
+            .then(r => r.ok ? r.json() : { user: null })
+            .then(d => { if (!cancelled) { setUser(d.user); setAuthChecked(true); } })
+            .catch(() => { if (!cancelled) setAuthChecked(true); });
+        return () => { cancelled = true; };
+    }, []);
+
+    const isAdmin = user && (user.role === "admin" || user.role === "super_admin");
+    const ctaHref = isAdmin ? "/admin" : "/login";
+    const ctaLabel = isAdmin ? "Admin" : "Login";
+    const ctaIcon = isAdmin ? <Shield className="w-3.5 h-3.5" /> : null;
 
     return (
         <nav className={`sticky top-0 z-50 backdrop-blur-xl transition-all duration-300 ${
@@ -58,8 +76,11 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
                             </Link>
                         );
                     })}
-                    <Link href="/login" className="ml-2">
-                        <Button size="sm" className="font-semibold shadow-sm shadow-primary/20 px-5 hover:shadow-md hover:shadow-primary/30 transition-all">Login</Button>
+                    <Link href={ctaHref} className="ml-2">
+                        <Button size="sm" className="font-semibold shadow-sm shadow-primary/20 px-5 hover:shadow-md hover:shadow-primary/30 transition-all gap-1.5">
+                            {ctaIcon}
+                            {authChecked ? ctaLabel : "Login"}
+                        </Button>
                     </Link>
                 </div>
 
@@ -88,8 +109,11 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
                                 </Link>
                             );
                         })}
-                        <Link href="/login" onClick={() => setOpen(false)} className="mt-2">
-                            <Button className="w-full font-semibold">Login</Button>
+                        <Link href={ctaHref} onClick={() => setOpen(false)} className="mt-2">
+                            <Button className="w-full font-semibold gap-1.5">
+                                {ctaIcon}
+                                {authChecked ? ctaLabel : "Login"}
+                            </Button>
                         </Link>
                     </div>
                 </div>

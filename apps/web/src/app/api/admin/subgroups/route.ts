@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { getSession, isAdmin, hasPermission } from "@/lib/auth";
+import { getSession, isAdmin, hasPermission, canAccessUnit } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -12,7 +12,13 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const unitId = searchParams.get("unitId");
 
-        const where = unitId ? { unitId } : {};
+        const where: Record<string, unknown> = {};
+        if (unitId) where.unitId = unitId;
+        if (session && !session.isSuperAdmin && session.allowedUnitIds.length > 0) {
+            where.unitId = unitId
+                ? (session.allowedUnitIds.includes(unitId) ? unitId : "__none__")
+                : { in: session.allowedUnitIds };
+        }
 
         const subgroups = await prisma.subgroup.findMany({
             where,
@@ -42,6 +48,10 @@ export async function POST(request: NextRequest) {
 
         if (!name || !unitId) {
             return NextResponse.json({ error: "Name and unit are required" }, { status: 400 });
+        }
+
+        if (!canAccessUnit(session, unitId)) {
+            return NextResponse.json({ error: "Forbidden: not your unit" }, { status: 403 });
         }
 
         const subgroup = await prisma.subgroup.create({

@@ -51,8 +51,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                         <span className="text-xs text-muted-foreground hidden sm:inline">
                             {session.isSuperAdmin ? "Super Admin" : "Admin"}: {session.name}
                         </span>
-                        <Link href="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                            View Site
+                        <Link
+                            href="/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        >
+                            View Site ↗
                         </Link>
                         <AdminLogout />
                     </div>
