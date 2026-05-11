@@ -31,6 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         if ("imageUrl" in body) data.imageUrl = body.imageUrl ?? null;
         if ("hidden" in body) data.hidden = body.hidden;
         if ("year" in body && body.year != null) data.year = body.year;
+        if ("totalDays" in body) data.totalDays = typeof body.totalDays === "number" ? body.totalDays : null;
         if ("unitId" in body && body.unitId) data.unit = { connect: { id: body.unitId } };
 
         const updated = await prisma.activity.update({ where: { id }, data });

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "./ui/button";
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
@@ -14,10 +13,11 @@ const links = [
     { href: "/join", label: "Join Us" },
 ];
 
-export function Navbar() {
+export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
     const [open, setOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const pathname = usePathname();
+    const src = logoUrl || "/logo.png";
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 8);
@@ -32,7 +32,8 @@ export function Navbar() {
         }`}>
             <div className="container mx-auto flex h-16 items-center justify-between px-4">
                 <Link href="/" className="flex items-center gap-2.5 transition-transform hover:scale-105">
-                    <Image src="/logo.png" alt="Group SHS Logo" width={40} height={40} priority className="w-10 h-10 object-contain" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="Group SHS Logo" width={40} height={40} className="w-10 h-10 object-contain" />
                     <div className="flex flex-col leading-none">
                         <span className="text-lg font-extrabold tracking-tight text-primary">Group SHS</span>
                         <span className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Scouts du Liban</span>

@@ -17,14 +17,16 @@ function formatDate(d: Date) {
 }
 
 export default async function NewsPage() {
-    const [articles, socialLinks] = await Promise.all([
+    const [articles, socialLinks, settings] = await Promise.all([
         prisma.newsArticle.findMany({ where: { published: true }, orderBy: { date: "desc" } }),
         prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
+        prisma.siteSettings.findUnique({ where: { id: "default" } }),
     ]);
+    const siteLogoUrl = settings?.logoUrl;
 
     return (
         <div className="min-h-screen flex flex-col font-sans">
-            <Navbar />
+            <Navbar logoUrl={siteLogoUrl} />
             <main className="flex-1">
                 {/* Hero */}
                 <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-emerald-800 text-white py-20 md:py-28">
@@ -95,7 +97,7 @@ export default async function NewsPage() {
                 </section>
             </main>
 
-            <Footer socialLinks={socialLinks} />
+            <Footer socialLinks={socialLinks} logoUrl={siteLogoUrl} />
         </div>
     );
 }

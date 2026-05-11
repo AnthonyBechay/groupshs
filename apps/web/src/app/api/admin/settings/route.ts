@@ -34,7 +34,7 @@ export async function PUT(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { groupFoundedYear, manualUnitCount, manualMemberCount } = body;
+        const { groupFoundedYear, manualUnitCount, manualMemberCount, logoUrl } = body;
 
         await getOrCreateSettings();
 
@@ -44,6 +44,7 @@ export async function PUT(request: NextRequest) {
                 groupFoundedYear: typeof groupFoundedYear === "number" ? groupFoundedYear : undefined,
                 manualUnitCount: manualUnitCount === null || typeof manualUnitCount === "number" ? manualUnitCount : undefined,
                 manualMemberCount: manualMemberCount === null || typeof manualMemberCount === "number" ? manualMemberCount : undefined,
+                logoUrl: "logoUrl" in body ? (logoUrl || null) : undefined,
             },
         });
 

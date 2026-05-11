@@ -28,6 +28,8 @@ export const ROLES_BY_UNIT_TYPE: Record<string, { value: string; label: string }
         { value: "CG", label: "CG (Chef de Groupe)" },
         { value: "ACG", label: "ACG (Assistant Chef de Groupe)" },
         { value: "EA", label: "EA (Equipe Administrative)" },
+        { value: "TR", label: "TR (Tresorier de Groupe)" },
+        { value: "SE", label: "SE (Secretaire de Groupe)" },
         { value: "CT", label: "CT (Chef Troupe)" },
         { value: "ACT", label: "ACT (Assistant Chef Troupe)" },
         { value: "CM", label: "CM (Cheftaine Meute)" },
@@ -42,15 +44,15 @@ export const ROLES_BY_UNIT_TYPE: Record<string, { value: string; label: string }
 export const SUBGROUP_LABEL_BY_UNIT_TYPE: Record<string, { singular: string; plural: string; lead: string; assistant: string }> = {
     LOUVETEAUX: { singular: "Sizaine", plural: "Sizaines", lead: "SI", assistant: "SE" },
     ECLAIREURS: { singular: "Patrouille", plural: "Patrouilles", lead: "CP", assistant: "SP" },
-    ROUTIERS:   { singular: "Equipe",    plural: "Equipes",    lead: "CE", assistant: "SE" },
-    GROUP:      { singular: "Group",     plural: "Groups",     lead: "Lead", assistant: "Asst" },
+    ROUTIERS: { singular: "Equipe", plural: "Equipes", lead: "CE", assistant: "SE" },
+    GROUP: { singular: "Group", plural: "Groups", lead: "Lead", assistant: "Asst" },
 };
 
 export const UNIT_CONTAINER_NAME: Record<string, string> = {
     LOUVETEAUX: "Meute",
     ECLAIREURS: "Troupe",
-    ROUTIERS:   "Clan",
-    GROUP:      "Group",
+    ROUTIERS: "Clan",
+    GROUP: "Group",
 };
 
 export const PROGRESSION_BY_UNIT_TYPE: Record<string, { value: string; label: string }[]> = {

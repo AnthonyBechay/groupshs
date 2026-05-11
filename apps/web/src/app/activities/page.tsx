@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ActivitiesPage() {
-    const [units, allActivities, socialLinks] = await Promise.all([
+    const [units, allActivities, socialLinks, settings] = await Promise.all([
         prisma.unit.findMany({
             include: { activities: { where: { hidden: false } } },
             orderBy: { name: "asc" },
@@ -25,7 +25,9 @@ export default async function ActivitiesPage() {
             orderBy: { startDate: "desc" },
         }),
         prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
+        prisma.siteSettings.findUnique({ where: { id: "default" } }),
     ]);
+    const siteLogoUrl = settings?.logoUrl;
 
     const now = new Date();
     const upcomingCount = allActivities.filter(a => {
@@ -35,7 +37,7 @@ export default async function ActivitiesPage() {
 
     return (
         <div className="min-h-screen flex flex-col font-sans">
-            <Navbar />
+            <Navbar logoUrl={siteLogoUrl} />
             <main className="flex-1">
                 {/* Hero */}
                 <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-emerald-800 text-white py-20 md:py-32">
@@ -125,7 +127,7 @@ export default async function ActivitiesPage() {
                 </section>
             </main>
 
-            <Footer socialLinks={socialLinks} />
+            <Footer socialLinks={socialLinks} logoUrl={siteLogoUrl} />
         </div>
     );
 }

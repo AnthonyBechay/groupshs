@@ -1,20 +1,17 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 
 export function AdminLogout() {
-    const router = useRouter();
-
     async function handleLogout() {
         await fetch("/api/auth/logout", { method: "POST" });
-        router.push("/login");
-        router.refresh();
+        window.location.href = "/login";
     }
 
     return (
-        <Button variant="ghost" size="sm" onClick={handleLogout}>
-            Logout
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
+            <LogOut className="w-4 h-4" /> Logout
         </Button>
     );
 }

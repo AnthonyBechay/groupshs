@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Trash2, Plus, Pencil, Upload, X, Eye, EyeOff, MapPin, Filter, Search } from "lucide-react";
+import { Trash2, Plus, Pencil, Upload, X, Eye, EyeOff, MapPin, Filter, Search, ClipboardCheck } from "lucide-react";
+import Link from "next/link";
 import { ACTIVITY_TYPES } from "@/lib/scout-config";
 
 type Unit = { id: string; name: string; unitType: string };
@@ -30,6 +31,7 @@ type Activity = {
     isUpcoming: boolean;
     hidden: boolean;
     year: number;
+    totalDays: number | null;
 };
 
 type DateFilter = "this-year" | "all" | "upcoming" | "past" | number;
@@ -134,6 +136,7 @@ export default function AdminActivitiesPage() {
             imageUrl,
             hidden: fd.get("hidden") === "on",
             year: parseInt(fd.get("year") as string),
+            totalDays: fd.get("totalDays") ? parseInt(fd.get("totalDays") as string) : null,
         };
 
         if (editing) {
@@ -286,6 +289,10 @@ export default function AdminActivitiesPage() {
                             <Input id="year" name="year" type="number" defaultValue={editing?.year || currentYear} required />
                         </div>
                         <div className="space-y-2">
+                            <Label htmlFor="totalDays">Total days (for partial attendance)</Label>
+                            <Input id="totalDays" name="totalDays" type="number" min="1" defaultValue={editing?.totalDays || ""} placeholder="e.g. 3" />
+                        </div>
+                        <div className="space-y-2">
                             <Label htmlFor="dropoffTime">Dropoff Time (Start)</Label>
                             <Input id="dropoffTime" name="dropoffTime" type="time" defaultValue={editing?.dropoffTime || ""} />
                         </div>
@@ -423,6 +430,9 @@ export default function AdminActivitiesPage() {
                                     </div>
                                 </td>
                                 <td className="p-3 text-right whitespace-nowrap">
+                                    <Link href={`/admin/activities/${a.id}/attendance`} title="Attendance">
+                                        <Button variant="ghost" size="sm" className="text-primary hover:text-primary"><ClipboardCheck className="w-4 h-4" /></Button>
+                                    </Link>
                                     <Button variant="ghost" size="sm" onClick={() => toggleHidden(a)} title={a.hidden ? "Show on site" : "Hide from site"}>
                                         {a.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                                     </Button>

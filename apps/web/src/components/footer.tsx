@@ -8,14 +8,16 @@ type SocialLink = {
     url: string;
 };
 
-export function Footer({ socialLinks = [] }: { socialLinks?: SocialLink[] }) {
+export function Footer({ socialLinks = [], logoUrl }: { socialLinks?: SocialLink[]; logoUrl?: string | null }) {
+    const src = logoUrl || "/logo.png";
     return (
         <footer className="bg-gradient-to-b from-card to-muted/30 border-t">
             <div className="container mx-auto px-4">
                 <div className="grid md:grid-cols-4 gap-10 py-16">
                     <div className="md:col-span-2">
                         <div className="flex items-center gap-2.5 mb-4">
-                            <Image src="/logo.png" alt="Logo" width={36} height={36} className="w-9 h-9 object-contain" />
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={src} alt="Logo" width={36} height={36} className="w-9 h-9 object-contain" />
                             <div>
                                 <h4 className="text-lg font-extrabold text-primary leading-none">Group SHS</h4>
                                 <span className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Scouts du Liban</span>

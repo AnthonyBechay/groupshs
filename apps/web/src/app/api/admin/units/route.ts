@@ -1,16 +1,24 @@
 import { prisma } from "@/db";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin" && session.role !== "super_admin") {
+        if (!isAdmin(session)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const units = await prisma.unit.findMany({
-            include: { _count: { select: { members: true, activities: true } } },
+            include: {
+                _count: { select: { members: true, activities: true } },
+                contacts: {
+                    include: {
+                        member: { select: { id: true, firstName: true, lastName: true, phone: true, role: true, photoUrl: true } },
+                    },
+                    orderBy: { sortOrder: "asc" },
+                },
+            },
             orderBy: { name: "asc" },
         });
 
@@ -24,11 +32,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin" && session.role !== "super_admin") {
+        if (!isAdmin(session)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { name, unitType, description, contactName, contactPhone, imageUrl } = await request.json();
+        const { name, unitType, description, contactName, contactPhone, imageUrl, contactMemberIds } = await request.json();
 
         if (!name || !unitType) {
             return NextResponse.json({ error: "Name and unit type are required" }, { status: 400 });
@@ -47,6 +55,14 @@ export async function POST(request: NextRequest) {
                 contactName: contactName || null,
                 contactPhone: contactPhone || null,
                 imageUrl: imageUrl || null,
+                contacts: Array.isArray(contactMemberIds) && contactMemberIds.length > 0
+                    ? {
+                        create: contactMemberIds.map((memberId: string, i: number) => ({
+                            memberId,
+                            sortOrder: i,
+                        })),
+                    }
+                    : undefined,
             },
         });
         return NextResponse.json(unit);

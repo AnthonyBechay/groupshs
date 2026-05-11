@@ -146,13 +146,8 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
             return;
         }
 
-        const saved = await res.json();
-        if (!isEditing) {
-            router.replace(`/admin/members/${saved.id}`);
-        } else {
-            router.refresh();
-            setSaving(false);
-        }
+        // Always go back to the members list after a successful save
+        router.push("/admin/members");
     }
 
     async function addSibling(form: { name: string; schoolClass: string; unitName: string }) {

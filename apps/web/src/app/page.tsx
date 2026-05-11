@@ -64,10 +64,11 @@ export default async function Home() {
   const yearsStrong = currentYear - groupFoundedYear;
   const displayedUnitCount = settings?.manualUnitCount ?? unitCount;
   const displayedMemberCount = settings?.manualMemberCount ?? memberCount;
+  const siteLogoUrl = settings?.logoUrl;
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
-      <Navbar />
+      <Navbar logoUrl={siteLogoUrl} />
       <main className="flex-1">
         {/* ═══ Hero ═══ */}
         <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-emerald-800 text-white pt-28 pb-32 lg:pt-36 lg:pb-44">
@@ -411,7 +412,7 @@ export default async function Home() {
         </section>
       </main>
 
-      <Footer socialLinks={socialLinks} />
+      <Footer socialLinks={socialLinks} logoUrl={siteLogoUrl} />
     </div>
   );
 }

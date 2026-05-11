@@ -73,11 +73,29 @@ model Unit {
   members    Member[]
   activities Activity[]
   subgroups  Subgroup[]
+  contacts   UnitContact[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("unit")
+}
+
+// Multiple contact people (members) per unit
+model UnitContact {
+  id        String @id @default(uuid())
+  unitId    String @map("unit_id")
+  unit      Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  memberId  String @map("member_id")
+  member    Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sortOrder Int    @default(0) @map("sort_order")
+  role      String? // optional override label e.g. "Cheftaine Principale"
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([unitId, memberId])
+  @@map("unit_contact")
+  @@index([unitId])
 }
 
 // Sizaine (Louveteaux) / Patrouille (Eclaireurs) / Equipe (Routiers)
@@ -173,6 +191,8 @@ model Member {
   groupSiblings GroupSibling[]
   medications   MemberMedication[]
   moves         MemberMove[]
+  unitContacts  UnitContact[]
+  attendance    ActivityAttendance[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -270,10 +290,42 @@ model Activity {
   hidden     Boolean  @default(false)                     // hide from public site
   year       Int
 
+  totalDays  Int? @map("total_days") // for partial-attendance computation
+
+  attendance ActivityAttendance[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("activity")
+}
+
+// Per-member attendance for an activity (pre + post)
+model ActivityAttendance {
+  id         String   @id @default(uuid())
+  activityId String   @map("activity_id")
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  memberId   String   @map("member_id")
+  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  // Pre-activity (confirmation)
+  confirmation       String? // CONFIRMED, NOT_COMING, PENDING, PARTIAL
+  confirmationDays   Int?    @map("confirmation_days")    // when PARTIAL
+  confirmationReason String? @map("confirmation_reason")  // when NOT_COMING
+  confirmationNote   String? @map("confirmation_note")
+
+  // Post-activity (actual)
+  attended       String? // FULLY, NOT_AT_ALL, PARTIAL
+  attendedDays   Int?    @map("attended_days") // when PARTIAL
+  attendanceNote String? @map("attendance_note")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([activityId, memberId])
+  @@index([activityId])
+  @@index([memberId])
+  @@map("activity_attendance")
 }
 
 // ─── Site Settings (singleton) ───────────────────────────────────────────────
@@ -283,6 +335,7 @@ model SiteSettings {
   groupFoundedYear   Int     @default(2014) @map("group_founded_year")
   manualUnitCount    Int?    @map("manual_unit_count")    // null = use computed count
   manualMemberCount  Int?    @map("manual_member_count")  // null = use computed count
+  logoUrl            String? @map("logo_url")
 
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 

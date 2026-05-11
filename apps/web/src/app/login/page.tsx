@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Shield } from "lucide-react";
 
 export default function LoginPage() {
@@ -13,13 +12,11 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const router = useRouter();
     const submittingRef = useRef(false);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
-        // Prevent double-submit
         if (submittingRef.current) return;
         submittingRef.current = true;
         setLoading(true);
@@ -30,19 +27,19 @@ export default function LoginPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
+                credentials: "same-origin",
             });
 
             if (!res.ok) {
-                const data = await res.json();
+                const data = await res.json().catch(() => ({}));
                 setError(data.error || "Invalid credentials");
                 setLoading(false);
                 submittingRef.current = false;
                 return;
             }
 
-            // Small delay to ensure cookie is set before navigation
-            await new Promise((r) => setTimeout(r, 100));
-            router.push("/admin");
+            // Hard navigation guarantees the new cookie is picked up by the next request
+            window.location.href = "/admin";
         } catch {
             setError("Something went wrong");
             setLoading(false);
