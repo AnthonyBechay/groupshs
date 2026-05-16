@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { firstName, lastName, dateOfBirth, phone, role, progression, unitId, subgroupId, joinedAt } = body;
+        const { firstName, lastName, dateOfBirth, phone, role, progressions, unitId, subgroupId, joinedAt } = body;
 
         if (!firstName || !lastName || !unitId) {
             return NextResponse.json({ error: "First name, last name, and unit are required" }, { status: 400 });
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
             dateOfBirth: dateOfBirth || null,
             phone: phone || null,
             role: role || null,
-            progression: progression || null,
+            progressions: Array.isArray(progressions) ? progressions : [],
             unitId,
             subgroupId: subgroupId || null,
             joinedAt: joinedAt ? new Date(joinedAt) : new Date(),

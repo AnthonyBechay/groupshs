@@ -2,10 +2,10 @@ export const UNIT_TYPES = ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS", "GROUP"] as c
 
 export const ACTIVITY_TYPES = [
     { value: "CAMP", label: "Camp" },
-    { value: "JOURNEE", label: "Journee" },
-    { value: "TEMPS", label: "Temps" },
-    { value: "MARCHE", label: "Marche" },
-    { value: "OTHER", label: "Autre" },
+    { value: "JOURNEE", label: "Day out" },
+    { value: "TEMPS", label: "Meeting" },
+    { value: "MARCHE", label: "Hike" },
+    { value: "OTHER", label: "Other" },
 ] as const;
 
 export const ROLES_BY_UNIT_TYPE: Record<string, { value: string; label: string }[]> = {
@@ -70,8 +70,18 @@ export const PROGRESSION_BY_UNIT_TYPE: Record<string, { value: string; label: st
     ],
     ROUTIERS: [
         { value: "Routier", label: "Routier" },
-        { value: "PremiereVeille", label: "PremiereVeille" },
+        { value: "PremiereVeille", label: "Premiere Veille" },
         { value: "Depart", label: "Depart" },
     ],
-    GROUP: [{ value: "Depart", label: "Depart" },],
+    GROUP: [{ value: "Depart", label: "Depart" }],
 };
+
+// Look up a label for any progression value across all unit types
+export function progressionLabel(value: string): string {
+    for (const list of Object.values(PROGRESSION_BY_UNIT_TYPE)) {
+        const m = list.find(p => p.value === value);
+        if (m) return m.label;
+    }
+    // Fallback: humanize the raw value
+    return value.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}

@@ -1,8 +1,7 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { Tent, Compass, TreePine, Mountain, Sparkles } from "lucide-react";
+import { Compass, Sparkles } from "lucide-react";
 import { Metadata } from "next";
-import Link from "next/link";
 import { prisma } from "@/db";
 import { UnitTabs } from "./unit-tabs";
 
@@ -16,7 +15,15 @@ export const metadata: Metadata = {
 export default async function ActivitiesPage() {
     const [units, allActivities, socialLinks, settings] = await Promise.all([
         prisma.unit.findMany({
-            include: { activities: { where: { hidden: false } } },
+            include: {
+                activities: { where: { hidden: false } },
+                contacts: {
+                    include: {
+                        member: { select: { firstName: true, lastName: true, phone: true, role: true, photoUrl: true } },
+                    },
+                    orderBy: { sortOrder: "asc" },
+                },
+            },
             orderBy: { name: "asc" },
         }),
         prisma.activity.findMany({
@@ -49,7 +56,7 @@ export default async function ActivitiesPage() {
                     <div className="container mx-auto px-4 relative z-10 text-center">
                         <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-6">
                             <Compass className="w-4 h-4 mr-2 text-scout-gold" />
-                            <span className="text-white/90">Camps, Marches, Journees & More</span>
+                            <span className="text-white/90">Camps, Hikes, Day Outs & More</span>
                         </div>
                         <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.05]">
                             Our <span className="bg-gradient-to-r from-scout-gold via-yellow-300 to-scout-gold bg-clip-text text-transparent">Activities</span>
@@ -69,39 +76,23 @@ export default async function ActivitiesPage() {
                     </div>
                 </section>
 
-                {/* Unit Cards */}
-                <section className="py-14 border-b bg-gradient-to-b from-background to-muted/20">
-                    <div className="container mx-auto px-4">
-                        <div className="text-center mb-8">
-                            <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-2">Filter</span>
-                            <h2 className="text-2xl font-extrabold">Browse by Unit</h2>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
-                            {units.map(unit => {
-                                const iconMap: Record<string, typeof Tent> = { LOUVETEAUX: TreePine, ECLAIREURS: Compass, ROUTIERS: Mountain };
-                                const Icon = iconMap[unit.unitType] || Tent;
-                                return (
-                                    <Link key={unit.id} href={`/units/${unit.id}`} className="group">
-                                        <div className="flex items-center gap-3 p-4 rounded-2xl border bg-card hover:bg-primary hover:text-white hover:border-primary hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 hover:-translate-y-0.5">
-                                            <div className="w-11 h-11 rounded-xl bg-primary/10 group-hover:bg-white/10 flex items-center justify-center shrink-0 transition-colors">
-                                                <Icon className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="font-bold text-sm truncate">{unit.name}</div>
-                                                <div className="text-xs text-muted-foreground group-hover:text-white/80 transition-colors">{unit.activities.length} activities</div>
-                                            </div>
-                                        </div>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </section>
-
-                {/* Activities */}
-                <section className="py-16 md:py-24 container mx-auto px-4">
+                {/* Activities + Unit filter */}
+                <section className="py-12 md:py-16 container mx-auto px-4">
                     <UnitTabs
-                        units={units.map(u => ({ id: u.id, name: u.name, unitType: u.unitType }))}
+                        units={units.map(u => ({
+                            id: u.id,
+                            name: u.name,
+                            unitType: u.unitType,
+                            description: u.description,
+                            imageUrl: u.imageUrl,
+                            contacts: u.contacts.map(c => ({
+                                firstName: c.member.firstName,
+                                lastName: c.member.lastName,
+                                phone: c.member.phone,
+                                role: c.member.role,
+                                photoUrl: c.member.photoUrl,
+                            })),
+                        }))}
                         activities={allActivities.map(a => ({
                             id: a.id,
                             title: a.title,
@@ -127,7 +118,14 @@ export default async function ActivitiesPage() {
                 </section>
             </main>
 
-            <Footer socialLinks={socialLinks} logoUrl={siteLogoUrl} />
+            <Footer
+                socialLinks={socialLinks}
+                logoUrl={siteLogoUrl}
+                description={settings?.footerDescription}
+                address={settings?.footerAddress}
+                phone={settings?.footerPhone}
+                email={settings?.footerEmail}
+            />
         </div>
     );
 }

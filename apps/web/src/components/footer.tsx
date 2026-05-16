@@ -8,8 +8,34 @@ type SocialLink = {
     url: string;
 };
 
-export function Footer({ socialLinks = [], logoUrl }: { socialLinks?: SocialLink[]; logoUrl?: string | null }) {
+type FooterProps = {
+    socialLinks?: SocialLink[];
+    logoUrl?: string | null;
+    description?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+};
+
+const DEFAULT_DESCRIPTION = "Official website of Les Scouts du Liban group at Sagesse High School, Ain Saade. Fostering the next generation of leaders.";
+const DEFAULT_ADDRESS = "Ain Saade, Metn, Lebanon";
+const DEFAULT_PHONE = "CG Johnny Saad - 71 297 333";
+const DEFAULT_EMAIL = "info@groupshs.org";
+
+export function Footer({
+    socialLinks = [],
+    logoUrl,
+    description,
+    address,
+    phone,
+    email,
+}: FooterProps) {
     const src = logoUrl || "/logo.png";
+    const desc = description || DEFAULT_DESCRIPTION;
+    const addr = address || DEFAULT_ADDRESS;
+    const ph = phone || DEFAULT_PHONE;
+    const em = email || DEFAULT_EMAIL;
+
     return (
         <footer className="bg-gradient-to-b from-card to-muted/30 border-t">
             <div className="container mx-auto px-4">
@@ -17,15 +43,14 @@ export function Footer({ socialLinks = [], logoUrl }: { socialLinks?: SocialLink
                     <div className="md:col-span-2">
                         <div className="flex items-center gap-2.5 mb-4">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={src} alt="Logo" width={36} height={36} className="w-9 h-9 object-contain" />
+                            <img src={src} alt="Logo" width={36} height={36} className="w-9 h-9 object-contain" style={{ background: "transparent" }} />
                             <div>
                                 <h4 className="text-lg font-extrabold text-primary leading-none">Group SHS</h4>
                                 <span className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Scouts du Liban</span>
                             </div>
                         </div>
-                        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-6">
-                            Official website of Les Scouts du Liban group at Sagesse High School, Ain Saade.
-                            Fostering the next generation of leaders since the heart of Metn.
+                        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-6 whitespace-pre-line">
+                            {desc}
                         </p>
                         {socialLinks.length > 0 && (
                             <div className="flex items-center gap-2">
@@ -56,9 +81,9 @@ export function Footer({ socialLinks = [], logoUrl }: { socialLinks?: SocialLink
                     <div>
                         <h4 className="font-bold mb-4 text-sm uppercase tracking-wider">Contact</h4>
                         <ul className="space-y-2.5 text-sm text-muted-foreground">
-                            <li>Ain Saade, Metn, Lebanon</li>
-                            <li>CG Johnny Saad - 71 297 333</li>
-                            <li>info@groupshs.org</li>
+                            <li>{addr}</li>
+                            <li>{ph}</li>
+                            <li><a href={`mailto:${em}`} className="hover:text-primary transition-colors">{em}</a></li>
                         </ul>
                     </div>
                 </div>

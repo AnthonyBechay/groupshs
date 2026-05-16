@@ -17,7 +17,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
 
         const body = await request.json();
-        const { toUnitId, toSubgroupId, toRole, toProgression, moveDate, notes } = body;
+        const { toUnitId, toSubgroupId, toRole, toProgressions, moveDate, notes } = body;
+        const sameArr = (a: string[], b: string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 
         if (toUnitId && !canAccessUnit(session, toUnitId)) {
             return NextResponse.json({ error: "Forbidden: target unit not allowed" }, { status: 403 });
@@ -29,7 +30,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             moveDataDiff.fromUnitId = existing.unitId;
             moveDataDiff.toUnitId = toUnitId;
             memberPatch.unitId = toUnitId;
-            // Clear subgroup if moving to a different unit unless explicitly set
             if (!("toSubgroupId" in body)) memberPatch.subgroupId = null;
         }
         if ("toSubgroupId" in body && (toSubgroupId || null) !== (existing.subgroupId || null)) {
@@ -42,10 +42,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             moveDataDiff.toRole = toRole || null;
             memberPatch.role = toRole || null;
         }
-        if ("toProgression" in body && (toProgression || null) !== (existing.progression || null)) {
-            moveDataDiff.fromProgression = existing.progression;
-            moveDataDiff.toProgression = toProgression || null;
-            memberPatch.progression = toProgression || null;
+        if ("toProgressions" in body) {
+            const next: string[] = Array.isArray(toProgressions) ? toProgressions : [];
+            if (!sameArr(existing.progressions || [], next)) {
+                moveDataDiff.fromProgression = existing.progressions || [];
+                moveDataDiff.toProgression = next;
+                memberPatch.progressions = next;
+            }
         }
 
         if (Object.keys(moveDataDiff).length === 0) {

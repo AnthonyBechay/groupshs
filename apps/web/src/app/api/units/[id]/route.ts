@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                     orderBy: { startDate: "desc" },
                 },
                 members: {
-                    select: { id: true, firstName: true, lastName: true, role: true, progression: true },
+                    select: { id: true, firstName: true, lastName: true, role: true, progressions: true },
                     orderBy: { firstName: "asc" },
                 },
             },

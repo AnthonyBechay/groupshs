@@ -3,7 +3,7 @@
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME } from "./scout-config";
+import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, progressionLabel } from "./scout-config";
 
 type ExportMember = {
     id: string;
@@ -14,7 +14,7 @@ type ExportMember = {
     email?: string | null;
     bloodType?: string | null;
     role?: string | null;
-    progression?: string | null;
+    progressions?: string[];
     subgroup?: { name: string } | null;
     city?: string | null;
     fatherName?: string | null;
@@ -38,7 +38,7 @@ export function exportMembersToExcel(unit: Unit, members: ExportMember[]) {
         "Last Name": m.lastName,
         "Date of Birth": m.dateOfBirth || "",
         "Role": m.role || "",
-        "Progression": m.progression || "",
+        "Progression": (m.progressions || []).map(progressionLabel).join(", "),
         "Sub-group": m.subgroup?.name || "",
         "Phone": m.phone || "",
         "Email": m.email || "",
@@ -127,7 +127,7 @@ export function exportMembersToPDF(unit: Unit, subgroups: Subgroup[], members: E
                 ...sorted.map(m => [
                     `${m.firstName} ${m.lastName}`,
                     m.role || "-",
-                    m.progression || "-",
+                    (m.progressions || []).map(progressionLabel).join(", ") || "-",
                     m.dateOfBirth || "-",
                     m.phone || "-",
                 ]),

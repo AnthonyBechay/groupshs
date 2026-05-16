@@ -278,11 +278,11 @@ export default function AdminActivitiesPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="startDate">Start Date *</Label>
-                            <Input id="startDate" name="startDate" type="datetime-local" defaultValue={editing ? new Date(editing.startDate).toISOString().slice(0, 16) : ""} required />
+                            <Input id="startDate" name="startDate" type="date" defaultValue={editing ? new Date(editing.startDate).toISOString().slice(0, 10) : ""} required />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="endDate">End Date</Label>
-                            <Input id="endDate" name="endDate" type="datetime-local" defaultValue={editing?.endDate ? new Date(editing.endDate).toISOString().slice(0, 16) : ""} />
+                            <Input id="endDate" name="endDate" type="date" defaultValue={editing?.endDate ? new Date(editing.endDate).toISOString().slice(0, 10) : ""} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="year">Year *</Label>

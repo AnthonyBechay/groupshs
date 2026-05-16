@@ -189,7 +189,14 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
                 </section>
             </main>
 
-            <Footer socialLinks={socialLinks} logoUrl={siteLogoUrl} />
+            <Footer
+                socialLinks={socialLinks}
+                logoUrl={siteLogoUrl}
+                description={settings?.footerDescription}
+                address={settings?.footerAddress}
+                phone={settings?.footerPhone}
+                email={settings?.footerEmail}
+            />
         </div>
     );
 }

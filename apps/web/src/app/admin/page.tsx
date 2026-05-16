@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Calendar, FileText, Shield, UserCheck, ImageIcon, Handshake, Share2, Settings, Newspaper } from "lucide-react";
+import { Users, Calendar, FileText, Shield, UserCheck, ImageIcon, Handshake, Share2, Settings, Newspaper, History } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -18,7 +18,8 @@ export default async function AdminPage() {
         { href: "/admin/social-links", icon: Share2, title: "Social Media", desc: "Manage social media links", show: p.canManageSocialLinks },
         { href: "/admin/news", icon: Newspaper, title: "News", desc: "Publish news and announcements", show: p.canManageNews },
         { href: "/admin/submissions", icon: FileText, title: "Submissions", desc: "View recruitment form submissions", show: p.canViewSubmissions },
-        { href: "/admin/settings", icon: Settings, title: "Settings", desc: "Group founding year, manual stats", show: p.canManageSettings },
+        { href: "/admin/about", icon: History, title: "About Us", desc: "Edit the timeline / archives shown publicly", show: p.canManageSettings },
+        { href: "/admin/settings", icon: Settings, title: "Settings", desc: "Branding, footer, stats, About intro", show: p.canManageSettings },
         { href: "/admin/users", icon: Users, title: "Users", desc: "Manage admin accounts and permissions", show: session.isSuperAdmin },
     ].filter(c => c.show);
 

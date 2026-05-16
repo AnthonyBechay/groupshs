@@ -64,31 +64,36 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
+        const sameArr = (a: string[], b: string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+
         // Detect move-worthy changes (unit, subgroup, role, progression)
         const moveData: Record<string, unknown> = {};
-        const moves: { from: unknown; to: unknown; field: string }[] = [];
+        const moves: string[] = [];
         if ("unitId" in body && body.unitId && body.unitId !== existing.unitId) {
             if (!canAccessUnit(session, body.unitId)) {
                 return NextResponse.json({ error: "Forbidden: target unit not allowed" }, { status: 403 });
             }
             moveData.fromUnitId = existing.unitId;
             moveData.toUnitId = body.unitId;
-            moves.push({ from: existing.unitId, to: body.unitId, field: "unit" });
+            moves.push("unit");
         }
         if ("subgroupId" in body && (body.subgroupId || null) !== (existing.subgroupId || null)) {
             moveData.fromSubgroupId = existing.subgroupId;
             moveData.toSubgroupId = body.subgroupId || null;
-            moves.push({ from: existing.subgroupId, to: body.subgroupId, field: "subgroup" });
+            moves.push("subgroup");
         }
         if ("role" in body && (body.role || null) !== (existing.role || null)) {
             moveData.fromRole = existing.role;
             moveData.toRole = body.role || null;
-            moves.push({ from: existing.role, to: body.role, field: "role" });
+            moves.push("role");
         }
-        if ("progression" in body && (body.progression || null) !== (existing.progression || null)) {
-            moveData.fromProgression = existing.progression;
-            moveData.toProgression = body.progression || null;
-            moves.push({ from: existing.progression, to: body.progression, field: "progression" });
+        if ("progressions" in body) {
+            const next: string[] = Array.isArray(body.progressions) ? body.progressions : [];
+            if (!sameArr(existing.progressions || [], next)) {
+                moveData.fromProgression = existing.progressions || [];
+                moveData.toProgression = next;
+                moves.push("progression");
+            }
         }
 
         const data: Record<string, unknown> = {};
@@ -97,7 +102,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         if ("dateOfBirth" in body) data.dateOfBirth = body.dateOfBirth || null;
         if ("phone" in body) data.phone = body.phone || null;
         if ("role" in body) data.role = body.role || null;
-        if ("progression" in body) data.progression = body.progression || null;
+        if ("progressions" in body) data.progressions = Array.isArray(body.progressions) ? body.progressions : [];
         if ("unitId" in body && body.unitId) data.unitId = body.unitId;
         if ("subgroupId" in body) data.subgroupId = body.subgroupId || null;
         if ("joinedAt" in body && body.joinedAt) data.joinedAt = new Date(body.joinedAt);

@@ -127,7 +127,7 @@ model Member {
   email       String?
   bloodType   String?  @map("blood_type")
   role        String?
-  progression String?
+  progressions String[] @default([])
   joinedAt    DateTime @default(now()) @map("joined_at")
 
   unitId String @map("unit_id")
@@ -248,8 +248,8 @@ model MemberMove {
   toSubgroupId   String? @map("to_subgroup_id")
   fromRole       String? @map("from_role")
   toRole         String? @map("to_role")
-  fromProgression String? @map("from_progression")
-  toProgression   String? @map("to_progression")
+  fromProgression String[] @default([]) @map("from_progression")
+  toProgression   String[] @default([]) @map("to_progression")
 
   moveDate DateTime @default(now()) @map("move_date")
   notes    String?
@@ -333,13 +333,41 @@ model ActivityAttendance {
 model SiteSettings {
   id                 String  @id @default("default")
   groupFoundedYear   Int     @default(2014) @map("group_founded_year")
-  manualUnitCount    Int?    @map("manual_unit_count")    // null = use computed count
-  manualMemberCount  Int?    @map("manual_member_count")  // null = use computed count
+  manualUnitCount    Int?    @map("manual_unit_count")
+  manualMemberCount  Int?    @map("manual_member_count")
   logoUrl            String? @map("logo_url")
+
+  // Footer
+  footerDescription String? @map("footer_description")
+  footerAddress     String? @map("footer_address")
+  footerPhone       String? @map("footer_phone")
+  footerEmail       String? @map("footer_email")
+
+  // About page hero
+  aboutTitle    String? @map("about_title")
+  aboutSubtitle String? @map("about_subtitle")
+  aboutIntro    String? @map("about_intro")
+  aboutMission  String? @map("about_mission")
 
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("site_settings")
+}
+
+// Timeline / archive entries for the About page
+model AboutSection {
+  id          String  @id @default(uuid())
+  year        Int?
+  dateLabel   String? @map("date_label")
+  title       String
+  description String?
+  imageUrl    String? @map("image_url")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("about_section")
 }
 
 // ─── News ────────────────────────────────────────────────────────────────────

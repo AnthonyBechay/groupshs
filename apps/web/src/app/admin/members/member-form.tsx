@@ -7,7 +7,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, Trash2, Plus, ChevronDown, History, Upload, X } from "lucide-react";
 import Link from "next/link";
-import { ROLES_BY_UNIT_TYPE, PROGRESSION_BY_UNIT_TYPE } from "@/lib/scout-config";
+import { ROLES_BY_UNIT_TYPE, PROGRESSION_BY_UNIT_TYPE, progressionLabel } from "@/lib/scout-config";
 
 type Unit = { id: string; name: string; unitType: string };
 type Subgroup = { id: string; name: string; unitId: string };
@@ -18,7 +18,7 @@ type Move = {
     fromUnitId: string | null; toUnitId: string | null;
     fromSubgroupId: string | null; toSubgroupId: string | null;
     fromRole: string | null; toRole: string | null;
-    fromProgression: string | null; toProgression: string | null;
+    fromProgression: string[]; toProgression: string[];
     moveDate: string;
     notes: string | null;
 };
@@ -33,7 +33,7 @@ export type MemberFormData = {
     email?: string | null;
     bloodType?: string | null;
     role?: string | null;
-    progression?: string | null;
+    progressions?: string[];
     unitId?: string;
     subgroupId?: string | null;
     photoUrl?: string | null;
@@ -92,7 +92,14 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
     const isEditing = !!initialData.id;
     const currentUnit = units.find(u => u.id === data.unitId);
     const roles = ROLES_BY_UNIT_TYPE[currentUnit?.unitType || ""] || [];
-    const progressions = PROGRESSION_BY_UNIT_TYPE[currentUnit?.unitType || ""] || [];
+    const progressionOptions = PROGRESSION_BY_UNIT_TYPE[currentUnit?.unitType || ""] || [];
+    const selectedProgressions: string[] = data.progressions || [];
+    function toggleProgression(value: string) {
+        const next = selectedProgressions.includes(value)
+            ? selectedProgressions.filter(p => p !== value)
+            : [...selectedProgressions, value];
+        set("progressions", next);
+    }
     const unitSubgroups = subgroups.filter(s => s.unitId === data.unitId);
 
     function set<K extends keyof MemberFormData>(key: K, val: MemberFormData[K]) {
@@ -310,19 +317,34 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
                                 {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                             </select>
                         </Field>
-                        {progressions.length > 0 && (
-                            <Field label="Progression">
-                                <select
-                                    value={data.progression || ""}
-                                    onChange={e => set("progression", e.target.value || null)}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                >
-                                    <option value="">None</option>
-                                    {progressions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                                </select>
-                            </Field>
-                        )}
                     </Grid>
+                    {progressionOptions.length > 0 && (
+                        <div className="space-y-2 mt-4">
+                            <Label>Progressions earned (select all that apply)</Label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                {progressionOptions.map(p => {
+                                    const active = selectedProgressions.includes(p.value);
+                                    return (
+                                        <button
+                                            key={p.value}
+                                            type="button"
+                                            onClick={() => toggleProgression(p.value)}
+                                            className={`px-3 py-2 rounded-lg border text-sm text-left transition-colors ${
+                                                active
+                                                    ? "bg-primary/10 border-primary/40 text-primary font-bold"
+                                                    : "bg-background hover:bg-muted/40 text-foreground"
+                                            }`}
+                                        >
+                                            <span className="inline-flex items-center gap-2">
+                                                <span className={`inline-block w-3 h-3 rounded border ${active ? "bg-primary border-primary" : "border-muted-foreground/40"}`} />
+                                                {p.label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                     {isEditing && (
                         <p className="text-xs text-muted-foreground mt-2">
                             Changing the unit, sub-group, role, or progression here will record an automatic move in the history below.
@@ -586,6 +608,8 @@ function MedicationsEditor({ medications, onAdd, onDelete }: { medications: Medi
 function MoveHistory({ moves, units, subgroups }: { moves: Move[]; units: Unit[]; subgroups: Subgroup[] }) {
     const unitName = (id: string | null) => units.find(u => u.id === id)?.name || "-";
     const sgName = (id: string | null) => subgroups.find(s => s.id === id)?.name || "-";
+    const fmtProgs = (list: string[]) => list.length === 0 ? "-" : list.map(progressionLabel).join(", ");
+    const sameArr = (a: string[], b: string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 
     return (
         <div className="space-y-3">
@@ -604,8 +628,8 @@ function MoveHistory({ moves, units, subgroups }: { moves: Move[]; units: Unit[]
                         {(m.fromRole || m.toRole) && m.fromRole !== m.toRole && (
                             <div><span className="text-muted-foreground">Role:</span> <strong>{m.fromRole || "-"}</strong> → <strong className="text-primary">{m.toRole || "-"}</strong></div>
                         )}
-                        {(m.fromProgression || m.toProgression) && m.fromProgression !== m.toProgression && (
-                            <div><span className="text-muted-foreground">Progression:</span> <strong>{m.fromProgression || "-"}</strong> → <strong className="text-primary">{m.toProgression || "-"}</strong></div>
+                        {!sameArr(m.fromProgression || [], m.toProgression || []) && (
+                            <div><span className="text-muted-foreground">Progression:</span> <strong>{fmtProgs(m.fromProgression || [])}</strong> → <strong className="text-primary">{fmtProgs(m.toProgression || [])}</strong></div>
                         )}
                         {m.notes && <div className="text-xs text-muted-foreground italic">{m.notes}</div>}
                     </div>

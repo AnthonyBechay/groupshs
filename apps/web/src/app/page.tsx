@@ -15,7 +15,7 @@ function formatDate(d: Date) {
 }
 
 const ACTIVITY_TYPE_LABELS: Record<string, string> = {
-  CAMP: "Camp", JOURNEE: "Journee", TEMPS: "Temps", MARCHE: "Marche", OTHER: "Activite",
+  CAMP: "Camp", JOURNEE: "Day out", TEMPS: "Meeting", MARCHE: "Hike", OTHER: "Other",
 };
 
 export default async function Home() {
@@ -205,9 +205,9 @@ export default async function Home() {
             </div>
             <div className="grid grid-cols-3 max-w-2xl mx-auto gap-6">
               {[
-                { name: "Louveteaux", age: "8-12 ans", icon: TreePine, desc: "Learning by playing" },
-                { name: "Eclaireurs", age: "12-17 ans", icon: Compass, desc: "Exploring the path" },
-                { name: "Routiers", age: "17+ ans", icon: Mountain, desc: "Serving the community" },
+                { name: "Louveteaux", age: "8-12 yrs", icon: TreePine, desc: "Learning by playing" },
+                { name: "Eclaireurs", age: "12-17 yrs", icon: Compass, desc: "Exploring the path" },
+                { name: "Routiers", age: "17+ yrs", icon: Mountain, desc: "Serving the community" },
               ].map((unit, i) => (
                 <div key={i} className="text-center group cursor-default">
                   <div className="mx-auto w-20 h-20 rounded-2xl bg-card border flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm group-hover:shadow-xl group-hover:shadow-primary/30 group-hover:scale-110 group-hover:rotate-3">
@@ -412,7 +412,14 @@ export default async function Home() {
         </section>
       </main>
 
-      <Footer socialLinks={socialLinks} logoUrl={siteLogoUrl} />
+      <Footer
+        socialLinks={socialLinks}
+        logoUrl={siteLogoUrl}
+        description={settings?.footerDescription}
+        address={settings?.footerAddress}
+        phone={settings?.footerPhone}
+        email={settings?.footerEmail}
+      />
     </div>
   );
 }

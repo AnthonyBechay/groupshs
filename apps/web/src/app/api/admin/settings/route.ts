@@ -34,18 +34,25 @@ export async function PUT(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { groupFoundedYear, manualUnitCount, manualMemberCount, logoUrl } = body;
-
         await getOrCreateSettings();
+
+        const data: Record<string, unknown> = {};
+        if (typeof body.groupFoundedYear === "number") data.groupFoundedYear = body.groupFoundedYear;
+        if (body.manualUnitCount === null || typeof body.manualUnitCount === "number") data.manualUnitCount = body.manualUnitCount;
+        if (body.manualMemberCount === null || typeof body.manualMemberCount === "number") data.manualMemberCount = body.manualMemberCount;
+        if ("logoUrl" in body) data.logoUrl = body.logoUrl || null;
+        if ("footerDescription" in body) data.footerDescription = body.footerDescription || null;
+        if ("footerAddress" in body) data.footerAddress = body.footerAddress || null;
+        if ("footerPhone" in body) data.footerPhone = body.footerPhone || null;
+        if ("footerEmail" in body) data.footerEmail = body.footerEmail || null;
+        if ("aboutTitle" in body) data.aboutTitle = body.aboutTitle || null;
+        if ("aboutSubtitle" in body) data.aboutSubtitle = body.aboutSubtitle || null;
+        if ("aboutIntro" in body) data.aboutIntro = body.aboutIntro || null;
+        if ("aboutMission" in body) data.aboutMission = body.aboutMission || null;
 
         const updated = await prisma.siteSettings.update({
             where: { id: "default" },
-            data: {
-                groupFoundedYear: typeof groupFoundedYear === "number" ? groupFoundedYear : undefined,
-                manualUnitCount: manualUnitCount === null || typeof manualUnitCount === "number" ? manualUnitCount : undefined,
-                manualMemberCount: manualMemberCount === null || typeof manualMemberCount === "number" ? manualMemberCount : undefined,
-                logoUrl: "logoUrl" in body ? (logoUrl || null) : undefined,
-            },
+            data,
         });
 
         return NextResponse.json(updated);
