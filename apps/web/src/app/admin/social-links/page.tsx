@@ -36,6 +36,7 @@ export default function AdminSocialLinksPage() {
         setLoading(false);
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchLinks(); }, []);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

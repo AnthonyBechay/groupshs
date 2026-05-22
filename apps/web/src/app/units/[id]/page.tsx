@@ -91,15 +91,15 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
 
                 {/* Contact info */}
                 {(unit.contacts.length > 0 || unit.contactName || unit.contactPhone) && (
-                    <section className="py-10 border-b bg-muted/20">
+                    <section className="py-8 md:py-10 border-b bg-muted/20">
                         <div className="container mx-auto px-4">
                             {unit.contacts.length > 0 ? (
                                 <div className="max-w-3xl mx-auto">
-                                    <h2 className="text-center text-sm font-bold uppercase tracking-widest text-primary mb-6">Responsible people</h2>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                    <h2 className="text-center text-sm font-bold uppercase tracking-widest text-primary mb-5 md:mb-6">Responsible people</h2>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                                         {unit.contacts.map(c => (
-                                            <div key={c.member.firstName + c.member.lastName} className="flex items-center gap-3 p-4 rounded-2xl border bg-card shadow-sm">
-                                                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0 overflow-hidden">
+                                            <div key={c.member.firstName + c.member.lastName} className="flex items-center gap-3 p-3.5 md:p-4 rounded-2xl border bg-card shadow-sm">
+                                                <div className="w-11 h-11 md:w-12 md:h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
                                                     {c.member.photoUrl ? (
                                                         /* eslint-disable-next-line @next/next/no-img-element */
                                                         <img src={c.member.photoUrl} alt={c.member.firstName} className="w-full h-full object-cover" />
@@ -111,8 +111,8 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
                                                     <div className="font-semibold text-sm truncate">{c.member.firstName} {c.member.lastName}</div>
                                                     {c.member.role && <div className="text-xs text-primary font-bold">{c.member.role}</div>}
                                                     {c.member.phone && (
-                                                        <a href={`tel:${c.member.phone}`} className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1 mt-0.5">
-                                                            <Phone className="w-3 h-3" /> {c.member.phone}
+                                                        <a href={`tel:${c.member.phone}`} className="text-xs text-muted-foreground hover:text-primary active:text-primary inline-flex items-center gap-1 mt-0.5 min-h-[28px]">
+                                                            <Phone className="w-3 h-3 shrink-0" /> {c.member.phone}
                                                         </a>
                                                     )}
                                                 </div>
@@ -121,17 +121,17 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
+                                <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm">
                                     {unit.contactName && (
                                         <div className="flex items-center gap-2">
-                                            <User className="w-4 h-4 text-primary" />
+                                            <User className="w-4 h-4 text-primary shrink-0" />
                                             <span className="font-medium">{unit.contactName}</span>
                                         </div>
                                     )}
                                     {unit.contactPhone && (
                                         <div className="flex items-center gap-2">
-                                            <Phone className="w-4 h-4 text-primary" />
-                                            <a href={`tel:${unit.contactPhone}`} className="font-medium hover:text-primary transition-colors">{unit.contactPhone}</a>
+                                            <Phone className="w-4 h-4 text-primary shrink-0" />
+                                            <a href={`tel:${unit.contactPhone}`} className="font-medium hover:text-primary transition-colors active:text-primary">{unit.contactPhone}</a>
                                         </div>
                                     )}
                                 </div>

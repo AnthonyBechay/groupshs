@@ -45,6 +45,7 @@ export default function AdminSubmissionsPage() {
         setLoading(false);
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchSubmissions(); }, []);
 
     async function updateStatus(id: string, status: string, statusNote?: string) {

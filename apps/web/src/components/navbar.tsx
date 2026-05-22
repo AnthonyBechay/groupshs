@@ -49,12 +49,12 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
             scrolled ? "border-b bg-background/85 shadow-sm" : "border-b border-transparent bg-background/60"
         }`}>
             <div className="container mx-auto flex h-16 items-center justify-between px-4">
-                <Link href="/" className="flex items-center gap-2.5 transition-transform hover:scale-105">
+                <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-transform hover:scale-105 active:scale-100 shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="Group SHS Logo" width={40} height={40} className="w-10 h-10 object-contain" />
+                    <img src={src} alt="Group SHS Logo" width={40} height={40} className="w-9 h-9 sm:w-10 sm:h-10 object-contain" />
                     <div className="flex flex-col leading-none">
-                        <span className="text-lg font-extrabold tracking-tight text-primary">Group SHS</span>
-                        <span className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Scouts du Liban</span>
+                        <span className="text-base sm:text-lg font-extrabold tracking-tight text-primary">Group SHS</span>
+                        <span className="text-[9px] sm:text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Scouts du Liban</span>
                     </div>
                 </Link>
 
@@ -84,8 +84,13 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
                     </Link>
                 </div>
 
-                {/* Mobile hamburger */}
-                <button className="md:hidden p-2 rounded-md hover:bg-muted transition-colors" onClick={() => setOpen(!open)} aria-label="Menu">
+                {/* Mobile hamburger — 44px min touch target */}
+                <button
+                    className="md:hidden w-11 h-11 flex items-center justify-center rounded-lg hover:bg-muted active:bg-muted transition-colors"
+                    onClick={() => setOpen(!open)}
+                    aria-label={open ? "Close menu" : "Open menu"}
+                    aria-expanded={open}
+                >
                     {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
             </div>
@@ -93,7 +98,7 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
             {/* Mobile menu */}
             {open && (
                 <div className="md:hidden border-t bg-background/95 backdrop-blur-xl animate-fade-in">
-                    <div className="container mx-auto px-4 py-4 flex flex-col gap-1">
+                    <div className="container mx-auto px-4 py-3 flex flex-col gap-0.5">
                         {links.map((l) => {
                             const active = pathname === l.href || (l.href !== "/" && pathname?.startsWith(l.href));
                             return (
@@ -101,8 +106,8 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
                                     key={l.href}
                                     href={l.href}
                                     onClick={() => setOpen(false)}
-                                    className={`px-3 py-2.5 text-sm font-medium rounded-md transition-all ${
-                                        active ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/5"
+                                    className={`px-3 py-3 text-sm font-medium rounded-lg transition-all min-h-[44px] flex items-center ${
+                                        active ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/5 active:bg-primary/5"
                                     }`}
                                 >
                                     {l.label}
@@ -110,7 +115,7 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
                             );
                         })}
                         <Link href={ctaHref} onClick={() => setOpen(false)} className="mt-2">
-                            <Button className="w-full font-semibold gap-1.5">
+                            <Button className="w-full font-semibold gap-1.5 h-11">
                                 {ctaIcon}
                                 {authChecked ? ctaLabel : "Login"}
                             </Button>

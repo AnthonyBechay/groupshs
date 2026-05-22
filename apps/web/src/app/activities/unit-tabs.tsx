@@ -133,11 +133,11 @@ export function UnitTabs({ units, activities }: { units: Unit[]; activities: Act
                     <span className="inline-block text-xs font-bold tracking-widest uppercase text-primary mb-1">Filter</span>
                     <h2 className="text-xl font-extrabold">Browse by Unit</h2>
                 </div>
-                <div className="flex flex-wrap justify-center gap-3 max-w-5xl mx-auto">
+                <div className="flex flex-wrap justify-center gap-2.5 md:gap-3 max-w-5xl mx-auto">
                     {/* All chip */}
                     <button
                         onClick={() => selectUnit("ALL")}
-                        className={`px-5 py-3 rounded-2xl border-2 text-sm font-bold transition-all hover:-translate-y-0.5 ${
+                        className={`px-4 py-2.5 md:px-5 md:py-3 rounded-2xl border-2 text-sm font-bold transition-all hover:-translate-y-0.5 active:scale-95 ${
                             selectedUnitId === "ALL"
                                 ? "bg-foreground text-background border-foreground shadow-lg"
                                 : "bg-card text-foreground border-border hover:border-foreground/40"
@@ -154,13 +154,13 @@ export function UnitTabs({ units, activities }: { units: Unit[]; activities: Act
                             <button
                                 key={u.id}
                                 onClick={() => selectUnit(u.id)}
-                                className={`group flex items-center gap-3 px-5 py-3 rounded-2xl border-2 text-sm font-bold transition-all hover:-translate-y-0.5 ${
+                                className={`group flex items-center gap-2.5 md:gap-3 px-4 py-2.5 md:px-5 md:py-3 rounded-2xl border-2 text-sm font-bold transition-all hover:-translate-y-0.5 active:scale-95 ${
                                     active
                                         ? `${theme.bg} shadow-lg`
                                         : `${theme.softBg} ${theme.text}`
                                 }`}
                             >
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                <div className={`w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                                     active ? "bg-white/20" : "bg-white/60"
                                 }`}>
                                     <Icon className={`w-4 h-4 ${active ? "text-white" : ""}`} />
@@ -187,7 +187,7 @@ export function UnitTabs({ units, activities }: { units: Unit[]; activities: Act
                 <div className="inline-flex items-center bg-muted/60 backdrop-blur rounded-full p-1 border">
                     <button
                         onClick={() => setView("upcoming")}
-                        className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${
+                        className={`flex items-center gap-1.5 md:gap-2 px-4 md:px-5 py-2 rounded-full text-sm font-bold transition-all ${
                             view === "upcoming"
                                 ? "bg-primary text-white shadow-md shadow-primary/30"
                                 : "text-muted-foreground hover:text-foreground"
@@ -198,7 +198,7 @@ export function UnitTabs({ units, activities }: { units: Unit[]; activities: Act
                     </button>
                     <button
                         onClick={() => setView("past")}
-                        className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${
+                        className={`flex items-center gap-1.5 md:gap-2 px-4 md:px-5 py-2 rounded-full text-sm font-bold transition-all ${
                             view === "past"
                                 ? "bg-foreground text-background shadow-md"
                                 : "text-muted-foreground hover:text-foreground"
@@ -241,24 +241,23 @@ function UnitDetails({ unit, onClear }: { unit: Unit; onClear: () => void }) {
         <div className={`relative rounded-3xl border-2 ${theme.border} bg-card overflow-hidden mb-8 animate-fade-in`}>
             <button
                 onClick={onClear}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/80 hover:bg-background border flex items-center justify-center transition-colors z-10"
+                className="absolute top-3 right-3 w-9 h-9 rounded-full bg-background/80 hover:bg-background border flex items-center justify-center transition-colors z-10 active:scale-95"
                 title="Clear filter"
+                aria-label="Clear filter"
             >
                 <X className="w-4 h-4" />
             </button>
             <div className="grid md:grid-cols-3 gap-0">
                 {/* Banner */}
-                <div className={`${theme.bg} p-6 md:p-8 flex flex-col justify-between min-h-[160px] md:col-span-1`}>
-                    <div>
-                        <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center mb-3">
-                            <Icon className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-2xl font-black leading-tight">{unit.name}</h3>
+                <div className={`${theme.bg} p-5 md:p-8 flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 md:justify-between md:col-span-1`}>
+                    <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
+                        <Icon className="w-6 h-6" />
                     </div>
+                    <h3 className="text-xl md:text-2xl font-black leading-tight">{unit.name}</h3>
                 </div>
 
                 {/* Description + contacts */}
-                <div className="p-6 md:p-8 md:col-span-2 space-y-5">
+                <div className="p-5 md:p-8 md:col-span-2 space-y-4 md:space-y-5">
                     {unit.description && (
                         <p className="text-sm text-muted-foreground leading-relaxed">{unit.description}</p>
                     )}
@@ -266,10 +265,10 @@ function UnitDetails({ unit, onClear }: { unit: Unit; onClear: () => void }) {
                     {unit.contacts.length > 0 && (
                         <div>
                             <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Responsible people</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 md:gap-3">
                                 {unit.contacts.map((c, i) => (
                                     <div key={i} className="flex items-center gap-3 p-3 rounded-xl border bg-muted/20">
-                                        <div className={`w-10 h-10 rounded-full ${theme.chip} flex items-center justify-center font-bold shrink-0 overflow-hidden`}>
+                                        <div className={`w-10 h-10 rounded-full ${theme.chip} flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden`}>
                                             {c.photoUrl ? (
                                                 /* eslint-disable-next-line @next/next/no-img-element */
                                                 <img src={c.photoUrl} alt={c.firstName} className="w-full h-full object-cover" />
@@ -281,8 +280,8 @@ function UnitDetails({ unit, onClear }: { unit: Unit; onClear: () => void }) {
                                             <div className="font-semibold text-sm truncate">{c.firstName} {c.lastName}</div>
                                             {c.role && <div className={`text-xs font-bold ${theme.text}`}>{c.role}</div>}
                                             {c.phone && (
-                                                <a href={`tel:${c.phone}`} className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                                                    <Phone className="w-3 h-3" /> {c.phone}
+                                                <a href={`tel:${c.phone}`} className="text-xs text-muted-foreground hover:text-foreground active:text-primary inline-flex items-center gap-1 min-h-[28px]">
+                                                    <Phone className="w-3 h-3 shrink-0" /> {c.phone}
                                                 </a>
                                             )}
                                         </div>

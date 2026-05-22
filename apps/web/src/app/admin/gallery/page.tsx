@@ -24,6 +24,7 @@ export default function AdminGalleryPage() {
         setLoading(false);
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchPhotos(); }, []);
 
     async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {

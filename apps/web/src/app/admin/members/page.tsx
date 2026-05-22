@@ -130,7 +130,8 @@ export default function AdminMembersPage() {
         setLoading(false);
     }
 
-    useEffect(() => { fetchData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+    useEffect(() => { fetchData(); }, []);
 
     const activeUnit = useMemo(() => units.find(u => u.id === activeUnitId) || null, [units, activeUnitId]);
     const unitMembers = useMemo(() => members.filter(m => m.unitId === activeUnitId), [members, activeUnitId]);

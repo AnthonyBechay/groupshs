@@ -48,6 +48,7 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
 
     // Close any open menu on route change
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setOpenGroup(null);
         setMobileOpen(false);
     }, [pathname]);

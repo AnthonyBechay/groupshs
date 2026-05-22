@@ -29,19 +29,19 @@ export default async function NewsPage() {
             <Navbar logoUrl={siteLogoUrl} />
             <main className="flex-1">
                 {/* Hero */}
-                <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-emerald-800 text-white py-20 md:py-28">
+                <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-emerald-800 text-white py-16 md:py-28">
                     <div className="absolute inset-0 opacity-10">
                         <div className="absolute top-10 right-10 w-72 h-72 rounded-full bg-scout-gold/30 blur-3xl" />
                     </div>
                     <div className="container mx-auto px-4 relative z-10 text-center">
-                        <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-6">
+                        <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-5 md:mb-6">
                             <Compass className="w-4 h-4 mr-2 text-scout-gold" />
                             <span className="text-white/90">Stay Updated</span>
                         </div>
-                        <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-6">
+                        <h1 className="text-3xl md:text-6xl font-black tracking-tight mb-4 md:mb-6">
                             Latest <span className="bg-gradient-to-r from-scout-gold to-yellow-300 bg-clip-text text-transparent">News</span>
                         </h1>
-                        <p className="text-lg text-white/80 max-w-xl mx-auto">
+                        <p className="text-base md:text-lg text-white/80 max-w-xl mx-auto">
                             Announcements, updates, and stories from our scout group.
                         </p>
                     </div>

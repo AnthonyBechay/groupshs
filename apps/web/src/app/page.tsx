@@ -136,9 +136,9 @@ export default async function Home() {
         </section>
 
         {/* ═══ Stats Bar ═══ */}
-        <section className="relative -mt-12 z-20 px-4">
+        <section className="relative -mt-8 sm:-mt-12 z-20 px-4">
           <div className="container mx-auto">
-            <div className="bg-card border rounded-3xl shadow-2xl shadow-primary/5 max-w-4xl mx-auto p-6 md:p-8 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <div className="bg-card border rounded-3xl shadow-2xl shadow-primary/5 max-w-4xl mx-auto p-5 md:p-8 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {[
                 { value: `${yearsStrong}+`, label: "Years strong", icon: Award },
                 { value: `${displayedMemberCount}+`, label: "Members", icon: Users },
@@ -146,10 +146,10 @@ export default async function Home() {
                 { value: totalActivitiesCount.toString(), label: "Activities", icon: Sparkles },
               ].map((stat, i) => (
                 <div key={i} className="text-center group">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary mb-2 group-hover:scale-110 transition-transform">
-                    <stat.icon className="w-5 h-5" />
+                  <div className="inline-flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-xl bg-primary/10 text-primary mb-2 group-hover:scale-110 transition-transform">
+                    <stat.icon className="w-4 h-4 md:w-5 md:h-5" />
                   </div>
-                  <div className="text-3xl md:text-4xl font-black text-foreground tracking-tight">{stat.value}</div>
+                  <div className="text-2xl md:text-4xl font-black text-foreground tracking-tight">{stat.value}</div>
                   <div className="text-xs md:text-sm text-muted-foreground font-medium mt-0.5">{stat.label}</div>
                 </div>
               ))}
@@ -171,25 +171,25 @@ export default async function Home() {
         )}
 
         {/* ═══ Values ═══ */}
-        <section className="py-24 bg-gradient-to-b from-background to-muted/20 relative">
+        <section className="py-16 md:py-24 bg-gradient-to-b from-background to-muted/20 relative">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-16">
+            <div className="text-center mb-10 md:mb-16">
               <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">Our Values</span>
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight">What Makes Us Scouts</h2>
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight">What Makes Us Scouts</h2>
             </div>
-            <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-5 md:gap-6 max-w-5xl mx-auto">
               {[
                 { icon: Users, title: "Brotherhood", desc: "Lifelong friendships forged through shared adventures and challenges within the Sagesse scout family.", color: "from-primary to-emerald-700", iconBg: "bg-primary/10 text-primary" },
                 { icon: Mountain, title: "Adventure", desc: "From mountain hikes to winter camps, we push boundaries and discover the beauty of Lebanon together.", color: "from-scout-gold to-amber-600", iconBg: "bg-scout-gold/10 text-scout-gold" },
                 { icon: Heart, title: "Service", desc: "Giving back to our community through volunteer work, helping those in need, and protecting nature.", color: "from-red-500 to-red-700", iconBg: "bg-red-100 text-red-600" },
               ].map((item, i) => (
-                <div key={i} className="group relative bg-card rounded-3xl border p-8 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 hover:-translate-y-2 overflow-hidden">
+                <div key={i} className="group relative bg-card rounded-3xl border p-6 md:p-8 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 hover:-translate-y-2 active:scale-[0.98] overflow-hidden sm:col-span-1 last:sm:col-span-2 last:md:col-span-1">
                   <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-[0.03] transition-opacity duration-500`} />
-                  <div className={`h-14 w-14 rounded-2xl ${item.iconBg} flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-                    <item.icon className="w-7 h-7" />
+                  <div className={`h-12 w-12 md:h-14 md:w-14 rounded-2xl ${item.iconBg} flex items-center justify-center mb-5 md:mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                    <item.icon className="w-6 h-6 md:w-7 md:h-7" />
                   </div>
-                  <h3 className="text-2xl font-bold mb-3">{item.title}</h3>
-                  <p className="text-muted-foreground leading-relaxed">{item.desc}</p>
+                  <h3 className="text-xl md:text-2xl font-bold mb-2 md:mb-3">{item.title}</h3>
+                  <p className="text-muted-foreground leading-relaxed text-sm md:text-base">{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -197,25 +197,25 @@ export default async function Home() {
         </section>
 
         {/* ═══ Units Banner ═══ */}
-        <section className="py-20 bg-gradient-to-r from-primary/5 via-scout-gold/5 to-primary/5 border-y">
+        <section className="py-16 md:py-20 bg-gradient-to-r from-primary/5 via-scout-gold/5 to-primary/5 border-y">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
+            <div className="text-center mb-10 md:mb-12">
               <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">Our Branches</span>
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight">A Path for Every Age</h2>
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight">A Path for Every Age</h2>
             </div>
-            <div className="grid grid-cols-3 max-w-2xl mx-auto gap-6">
+            <div className="grid grid-cols-3 max-w-2xl mx-auto gap-3 sm:gap-6">
               {[
                 { name: "Louveteaux", age: "8-12 yrs", icon: TreePine, desc: "Learning by playing" },
                 { name: "Eclaireurs", age: "12-17 yrs", icon: Compass, desc: "Exploring the path" },
                 { name: "Routiers", age: "17+ yrs", icon: Mountain, desc: "Serving the community" },
               ].map((unit, i) => (
                 <div key={i} className="text-center group cursor-default">
-                  <div className="mx-auto w-20 h-20 rounded-2xl bg-card border flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm group-hover:shadow-xl group-hover:shadow-primary/30 group-hover:scale-110 group-hover:rotate-3">
-                    <unit.icon className="w-9 h-9 text-primary group-hover:text-white transition-colors" />
+                  <div className="mx-auto w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-card border flex items-center justify-center mb-3 md:mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm group-hover:shadow-xl group-hover:shadow-primary/30 group-hover:scale-110 group-hover:rotate-3 active:bg-primary active:text-white active:border-primary active:scale-105">
+                    <unit.icon className="w-6 h-6 sm:w-9 sm:h-9 text-primary group-hover:text-white transition-colors" />
                   </div>
-                  <h3 className="font-bold text-lg mb-0.5">{unit.name}</h3>
-                  <p className="text-sm text-primary font-semibold mb-1">{unit.age}</p>
-                  <p className="text-xs text-muted-foreground">{unit.desc}</p>
+                  <h3 className="font-bold text-sm sm:text-lg mb-0.5 leading-tight">{unit.name}</h3>
+                  <p className="text-xs sm:text-sm text-primary font-semibold mb-0.5 sm:mb-1">{unit.age}</p>
+                  <p className="text-xs text-muted-foreground hidden sm:block">{unit.desc}</p>
                 </div>
               ))}
             </div>
@@ -225,10 +225,10 @@ export default async function Home() {
         {/* ═══ Upcoming Activities ═══ */}
         <section className="py-24 bg-background">
           <div className="container mx-auto px-4">
-            <div className="flex justify-between items-end mb-12">
+            <div className="flex justify-between items-end mb-8 md:mb-12">
               <div>
-                <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">What&apos;s Next</span>
-                <h2 className="text-4xl md:text-5xl font-black tracking-tight">Upcoming Activities</h2>
+                <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-2 md:mb-3">What&apos;s Next</span>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">Upcoming Activities</h2>
               </div>
               <Link href="/activities" className="hidden md:block">
                 <Button variant="outline" className="gap-2 font-semibold hover:bg-primary hover:text-white hover:border-primary transition-colors">View All <ArrowRight className="w-4 h-4" /></Button>
@@ -296,11 +296,11 @@ export default async function Home() {
         {thisYearActivities.length > 0 && (
           <section className="py-24 bg-muted/30 border-t">
             <div className="container mx-auto px-4">
-              <div className="mb-12 flex justify-between items-end">
+              <div className="mb-8 md:mb-12 flex justify-between items-end">
                 <div>
-                  <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">Memories</span>
-                  <h2 className="text-4xl md:text-5xl font-black tracking-tight">This Year&apos;s Activities</h2>
-                  <p className="text-muted-foreground mt-2">A look at what we&apos;ve accomplished in {currentYear}.</p>
+                  <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-2 md:mb-3">Memories</span>
+                  <h2 className="text-3xl md:text-5xl font-black tracking-tight">This Year&apos;s Activities</h2>
+                  <p className="text-muted-foreground mt-2 text-sm md:text-base">A look at what we&apos;ve accomplished in {currentYear}.</p>
                 </div>
               </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">

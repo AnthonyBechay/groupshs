@@ -13,9 +13,9 @@ type Photo = {
 export function GalleryCarousel({ photos }: { photos: Photo[] }) {
     const [offset, setOffset] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+    const touchStartX = useRef<number | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Number of visible items depends on screen size, but we'll use CSS for responsive
     const maxOffset = Math.max(0, photos.length - 1);
 
     const next = useCallback(() => {
@@ -26,12 +26,29 @@ export function GalleryCarousel({ photos }: { photos: Photo[] }) {
         setOffset((o) => (o <= 0 ? maxOffset : o - 1));
     }, [maxOffset]);
 
-    // Auto-advance
+    // Auto-advance (pause on hover or touch)
     useEffect(() => {
         if (isHovered || photos.length <= 4) return;
         const timer = setInterval(next, 3000);
         return () => clearInterval(timer);
     }, [next, isHovered, photos.length]);
+
+    // Touch swipe handlers
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        touchStartX.current = e.changedTouches[0].clientX;
+        setIsHovered(true); // pause auto-advance while touching
+    }, []);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (touchStartX.current === null) return;
+        const diff = touchStartX.current - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 40) {
+            if (diff > 0) next();
+            else prev();
+        }
+        touchStartX.current = null;
+        setIsHovered(false);
+    }, [next, prev]);
 
     if (photos.length === 0) return null;
 
@@ -40,6 +57,8 @@ export function GalleryCarousel({ photos }: { photos: Photo[] }) {
             className="relative group"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
         >
             {/* Overflow container */}
             <div className="overflow-hidden rounded-2xl" ref={containerRef}>
@@ -75,18 +94,20 @@ export function GalleryCarousel({ photos }: { photos: Photo[] }) {
                 </div>
             </div>
 
-            {/* Navigation arrows */}
-            {photos.length > 4 && (
+            {/* Navigation arrows — always visible on mobile, hover-only on desktop */}
+            {photos.length > 1 && (
                 <>
                     <button
                         onClick={prev}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-card border shadow-lg flex items-center justify-center text-foreground hover:bg-primary hover:text-white hover:border-primary transition-all opacity-0 group-hover:opacity-100 z-10"
+                        aria-label="Previous"
+                        className="absolute left-2 md:left-0 top-1/2 -translate-y-1/2 md:-translate-x-1/2 w-10 h-10 rounded-full bg-card border shadow-lg flex items-center justify-center text-foreground hover:bg-primary hover:text-white hover:border-primary transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 z-10"
                     >
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <button
                         onClick={next}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-10 h-10 rounded-full bg-card border shadow-lg flex items-center justify-center text-foreground hover:bg-primary hover:text-white hover:border-primary transition-all opacity-0 group-hover:opacity-100 z-10"
+                        aria-label="Next"
+                        className="absolute right-2 md:right-0 top-1/2 -translate-y-1/2 md:translate-x-1/2 w-10 h-10 rounded-full bg-card border shadow-lg flex items-center justify-center text-foreground hover:bg-primary hover:text-white hover:border-primary transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 z-10"
                     >
                         <ChevronRight className="w-5 h-5" />
                     </button>
@@ -94,12 +115,13 @@ export function GalleryCarousel({ photos }: { photos: Photo[] }) {
             )}
 
             {/* Progress dots */}
-            {photos.length > 4 && (
+            {photos.length > 1 && (
                 <div className="flex justify-center gap-1.5 mt-4">
                     {photos.map((_, i) => (
                         <button
                             key={i}
                             onClick={() => setOffset(i)}
+                            aria-label={`Go to slide ${i + 1}`}
                             className={`h-1.5 rounded-full transition-all duration-300 ${
                                 i === offset
                                     ? "w-6 bg-primary"

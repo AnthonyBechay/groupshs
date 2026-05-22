@@ -29,6 +29,7 @@ export default function AdminPartnersPage() {
         setLoading(false);
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchPartners(); }, []);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

@@ -71,17 +71,17 @@ export default function JoinPage() {
             <Navbar />
             <main className="flex-1">
                 {/* Header */}
-                <section className="bg-gradient-to-br from-primary via-primary to-emerald-800 text-white py-16 relative overflow-hidden">
+                <section className="bg-gradient-to-br from-primary via-primary to-emerald-800 text-white py-14 md:py-16 relative overflow-hidden">
                     <div className="absolute inset-0 opacity-10">
                         <div className="absolute top-0 right-0 w-72 h-72 rounded-full bg-scout-gold/30 blur-3xl" />
                     </div>
                     <div className="container mx-auto px-4 relative z-10 text-center">
-                        <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-6">
+                        <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm backdrop-blur-xl mb-5 md:mb-6">
                             <Compass className="w-4 h-4 mr-2 text-scout-gold" />
                             <span className="text-white/90">Recruitment Form</span>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4">Join Our Group</h1>
-                        <p className="text-white/80 max-w-lg mx-auto">
+                        <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-4">Join Our Group</h1>
+                        <p className="text-white/80 max-w-lg mx-auto text-sm md:text-base">
                             If you are a boy between 8 and 18 years old, Les Scouts du Liban of Group Sagesse High School &mdash; Ain Saade invite you to join their amazing adventures!
                         </p>
                     </div>
@@ -106,7 +106,7 @@ export default function JoinPage() {
                 <div className="container mx-auto px-4 max-w-2xl pb-20">
                     <p className="text-sm text-muted-foreground mb-6"><span className="text-destructive">*</span> Indicates required question</p>
 
-                    <form onSubmit={handleSubmit} className="space-y-6 bg-card border rounded-2xl p-6 md:p-8 shadow-sm">
+                    <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6 bg-card border rounded-2xl p-5 md:p-8 shadow-sm">
                         <div className="space-y-2">
                             <Label htmlFor="fullName">Full Name of the Member <span className="text-destructive">*</span></Label>
                             <Input id="fullName" name="fullName" required className="h-11" />
@@ -129,14 +129,14 @@ export default function JoinPage() {
 
                         <div className="space-y-3">
                             <Label>Parent/Guardian were Scouts members previously? <span className="text-destructive">*</span></Label>
-                            <div className="flex gap-6">
-                                <label className="flex items-center gap-2 cursor-pointer">
+                            <div className="flex gap-5">
+                                <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px]">
                                     <input type="radio" name="parentWereScouts" value="yes" required className="w-4 h-4 accent-primary" onChange={() => setParentWereScouts("yes")} />
-                                    <span className="text-sm">Yes</span>
+                                    <span className="text-sm font-medium">Yes</span>
                                 </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
+                                <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px]">
                                     <input type="radio" name="parentWereScouts" value="no" className="w-4 h-4 accent-primary" onChange={() => setParentWereScouts("no")} />
-                                    <span className="text-sm">No</span>
+                                    <span className="text-sm font-medium">No</span>
                                 </label>
                             </div>
                         </div>
@@ -160,14 +160,14 @@ export default function JoinPage() {
 
                         <div className="space-y-3">
                             <Label>Any brothers/sisters already in our Scouts Group? <span className="text-destructive">*</span></Label>
-                            <div className="flex gap-6">
-                                <label className="flex items-center gap-2 cursor-pointer">
+                            <div className="flex gap-5">
+                                <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px]">
                                     <input type="radio" name="siblingsInGroup" value="yes" required className="w-4 h-4 accent-primary" onChange={() => setSiblingsInGroup("yes")} />
-                                    <span className="text-sm">Yes</span>
+                                    <span className="text-sm font-medium">Yes</span>
                                 </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
+                                <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px]">
                                     <input type="radio" name="siblingsInGroup" value="no" className="w-4 h-4 accent-primary" onChange={() => setSiblingsInGroup("no")} />
-                                    <span className="text-sm">No</span>
+                                    <span className="text-sm font-medium">No</span>
                                 </label>
                             </div>
                         </div>
@@ -184,7 +184,7 @@ export default function JoinPage() {
                             <textarea
                                 id="otherComments"
                                 name="otherComments"
-                                className="flex min-h-[100px] w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                className="flex min-h-[100px] w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
                             />
                         </div>
 

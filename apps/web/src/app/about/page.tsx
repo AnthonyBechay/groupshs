@@ -55,43 +55,43 @@ export default async function AboutPage() {
                 </section>
 
                 {/* Intro + Mission */}
-                <section className="py-20 bg-background">
-                    <div className="container mx-auto px-4 grid md:grid-cols-2 gap-8 max-w-5xl">
-                        <div className="bg-card border rounded-3xl p-8 shadow-sm">
+                <section className="py-14 md:py-20 bg-background">
+                    <div className="container mx-auto px-4 grid md:grid-cols-2 gap-5 md:gap-8 max-w-5xl">
+                        <div className="bg-card border rounded-3xl p-6 md:p-8 shadow-sm">
                             <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4">
                                 <Users className="w-6 h-6" />
                             </div>
-                            <h2 className="text-2xl font-extrabold mb-3">Who we are</h2>
-                            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{intro}</p>
+                            <h2 className="text-xl md:text-2xl font-extrabold mb-3">Who we are</h2>
+                            <p className="text-muted-foreground leading-relaxed whitespace-pre-line text-sm md:text-base">{intro}</p>
                         </div>
-                        <div className="bg-card border rounded-3xl p-8 shadow-sm">
+                        <div className="bg-card border rounded-3xl p-6 md:p-8 shadow-sm">
                             <div className="w-12 h-12 rounded-2xl bg-scout-gold/10 text-scout-gold flex items-center justify-center mb-4">
                                 <Target className="w-6 h-6" />
                             </div>
-                            <h2 className="text-2xl font-extrabold mb-3">Our mission</h2>
-                            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{mission}</p>
+                            <h2 className="text-xl md:text-2xl font-extrabold mb-3">Our mission</h2>
+                            <p className="text-muted-foreground leading-relaxed whitespace-pre-line text-sm md:text-base">{mission}</p>
                         </div>
                     </div>
                 </section>
 
                 {/* Values */}
-                <section className="py-20 bg-gradient-to-b from-background to-muted/20 border-y">
+                <section className="py-14 md:py-20 bg-gradient-to-b from-background to-muted/20 border-y">
                     <div className="container mx-auto px-4">
-                        <div className="text-center mb-12">
+                        <div className="text-center mb-10 md:mb-12">
                             <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">What guides us</span>
-                            <h2 className="text-3xl md:text-4xl font-extrabold">Three pillars</h2>
+                            <h2 className="text-2xl md:text-4xl font-extrabold">Three pillars</h2>
                         </div>
-                        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                        <div className="grid sm:grid-cols-3 gap-4 md:gap-6 max-w-5xl mx-auto">
                             {[
                                 { icon: Users, title: "Brotherhood", desc: "Friendships forged through shared challenges.", color: "bg-primary/10 text-primary" },
                                 { icon: Mountain, title: "Adventure", desc: "From mountain hikes to winter camps, we explore.", color: "bg-scout-gold/10 text-scout-gold" },
                                 { icon: Heart, title: "Service", desc: "Giving back to our community and to nature.", color: "bg-red-100 text-red-600" },
                             ].map((v, i) => (
-                                <div key={i} className="bg-card border rounded-3xl p-6 hover:shadow-lg transition-all hover:-translate-y-1">
-                                    <div className={`w-12 h-12 rounded-2xl ${v.color} flex items-center justify-center mb-4`}>
-                                        <v.icon className="w-6 h-6" />
+                                <div key={i} className="bg-card border rounded-3xl p-5 md:p-6 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-[0.98]">
+                                    <div className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl ${v.color} flex items-center justify-center mb-4`}>
+                                        <v.icon className="w-5 h-5 md:w-6 md:h-6" />
                                     </div>
-                                    <h3 className="font-bold text-lg mb-1">{v.title}</h3>
+                                    <h3 className="font-bold text-base md:text-lg mb-1">{v.title}</h3>
                                     <p className="text-sm text-muted-foreground">{v.desc}</p>
                                 </div>
                             ))}
@@ -147,21 +147,21 @@ function Timeline({ sections }: { sections: TimelineSection[] }) {
     return (
         <div className="relative max-w-4xl mx-auto">
             {/* Vertical line */}
-            <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-primary/60 to-primary/10 md:-translate-x-1/2" />
+            <div className="absolute left-5 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-primary/60 to-primary/10 md:-translate-x-1/2" />
 
-            <div className="space-y-12">
+            <div className="space-y-10 md:space-y-12">
                 {sections.map((s, i) => {
                     const left = i % 2 === 0;
                     return (
                         <div key={s.id} className="relative">
                             {/* Dot */}
-                            <div className="absolute left-4 md:left-1/2 top-6 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2 z-10" />
+                            <div className="absolute left-5 md:left-1/2 top-6 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2 z-10" />
 
-                            <div className={`pl-12 md:pl-0 md:grid md:grid-cols-2 md:gap-12`}>
-                                {/* Date column */}
-                                <div className={`hidden md:block ${left ? "md:text-right md:pr-12 md:order-1" : "md:order-3 md:pl-12"}`}>
+                            <div className={`pl-14 md:pl-0 md:grid md:grid-cols-2 md:gap-12`}>
+                                {/* Date column (desktop only) */}
+                                <div className={`hidden md:flex md:items-start ${left ? "md:justify-end md:pr-12 md:order-1" : "md:order-3 md:pl-12"}`}>
                                     {(s.year || s.dateLabel) && (
-                                        <div className="inline-flex flex-col">
+                                        <div className="flex flex-col">
                                             {s.year && (
                                                 <span className="text-4xl md:text-5xl font-black text-primary leading-none">{s.year}</span>
                                             )}
@@ -177,18 +177,20 @@ function Timeline({ sections }: { sections: TimelineSection[] }) {
 
                                 {/* Content card */}
                                 <div className={`${left ? "md:order-3 md:pl-12" : "md:order-1 md:pr-12"}`}>
-                                    {/* Mobile-only date */}
-                                    <div className="md:hidden mb-2 flex items-center gap-2 text-primary font-bold">
-                                        {s.year && <span className="text-xl">{s.year}</span>}
-                                        {s.dateLabel && <span className="text-xs text-muted-foreground font-normal">{s.dateLabel}</span>}
-                                    </div>
-                                    <div className="bg-card border rounded-2xl p-6 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all hover:-translate-y-1">
+                                    {/* Mobile date badge */}
+                                    {(s.year || s.dateLabel) && (
+                                        <div className="md:hidden mb-2.5 flex items-center gap-2">
+                                            {s.year && <span className="text-lg font-black text-primary leading-none">{s.year}</span>}
+                                            {s.dateLabel && <span className="text-xs text-muted-foreground font-medium">{s.dateLabel}</span>}
+                                        </div>
+                                    )}
+                                    <div className="bg-card border rounded-2xl p-5 md:p-6 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all hover:-translate-y-1 active:scale-[0.98]">
                                         {s.imageUrl && (
                                             <div className="aspect-[16/9] w-full rounded-xl overflow-hidden mb-4 bg-muted relative">
                                                 <Image src={s.imageUrl} alt={s.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" loading="lazy" />
                                             </div>
                                         )}
-                                        <h3 className="text-xl font-bold mb-2">{s.title}</h3>
+                                        <h3 className="text-lg md:text-xl font-bold mb-2">{s.title}</h3>
                                         {s.description && (
                                             <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{s.description}</p>
                                         )}
