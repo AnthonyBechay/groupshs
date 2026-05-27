@@ -25,12 +25,18 @@ COPY . .
 # Generate Prisma client
 RUN cd apps/web && npx prisma generate
 
-# Build the web app
-RUN pnpm --filter web build
+# Generate a unique deployment ID and bake it into the build
+# This lets Next.js detect stale client JS after a deploy and silently reload
+RUN DEPLOYMENT_ID="deploy-$(date +%s%N | head -c 16)" && \
+    echo "$DEPLOYMENT_ID" > /tmp/deployment-id && \
+    DEPLOYMENT_ID="$DEPLOYMENT_ID" pnpm --filter web build
 
 # Copy public and static assets to where standalone server expects them
 RUN cp -r apps/web/public apps/web/.next/standalone/apps/web/public
 RUN cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
+
+# Persist the deployment ID so the container can read it at runtime
+RUN cp /tmp/deployment-id apps/web/.next/standalone/apps/web/.deployment-id
 
 ENV NODE_ENV=production
 ENV PORT=3000

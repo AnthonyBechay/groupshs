@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60 * 60 * 24 * 30,
   },
   experimental: {
+    deploymentId: process.env.DEPLOYMENT_ID,
     optimizePackageImports: ["lucide-react"],
   },
 };
