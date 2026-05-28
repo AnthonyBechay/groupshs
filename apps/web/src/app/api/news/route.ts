@@ -1,6 +1,7 @@
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
     const articles = await prisma.newsArticle.findMany({
@@ -27,5 +28,7 @@ export async function POST(request: Request) {
         },
     });
 
+    revalidatePath("/news");
+    revalidatePath("/");
     return NextResponse.json(article, { status: 201 });
 }

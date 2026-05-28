@@ -2,6 +2,7 @@ import { prisma } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import type { Prisma } from "@/generated/prisma/client";
+import { revalidatePath } from "next/cache";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -44,6 +45,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
         const updated = await prisma.activity.update({ where: { id }, data });
 
+        revalidatePath("/activities");
+        revalidatePath("/");
         return NextResponse.json(updated);
     } catch (error) {
         console.error("Error updating activity:", error);
@@ -64,6 +67,8 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
         await prisma.activity.delete({ where: { id } });
+        revalidatePath("/activities");
+        revalidatePath("/");
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Error deleting activity:", error);

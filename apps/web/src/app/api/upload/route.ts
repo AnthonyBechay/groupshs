@@ -13,6 +13,10 @@ export async function POST(request: Request) {
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
         const explicitPreserveAlpha = formData.get("preserveAlpha") === "true";
+        // Callers may pass a target folder (default: "activities") and custom max dimensions
+        const folder = (formData.get("folder") as string | null) || "activities";
+        const maxWidth = parseInt((formData.get("maxWidth") as string | null) || "1600");
+        const maxHeight = parseInt((formData.get("maxHeight") as string | null) || "1200");
 
         if (!file) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -32,7 +36,7 @@ export async function POST(request: Request) {
 
         // SVGs go through untouched
         if (file.type === "image/svg+xml") {
-            const url = await uploadToR2(rawBuffer as Buffer<ArrayBuffer>, file.name, file.type);
+            const url = await uploadToR2(rawBuffer as Buffer<ArrayBuffer>, file.name, file.type, folder);
             return NextResponse.json({ url });
         }
 
@@ -40,12 +44,12 @@ export async function POST(request: Request) {
         const preserveAlpha = explicitPreserveAlpha || await hasTransparency(rawBuffer);
 
         const { buffer, contentType } = await compressImage(rawBuffer, {
-            maxWidth: 1600,
-            maxHeight: 1200,
-            quality: 80,
+            maxWidth,
+            maxHeight,
+            quality: 82,
             preserveAlpha,
         });
-        const url = await uploadToR2(buffer, file.name, contentType);
+        const url = await uploadToR2(buffer, file.name, contentType, folder);
 
         return NextResponse.json({ url });
     } catch (error) {

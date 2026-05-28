@@ -1,6 +1,7 @@
 import { prisma } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, isAdmin, hasPermission, canAccessUnit } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        revalidatePath("/activities");
+        revalidatePath("/");
         return NextResponse.json(newActivity);
     } catch (error) {
         console.error("Error creating activity:", error);

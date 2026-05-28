@@ -8,7 +8,8 @@ import Image from "next/image";
 import { prisma } from "@/db";
 import { SocialIcon } from "@/components/social-icons";
 
-export const dynamic = "force-dynamic";
+// Re-render at most every 5 minutes (stale-while-revalidate).
+export const revalidate = 300;
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -35,7 +36,7 @@ export default async function Home() {
       orderBy: { startDate: "asc" },
       take: 3,
     }),
-    prisma.galleryPhoto.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.galleryPhoto.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, imageUrl: true, caption: true } }),
     prisma.partner.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.activity.findMany({

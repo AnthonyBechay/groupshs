@@ -5,7 +5,8 @@ import { prisma } from "@/db";
 import { Calendar, Newspaper, Compass } from "lucide-react";
 import Image from "next/image";
 
-export const dynamic = "force-dynamic";
+// Re-render at most every 5 minutes.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
     title: "News - Group SHS",

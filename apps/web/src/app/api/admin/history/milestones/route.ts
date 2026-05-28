@@ -1,6 +1,7 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 
 export async function GET() {
     try {
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        revalidateTag("history");
         return NextResponse.json(milestone);
     } catch (error) {
         console.error("Error creating history milestone:", error);

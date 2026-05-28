@@ -1,6 +1,7 @@
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const session = await getSession();
@@ -23,6 +24,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         },
     });
 
+    revalidatePath("/news");
+    revalidatePath("/");
     return NextResponse.json(article);
 }
 
@@ -34,5 +37,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     const { id } = await params;
     await prisma.newsArticle.delete({ where: { id } });
+    revalidatePath("/news");
+    revalidatePath("/");
     return NextResponse.json({ ok: true });
 }

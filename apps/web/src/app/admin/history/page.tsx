@@ -138,6 +138,9 @@ function MilestonesTab() {
             const uploaded = await Promise.all(files.map(async (file) => {
                 const fd = new FormData();
                 fd.append("file", file);
+                fd.append("folder", "milestones");
+                fd.append("maxWidth", "1200");
+                fd.append("maxHeight", "800");
                 const res = await fetch("/api/upload", { method: "POST", body: fd });
                 if (res.ok) {
                     const { url } = await res.json();

@@ -7,7 +7,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
-export const dynamic = "force-dynamic";
+// Re-render at most every 5 minutes.
+export const revalidate = 300;
 
 const UNIT_META: Record<string, { icon: typeof Tent; ageRange: string; color: string; gradient: string }> = {
     LOUVETEAUX: { icon: TreePine, ageRange: "8-12 ans", color: "text-emerald-600", gradient: "from-emerald-700 via-emerald-800 to-emerald-900" },

@@ -3,7 +3,8 @@ import { Footer } from "@/components/footer";
 import { prisma } from "@/db";
 import { Compass, Heart, Mountain, Users, Target } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+// About page text rarely changes — cache for 1 hour.
+export const revalidate = 3600;
 
 export default async function AboutPage() {
     const [settings, socialLinks] = await Promise.all([
