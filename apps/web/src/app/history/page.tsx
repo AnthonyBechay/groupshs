@@ -6,8 +6,9 @@ import { Users, Trophy, Calendar, Clock, Lock, Zap, Target, ImageIcon, Star } fr
 import { unstable_cache } from "next/cache";
 import Image from "next/image";
 
-// getSession() reads cookies → page is always dynamic (per-request).
-// We cache the DB queries independently so the per-request work is trivial.
+// DB is unreachable during `docker build`; force-dynamic prevents build-time
+// pre-rendering. unstable_cache wrappers below keep runtime performance fast.
+export const dynamic = "force-dynamic";
 
 const getCachedSettings = unstable_cache(
     () => prisma.siteSettings.findUnique({ where: { id: "default" } }),
