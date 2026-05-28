@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { getSession, isAdmin } from "@/lib/auth";
-import { Users, Trophy, Calendar, BookOpen, Clock, Lock, Zap, Target, ImageIcon, Star } from "lucide-react";
+import { Users, Trophy, Calendar, Clock, Lock, Zap, Target, ImageIcon, Star } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import Image from "next/image";
 
@@ -12,13 +12,13 @@ import Image from "next/image";
 const getCachedSettings = unstable_cache(
     () => prisma.siteSettings.findUnique({ where: { id: "default" } }),
     ["site-settings"],
-    { revalidate: 3600, tags: ["settings"] }
+    { revalidate: 3600 }
 );
 
 const getCachedSocialLinks = unstable_cache(
     () => prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
     ["social-links"],
-    { revalidate: 3600, tags: ["settings"] }
+    { revalidate: 3600 }
 );
 
 const getCachedMilestones = unstable_cache(
@@ -26,7 +26,7 @@ const getCachedMilestones = unstable_cache(
         .findMany({ orderBy: [{ sortOrder: "asc" }, { date: "asc" }] })
         .catch(() => []),
     ["history-milestones"],
-    { revalidate: 3600, tags: ["history"] }
+    { revalidate: 300 }
 );
 
 const getCachedAnciens = unstable_cache(
@@ -34,7 +34,7 @@ const getCachedAnciens = unstable_cache(
         .findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] })
         .catch(() => []),
     ["history-anciens"],
-    { revalidate: 3600, tags: ["history"] }
+    { revalidate: 300 }
 );
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -111,17 +111,6 @@ export default async function HistoryPage() {
                 {/* ════════════════════ TIMELINE ════════════════════ */}
                 <section className="container mx-auto px-4 py-14 md:py-20">
                     <div className="max-w-4xl mx-auto">
-
-                        {/* Founding strip */}
-                        <div className="flex items-center gap-3 p-4 rounded-xl border bg-card mb-10 max-w-xs mx-auto md:mx-0">
-                            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm shadow-primary/20 shrink-0">
-                                <BookOpen className="w-4 h-4 text-white" />
-                            </div>
-                            <div>
-                                <div className="text-[10px] font-bold text-primary uppercase tracking-widest">Founded</div>
-                                <div className="font-bold text-sm">{foundedYear} — Group SHS</div>
-                            </div>
-                        </div>
 
                         {milestones.length === 0 ? (
                             <div className="text-center py-16 border border-dashed rounded-2xl bg-muted/20">

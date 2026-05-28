@@ -1,7 +1,7 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 
 export async function POST(request: NextRequest) {
     try {
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
             )
         );
 
-        revalidateTag("history");
+        revalidatePath("/history");
         return NextResponse.json({ ok: true });
     } catch (error) {
         console.error("Error reordering history milestones:", error);
