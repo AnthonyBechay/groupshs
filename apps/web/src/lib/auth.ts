@@ -21,7 +21,8 @@ export type Permission =
     | "canManageSocialLinks"
     | "canManageNews"
     | "canViewSubmissions"
-    | "canManageSettings";
+    | "canManageSettings"
+    | "canManageHistory";
 
 export type SessionUser = {
     userId: string;
@@ -82,6 +83,7 @@ export async function getSession(): Promise<SessionUser | null> {
                 canManageNews: true,
                 canViewSubmissions: true,
                 canManageSettings: true,
+                canManageHistory: true,
                 allowedUnitIds: true,
             },
         });
@@ -106,6 +108,7 @@ export async function getSession(): Promise<SessionUser | null> {
                 canManageNews: isSuperAdmin || user.canManageNews,
                 canViewSubmissions: isSuperAdmin || user.canViewSubmissions,
                 canManageSettings: isSuperAdmin || user.canManageSettings,
+                canManageHistory: isSuperAdmin || user.canManageHistory,
             },
         };
     } catch {

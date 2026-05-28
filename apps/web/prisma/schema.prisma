@@ -26,6 +26,7 @@ model User {
   canManageNews        Boolean @default(false) @map("can_manage_news")
   canViewSubmissions   Boolean @default(false) @map("can_view_submissions")
   canManageSettings    Boolean @default(false) @map("can_manage_settings")
+  canManageHistory     Boolean @default(false) @map("can_manage_history")
 
   // Empty array = access to all units; otherwise restricted to listed unit IDs
   allowedUnitIds String[] @default([]) @map("allowed_unit_ids")
@@ -413,6 +414,43 @@ model Partner {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("partner")
+}
+
+// ─── History ─────────────────────────────────────────────────────────────────
+
+model HistoryMilestone {
+  id              String   @id @default(uuid())
+  date            DateTime
+  title           String
+  description     String?                         // Short caption shown in the timeline
+  longDescription String?  @map("long_description") // Full story / detailed account
+  challenges      String?                         // Obstacles & challenges faced
+  motivations     String?                         // What drove this milestone
+  unitCount       Int?     @map("unit_count")
+  memberCount     Int?     @map("member_count")
+  imageUrls       String[] @default([]) @map("image_urls")
+  sortOrder       Int      @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("history_milestone")
+}
+
+// Old members of the group (private — admin-only visibility)
+model Ancien {
+  id          String  @id @default(uuid())
+  name        String
+  lastRole    String  @map("last_role")
+  yearsActive String? @map("years_active") // e.g. "2014–2018"
+  photoUrl    String? @map("photo_url")
+  bio         String?
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("ancien")
 }
 
 // ─── Social Links ────────────────────────────────────────────────────────────

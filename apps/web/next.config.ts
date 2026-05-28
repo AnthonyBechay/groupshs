@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60 * 60 * 24 * 30,
   },
   experimental: {
+    // @ts-expect-error deploymentId is a valid Next.js experimental field not yet typed
     deploymentId: process.env.DEPLOYMENT_ID,
     optimizePackageImports: ["lucide-react"],
   },

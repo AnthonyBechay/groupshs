@@ -16,6 +16,7 @@ type Permission = {
     canManageNews: boolean;
     canViewSubmissions: boolean;
     canManageSettings: boolean;
+    canManageHistory: boolean;
 };
 
 type AdminNavProps = {
@@ -67,6 +68,7 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
             items: [
                 { href: "/admin/gallery", label: "Gallery", show: p.canManageGallery },
                 { href: "/admin/news", label: "News", show: p.canManageNews },
+                { href: "/admin/history", label: "History", show: p.canManageHistory },
                 { href: "/admin/partners", label: "Partners", show: p.canManagePartners },
                 { href: "/admin/social-links", label: "Social Links", show: p.canManageSocialLinks },
             ],
