@@ -1,10 +1,11 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { prisma } from "@/db";
+import { getCachedSettings, getCachedSocialLinks } from "@/lib/query-cache";
 import { Compass, Heart, Mountain, Users, Target } from "lucide-react";
 
-// About page text rarely changes — cache for 1 hour.
-export const revalidate = 3600;
+// force-dynamic: DB is unreachable during `docker build`; queries are cached
+// via unstable_cache in query-cache.ts so runtime performance is still fast.
+export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
     const [settings, socialLinks] = await Promise.all([
