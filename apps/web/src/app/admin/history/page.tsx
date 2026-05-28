@@ -332,15 +332,15 @@ function MilestonesTab() {
                                 <SectionLabel
                                     icon={<Zap className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />}
                                     label="Challenges & Obstacles"
-                                    sublabel="What made this hard? What stood in the way?"
+                                    sublabel="One bullet per line — each line becomes a separate bullet point"
                                 />
                             </Label>
                             <textarea
                                 id="challenges" name="challenges"
                                 defaultValue={editing?.challenges ?? ""}
-                                rows={3}
-                                className="flex w-full rounded-md border border-orange-200 dark:border-orange-800/60 bg-background px-3 py-2 text-sm resize-y"
-                                placeholder="Describe the difficulties, setbacks, or obstacles that had to be overcome..."
+                                rows={4}
+                                className="flex w-full rounded-md border border-orange-200 dark:border-orange-800/60 bg-background px-3 py-2 text-sm resize-y font-mono"
+                                placeholder={"Funding was limited in the first year\nFinding a suitable camp location took months\nCoordinating volunteer leaders across multiple units"}
                             />
                         </div>
 
@@ -350,15 +350,15 @@ function MilestonesTab() {
                                 <SectionLabel
                                     icon={<Target className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
                                     label="Motivations & Goals"
-                                    sublabel="What drove this? What were we trying to achieve?"
+                                    sublabel="One bullet per line — each line becomes a separate bullet point"
                                 />
                             </Label>
                             <textarea
                                 id="motivations" name="motivations"
                                 defaultValue={editing?.motivations ?? ""}
-                                rows={3}
-                                className="flex w-full rounded-md border border-emerald-200 dark:border-emerald-800/60 bg-background px-3 py-2 text-sm resize-y"
-                                placeholder="What inspired or pushed the group toward this milestone..."
+                                rows={4}
+                                className="flex w-full rounded-md border border-emerald-200 dark:border-emerald-800/60 bg-background px-3 py-2 text-sm resize-y font-mono"
+                                placeholder={"Build a stronger sense of brotherhood among units\nGive members their first outdoor leadership experience\nEstablish a lasting annual tradition"}
                             />
                         </div>
 

@@ -373,34 +373,44 @@ function MilestoneCard({ m, idx }: { m: MilestoneData; idx: number }) {
                         {/* Challenges */}
                         {m.challenges && (
                             <div className="rounded-2xl border border-orange-200 dark:border-orange-800/50 bg-orange-50/60 dark:bg-orange-950/20 p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-7 h-7 rounded-lg bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-7 h-7 rounded-lg bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center shrink-0">
                                         <Zap className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
                                     </div>
                                     <span className="text-sm font-bold text-orange-700 dark:text-orange-400 uppercase tracking-wide">
                                         Challenges & Obstacles
                                     </span>
                                 </div>
-                                <p className="text-sm text-orange-900/80 dark:text-orange-200/80 leading-relaxed whitespace-pre-line">
-                                    {m.challenges}
-                                </p>
+                                <ul className="space-y-1.5">
+                                    {m.challenges.split("\n").filter(l => l.trim()).map((line, i) => (
+                                        <li key={i} className="flex items-start gap-2 text-sm text-orange-900/80 dark:text-orange-200/80 leading-relaxed">
+                                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-400 dark:bg-orange-500 shrink-0" />
+                                            {line.trim()}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
 
                         {/* Motivations */}
                         {m.motivations && (
                             <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
                                         <Target className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                     </div>
                                     <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
                                         Motivations & Goals
                                     </span>
                                 </div>
-                                <p className="text-sm text-emerald-900/80 dark:text-emerald-200/80 leading-relaxed whitespace-pre-line">
-                                    {m.motivations}
-                                </p>
+                                <ul className="space-y-1.5">
+                                    {m.motivations.split("\n").filter(l => l.trim()).map((line, i) => (
+                                        <li key={i} className="flex items-start gap-2 text-sm text-emerald-900/80 dark:text-emerald-200/80 leading-relaxed">
+                                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 dark:bg-emerald-500 shrink-0" />
+                                            {line.trim()}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
                     </div>
