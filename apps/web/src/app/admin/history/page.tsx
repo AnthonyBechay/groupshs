@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import {
     Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload,
     BookOpen, Users, Trophy, Clock, Zap, Target, ImageIcon,
-    FileText, AlignLeft,
+    FileText, AlignLeft, Star,
 } from "lucide-react";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ function toMonthInput(iso: string) {
 
 type Milestone = {
     id: string;
+    type: "milestone" | "achievement";
     date: string;
     title: string;
     description: string | null;
@@ -115,6 +116,7 @@ function MilestonesTab() {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState<Milestone | null>(null);
+    const [milestoneType, setMilestoneType] = useState<"milestone" | "achievement">("milestone");
     const [imageUrls, setImageUrls] = useState<string[]>([]);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -158,6 +160,7 @@ function MilestonesTab() {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         const body = {
+            type: milestoneType,
             date: fd.get("date"),
             title: fd.get("title"),
             description: fd.get("description") || null,
@@ -188,6 +191,7 @@ function MilestonesTab() {
 
     function startEdit(m: Milestone) {
         setEditing(m);
+        setMilestoneType(m.type ?? "milestone");
         setImageUrls(m.imageUrls ?? []);
         setShowForm(true);
         setTimeout(() => document.getElementById("milestone-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -195,6 +199,7 @@ function MilestonesTab() {
 
     function startCreate() {
         setEditing(null);
+        setMilestoneType("milestone");
         setImageUrls([]);
         setShowForm(true);
         setTimeout(() => document.getElementById("milestone-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -203,6 +208,7 @@ function MilestonesTab() {
     function closeForm() {
         setShowForm(false);
         setEditing(null);
+        setMilestoneType("milestone");
         setImageUrls([]);
     }
 
@@ -245,6 +251,37 @@ function MilestonesTab() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Type toggle */}
+                        <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-muted">
+                            <button
+                                type="button"
+                                onClick={() => setMilestoneType("milestone")}
+                                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                                    milestoneType === "milestone"
+                                        ? "bg-card shadow text-primary border border-primary/20"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                <Trophy className="w-4 h-4" /> Major Milestone
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMilestoneType("achievement")}
+                                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                                    milestoneType === "achievement"
+                                        ? "bg-card shadow text-amber-600 dark:text-amber-400 border border-amber-300/40 dark:border-amber-700/40"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                <Star className="w-4 h-4" /> Achievement
+                            </button>
+                        </div>
+                        {milestoneType === "achievement" && (
+                            <p className="text-xs text-muted-foreground bg-muted/60 rounded-lg px-3 py-2">
+                                Achievements appear smaller on the public timeline — ideal for notable moments that aren&apos;t as significant as a full milestone.
+                            </p>
+                        )}
+
                         {/* Row 1: date + title */}
                         <div className="grid md:grid-cols-3 gap-4">
                             <div className="space-y-2">
@@ -430,7 +467,11 @@ function MilestonesTab() {
             ) : (
                 <div className="space-y-3">
                     {milestones.map((m, idx) => (
-                        <div key={m.id} className="border rounded-2xl bg-card p-4 flex items-start gap-4 hover:border-primary/30 transition-colors">
+                        <div key={m.id} className={`border rounded-2xl bg-card p-4 flex items-start gap-4 transition-colors ${
+                            m.type === "achievement"
+                                ? "hover:border-amber-300/60 dark:hover:border-amber-700/60"
+                                : "hover:border-primary/30"
+                        }`}>
                             {/* Reorder */}
                             <div className="flex flex-col gap-1 shrink-0 mt-1">
                                 <button
@@ -468,7 +509,17 @@ function MilestonesTab() {
                             {/* Content */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                                    <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
+                                    {/* Type badge */}
+                                    {m.type === "achievement" ? (
+                                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                            <Star className="w-3 h-3" /> Achievement
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                            <Trophy className="w-3 h-3" /> Milestone
+                                        </span>
+                                    )}
+                                    <span className="text-xs text-muted-foreground">
                                         {formatMonthYear(m.date)}
                                     </span>
                                     {m.unitCount != null && (

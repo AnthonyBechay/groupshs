@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { date, title, description, longDescription, challenges, motivations, unitCount, memberCount, imageUrls } = body;
+        const { type, date, title, description, longDescription, challenges, motivations, unitCount, memberCount, imageUrls } = body;
 
         if (!date || !title) {
             return NextResponse.json({ error: "Date and title are required" }, { status: 400 });
@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
 
         const milestone = await prisma.historyMilestone.create({
             data: {
+                type: type === "achievement" ? "achievement" : "milestone",
                 date: parsedDate,
                 title,
                 description: description || null,

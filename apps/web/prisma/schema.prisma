@@ -420,12 +420,13 @@ model Partner {
 
 model HistoryMilestone {
   id              String   @id @default(uuid())
+  type            String   @default("milestone")    // "milestone" | "achievement"
   date            DateTime
   title           String
-  description     String?                         // Short caption shown in the timeline
+  description     String?                           // Short caption shown in the timeline
   longDescription String?  @map("long_description") // Full story / detailed account
-  challenges      String?                         // Obstacles & challenges faced
-  motivations     String?                         // What drove this milestone
+  challenges      String?                           // Obstacles & challenges faced (one per line)
+  motivations     String?                           // What drove this (one per line)
   unitCount       Int?     @map("unit_count")
   memberCount     Int?     @map("member_count")
   imageUrls       String[] @default([]) @map("image_urls")

@@ -11,7 +11,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
         const { id } = await params;
         const body = await request.json();
-        const { date, title, description, longDescription, challenges, motivations, unitCount, memberCount, imageUrls } = body;
+        const { type, date, title, description, longDescription, challenges, motivations, unitCount, memberCount, imageUrls } = body;
 
         if (!date || !title) {
             return NextResponse.json({ error: "Date and title are required" }, { status: 400 });
@@ -23,6 +23,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         const milestone = await prisma.historyMilestone.update({
             where: { id },
             data: {
+                type: type === "achievement" ? "achievement" : "milestone",
                 date: parsedDate,
                 title,
                 description: description || null,

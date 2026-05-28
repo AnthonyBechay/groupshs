@@ -4,6 +4,7 @@ ALTER TABLE "user" ADD COLUMN "can_manage_history" BOOLEAN NOT NULL DEFAULT fals
 -- Create history_milestone table
 CREATE TABLE "history_milestone" (
     "id" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'milestone',
     "date" TIMESTAMP(3) NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,

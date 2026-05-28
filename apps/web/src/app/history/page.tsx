@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { getSession, isAdmin } from "@/lib/auth";
-import { Users, Trophy, Calendar, BookOpen, Clock, Lock, Zap, Target, ImageIcon } from "lucide-react";
+import { Users, Trophy, Calendar, BookOpen, Clock, Lock, Zap, Target, ImageIcon, Star } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -140,9 +140,11 @@ export default async function HistoryPage() {
                                     {/* Vertical timeline line */}
                                     <div className="absolute left-[1.375rem] top-3 bottom-3 w-0.5 bg-gradient-to-b from-primary via-border to-transparent" />
 
-                                    <div className="space-y-10">
+                                    <div className="space-y-8">
                                         {milestones.map((m, idx) => (
-                                            <MilestoneCard key={m.id} m={m} idx={idx} />
+                                            m.type === "achievement"
+                                                ? <AchievementCard key={m.id} m={m} />
+                                                : <MilestoneCard key={m.id} m={m} idx={idx} milestones={milestones} />
                                         ))}
                                     </div>
                                 </div>
@@ -257,6 +259,7 @@ export default async function HistoryPage() {
 
 type MilestoneData = {
     id: string;
+    type: string;
     date: Date;
     title: string;
     description: string | null;
@@ -268,7 +271,106 @@ type MilestoneData = {
     imageUrls: string[];
 };
 
-function MilestoneCard({ m, idx }: { m: MilestoneData; idx: number }) {
+// ─── Achievement Card (compact) ───────────────────────────────────────────────
+
+function AchievementCard({ m }: { m: MilestoneData }) {
+    return (
+        <div className="relative pl-14">
+            {/* Small node */}
+            <div className="absolute left-1.5 top-2.5 w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700 flex items-center justify-center">
+                <Star className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+            </div>
+
+            <div className="rounded-2xl border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-950/10 px-5 py-4">
+                {/* Header row */}
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 rounded-full">
+                        <Star className="w-3 h-3" /> {formatMonthYear(m.date)}
+                    </span>
+                    {m.unitCount != null && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Trophy className="w-3 h-3" /> {m.unitCount} unit{m.unitCount !== 1 ? "s" : ""}
+                        </span>
+                    )}
+                    {m.memberCount != null && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Users className="w-3 h-3" /> {m.memberCount} member{m.memberCount !== 1 ? "s" : ""}
+                        </span>
+                    )}
+                </div>
+
+                <h3 className="text-base font-bold leading-snug">{m.title}</h3>
+
+                {m.description && (
+                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{m.description}</p>
+                )}
+
+                {/* Images — compact 2-row scroll if present */}
+                {m.imageUrls?.length > 0 && (
+                    <div className="flex gap-2 mt-3 overflow-x-auto snap-x pb-1">
+                        {m.imageUrls.map((url, i) => (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img key={i} src={url} alt={`${m.title} ${i + 1}`}
+                                className="flex-none w-28 h-20 object-cover rounded-lg snap-start border"
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {/* Long description */}
+                {m.longDescription && (
+                    <p className="text-sm text-muted-foreground mt-3 leading-relaxed border-t pt-3 whitespace-pre-line">
+                        {m.longDescription}
+                    </p>
+                )}
+
+                {/* Challenges + Motivations — inline compact */}
+                {(m.challenges || m.motivations) && (
+                    <div className="mt-3 grid sm:grid-cols-2 gap-3">
+                        {m.challenges && (
+                            <div className="rounded-xl border border-orange-200 dark:border-orange-800/40 bg-orange-50/50 dark:bg-orange-950/10 p-3">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Zap className="w-3 h-3 text-orange-500" />
+                                    <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">Challenges</span>
+                                </div>
+                                <ul className="space-y-1">
+                                    {m.challenges.split("\n").filter(l => l.trim()).map((line, i) => (
+                                        <li key={i} className="flex items-start gap-1.5 text-xs text-orange-900/70 dark:text-orange-200/70">
+                                            <span className="mt-1.5 w-1 h-1 rounded-full bg-orange-400 shrink-0" />
+                                            {line.trim()}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        {m.motivations && (
+                            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-950/10 p-3">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Target className="w-3 h-3 text-emerald-500" />
+                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Motivations</span>
+                                </div>
+                                <ul className="space-y-1">
+                                    {m.motivations.split("\n").filter(l => l.trim()).map((line, i) => (
+                                        <li key={i} className="flex items-start gap-1.5 text-xs text-emerald-900/70 dark:text-emerald-200/70">
+                                            <span className="mt-1.5 w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                                            {line.trim()}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── Milestone Card (full size) ───────────────────────────────────────────────
+
+function MilestoneCard({ m, idx, milestones }: { m: MilestoneData; idx: number; milestones: MilestoneData[] }) {
+    // "first" means the first major milestone in the list (achievements don't count)
+    const isFirst = milestones.filter(x => x.type !== "achievement").indexOf(m) === 0;
     const hasExtra = m.longDescription || m.challenges || m.motivations;
     const imgCount = m.imageUrls?.length ?? 0;
 
@@ -276,11 +378,11 @@ function MilestoneCard({ m, idx }: { m: MilestoneData; idx: number }) {
         <div className="relative pl-14">
             {/* Timeline node */}
             <div className={`absolute left-0 top-3 w-11 h-11 rounded-full border-4 flex items-center justify-center shadow-sm transition-all ${
-                idx === 0
+                isFirst
                     ? "bg-primary border-primary shadow-primary/30 shadow-md"
                     : "bg-card border-border"
             }`}>
-                <Trophy className={`w-4 h-4 ${idx === 0 ? "text-white" : "text-primary"}`} />
+                <Trophy className={`w-4 h-4 ${isFirst ? "text-white" : "text-primary"}`} />
             </div>
 
             {/* Card */}
