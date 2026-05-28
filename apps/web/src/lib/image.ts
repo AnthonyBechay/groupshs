@@ -9,8 +9,9 @@ export async function compressImage(
     const pipeline = sharp(buffer).resize(maxWidth, maxHeight, { fit: "inside", withoutEnlargement: true });
 
     if (preserveAlpha) {
-        // Keep transparency: encode as PNG (or WebP).
-        const output = await pipeline.png({ compressionLevel: 9, palette: true }).toBuffer();
+        // Keep transparency: full RGBA PNG. Do NOT use palette:true — palette quantisation
+        // turns semi-transparent / anti-aliased edge pixels into solid white.
+        const output = await pipeline.png({ compressionLevel: 8 }).toBuffer();
         return { buffer: output, contentType: "image/png" };
     }
 

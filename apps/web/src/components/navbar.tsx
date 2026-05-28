@@ -51,15 +51,12 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
         }`}>
             <div className="container mx-auto flex h-16 items-center justify-between px-4">
                 <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-transform hover:scale-105 active:scale-100 shrink-0">
-                    {/* Logo wrapper: mix-blend-multiply makes the white background match the navbar
-                        on any colored backdrop (hero section). On white pages it's invisible anyway. */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={src}
                         alt="Group SHS Logo"
                         width={40}
                         height={40}
-                        style={{ mixBlendMode: "multiply" }}
                         className="w-9 h-9 sm:w-10 sm:h-10 object-contain shrink-0"
                     />
                     <div className="flex flex-col leading-none">
