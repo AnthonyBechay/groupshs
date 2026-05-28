@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import {
     Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload,
-    BookOpen, Users, Trophy, Clock, Zap, Target, ImageIcon,
+    Users, Trophy, Clock, Zap, Target, ImageIcon,
     FileText, AlignLeft, Star,
 } from "lucide-react";
 
@@ -18,9 +18,9 @@ function formatMonthYear(iso: string) {
     return d.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
-/** Convert stored ISO date to "YYYY-MM" for <input type="month"> */
-function toMonthInput(iso: string) {
-    return new Date(iso).toISOString().slice(0, 7);
+/** Convert stored ISO date to "YYYY-MM-DD" for <input type="date"> */
+function toDateInput(iso: string) {
+    return new Date(iso).toISOString().slice(0, 10);
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -73,10 +73,10 @@ export default function AdminHistoryPage() {
         <div className="max-w-4xl">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold flex items-center gap-2">
-                    <BookOpen className="w-7 h-7 text-primary" /> History
+                    <Trophy className="w-7 h-7 text-primary" /> Milestones
                 </h1>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                    Manage the group&apos;s history timeline and Anciens directory.
+                    Manage the group&apos;s milestones, achievements, and Anciens directory.
                 </p>
             </div>
 
@@ -286,11 +286,11 @@ function MilestonesTab() {
                         <div className="grid md:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="date" className="flex items-center gap-1.5">
-                                    <Clock className="w-3.5 h-3.5 text-primary" /> Month & Year *
+                                    <Clock className="w-3.5 h-3.5 text-primary" /> Date *
                                 </Label>
                                 <Input
-                                    id="date" name="date" type="month" required
-                                    defaultValue={editing ? toMonthInput(editing.date) : ""}
+                                    id="date" name="date" type="date" required
+                                    defaultValue={editing ? toDateInput(editing.date) : ""}
                                 />
                             </div>
                             <div className="space-y-2 md:col-span-2">

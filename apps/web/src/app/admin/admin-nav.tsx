@@ -68,7 +68,7 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
             items: [
                 { href: "/admin/gallery", label: "Gallery", show: p.canManageGallery },
                 { href: "/admin/news", label: "News", show: p.canManageNews },
-                { href: "/admin/history", label: "History", show: p.canManageHistory },
+                { href: "/admin/history", label: "Milestones", show: p.canManageHistory },
                 { href: "/admin/partners", label: "Partners", show: p.canManagePartners },
                 { href: "/admin/social-links", label: "Social Links", show: p.canManageSocialLinks },
             ],
@@ -76,7 +76,6 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
         {
             label: "Site",
             items: [
-                { href: "/admin/about", label: "About Page", show: p.canManageSettings },
                 { href: "/admin/settings", label: "Settings", show: p.canManageSettings },
                 { href: "/admin/submissions", label: "Submissions", show: p.canViewSubmissions },
             ],
@@ -137,7 +136,7 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
                                     {open && (
                                         <div
                                             onMouseLeave={() => setOpenGroup(null)}
-                                            className="absolute left-0 top-full mt-1 w-52 rounded-xl border bg-card shadow-lg shadow-black/5 p-1.5 animate-fade-in z-50"
+                                            className="absolute left-0 top-full mt-1 w-52 rounded-xl border bg-card shadow-lg shadow-black/5 p-1.5 z-50"
                                         >
                                             {group.items.map(item => (
                                                 <button

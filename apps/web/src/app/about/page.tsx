@@ -1,16 +1,14 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { prisma } from "@/db";
-import Image from "next/image";
-import { Compass, Heart, Mountain, Users, History as HistoryIcon, Target } from "lucide-react";
+import { Compass, Heart, Mountain, Users, Target } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
-    const [settings, socialLinks, sections] = await Promise.all([
+    const [settings, socialLinks] = await Promise.all([
         prisma.siteSettings.findUnique({ where: { id: "default" } }),
         prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
-        prisma.aboutSection.findMany({ orderBy: [{ sortOrder: "asc" }, { year: "asc" }] }),
     ]);
 
     const heroTitle = settings?.aboutTitle || "Our Story";
@@ -99,27 +97,6 @@ export default async function AboutPage() {
                     </div>
                 </section>
 
-                {/* Timeline */}
-                {sections.length > 0 && (
-                    <section className="py-24 bg-background">
-                        <div className="container mx-auto px-4">
-                            <div className="text-center mb-14">
-                                <span className="inline-block text-sm font-bold tracking-widest uppercase text-primary mb-3">Through the years</span>
-                                <h2 className="text-3xl md:text-5xl font-black flex items-center justify-center gap-3">
-                                    <HistoryIcon className="w-8 h-8 text-primary" /> Our Journey
-                                </h2>
-                            </div>
-                            <Timeline sections={sections.map(s => ({
-                                id: s.id,
-                                year: s.year,
-                                dateLabel: s.dateLabel,
-                                title: s.title,
-                                description: s.description,
-                                imageUrl: s.imageUrl,
-                            }))} />
-                        </div>
-                    </section>
-                )}
             </main>
 
             <Footer
@@ -134,73 +111,3 @@ export default async function AboutPage() {
     );
 }
 
-type TimelineSection = {
-    id: string;
-    year: number | null;
-    dateLabel: string | null;
-    title: string;
-    description: string | null;
-    imageUrl: string | null;
-};
-
-function Timeline({ sections }: { sections: TimelineSection[] }) {
-    return (
-        <div className="relative max-w-4xl mx-auto">
-            {/* Vertical line */}
-            <div className="absolute left-5 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-primary/60 to-primary/10 md:-translate-x-1/2" />
-
-            <div className="space-y-10 md:space-y-12">
-                {sections.map((s, i) => {
-                    const left = i % 2 === 0;
-                    return (
-                        <div key={s.id} className="relative">
-                            {/* Dot */}
-                            <div className="absolute left-5 md:left-1/2 top-6 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2 z-10" />
-
-                            <div className={`pl-14 md:pl-0 md:grid md:grid-cols-2 md:gap-12`}>
-                                {/* Date column (desktop only) */}
-                                <div className={`hidden md:flex md:items-start ${left ? "md:justify-end md:pr-12 md:order-1" : "md:order-3 md:pl-12"}`}>
-                                    {(s.year || s.dateLabel) && (
-                                        <div className="flex flex-col">
-                                            {s.year && (
-                                                <span className="text-4xl md:text-5xl font-black text-primary leading-none">{s.year}</span>
-                                            )}
-                                            {s.dateLabel && (
-                                                <span className="text-sm font-semibold text-muted-foreground mt-1">{s.dateLabel}</span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Spacer */}
-                                <div className="hidden md:block md:order-2" />
-
-                                {/* Content card */}
-                                <div className={`${left ? "md:order-3 md:pl-12" : "md:order-1 md:pr-12"}`}>
-                                    {/* Mobile date badge */}
-                                    {(s.year || s.dateLabel) && (
-                                        <div className="md:hidden mb-2.5 flex items-center gap-2">
-                                            {s.year && <span className="text-lg font-black text-primary leading-none">{s.year}</span>}
-                                            {s.dateLabel && <span className="text-xs text-muted-foreground font-medium">{s.dateLabel}</span>}
-                                        </div>
-                                    )}
-                                    <div className="bg-card border rounded-2xl p-5 md:p-6 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all hover:-translate-y-1 active:scale-[0.98]">
-                                        {s.imageUrl && (
-                                            <div className="aspect-[16/9] w-full rounded-xl overflow-hidden mb-4 bg-muted relative">
-                                                <Image src={s.imageUrl} alt={s.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" loading="lazy" />
-                                            </div>
-                                        )}
-                                        <h3 className="text-lg md:text-xl font-bold mb-2">{s.title}</h3>
-                                        {s.description && (
-                                            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{s.description}</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}

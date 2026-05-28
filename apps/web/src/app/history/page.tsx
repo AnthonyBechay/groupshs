@@ -7,8 +7,8 @@ import { Users, Trophy, Calendar, BookOpen, Clock, Lock, Zap, Target, ImageIcon,
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-    title: "Our History | Group SHS",
-    description: "Discover the journey of Group SHS — from our founding to today, milestone by milestone.",
+    title: "Milestones | Group SHS",
+    description: "The milestones and achievements of Group SHS, from founding to today.",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -28,8 +28,9 @@ export default async function HistoryPage() {
     const [settings, socialLinks, milestones, anciens, session] = await Promise.all([
         prisma.siteSettings.findUnique({ where: { id: "default" } }),
         prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
-        prisma.historyMilestone.findMany({ orderBy: [{ sortOrder: "asc" }, { date: "asc" }] }),
-        prisma.ancien.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+        // Gracefully handle the table not existing yet (before first migration)
+        prisma.historyMilestone.findMany({ orderBy: [{ sortOrder: "asc" }, { date: "asc" }] }).catch(() => []),
+        prisma.ancien.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }).catch(() => []),
         getSession(),
     ]);
 
@@ -60,12 +61,11 @@ export default async function HistoryPage() {
 
                             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-none mb-5">
                                 Our<br />
-                                <span className="text-primary">History</span>
+                                <span className="text-primary">Milestones</span>
                             </h1>
 
                             <p className="text-lg md:text-xl text-muted-foreground max-w-xl leading-relaxed mb-10">
-                                Over {yearsActive} years of scouting, adventure, and community.
-                                Every milestone tells a story of people, purpose, and perseverance.
+                                {yearsActive} years of scouting. Here is how we got here.
                             </p>
 
                             {/* Stat row */}
@@ -88,32 +88,16 @@ export default async function HistoryPage() {
                     </div>
                 </section>
 
-                {/* ════════════════════ FOUNDING ORIGIN ════════════════════ */}
-                <section className="container mx-auto px-4 py-14 md:py-20">
+                {/* ════════════════════ FOUNDING STRIP ════════════════════ */}
+                <section className="container mx-auto px-4 pt-12 pb-2">
                     <div className="max-w-3xl mx-auto">
-                        <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/5 to-background p-7 md:p-10 shadow-sm">
-                            {/* Decorative circle */}
-                            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-
-                            <div className="relative">
-                                <div className="flex items-center gap-3 mb-5">
-                                    <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
-                                        <BookOpen className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <div className="text-xs font-bold text-primary uppercase tracking-widest">The Beginning</div>
-                                        <div className="text-2xl font-extrabold">{foundedYear}</div>
-                                    </div>
-                                </div>
-
-                                <h2 className="text-xl md:text-2xl font-bold mb-3">Group SHS is founded</h2>
-                                <p className="text-muted-foreground leading-relaxed">
-                                    In {foundedYear}, a group of passionate scouts and dedicated leaders came together
-                                    with a shared vision: to build a scouting community rooted in leadership,
-                                    brotherhood, and service. From a handful of members and a single unit, Group SHS
-                                    has grown into a vibrant family that has shaped the lives of hundreds across
-                                    the years — and continues to grow.
-                                </p>
+                        <div className="flex items-center gap-4 p-5 rounded-2xl border bg-card">
+                            <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20 shrink-0">
+                                <BookOpen className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold text-primary uppercase tracking-widest mb-0.5">Founded</div>
+                                <div className="font-bold text-lg">{foundedYear} — Group SHS</div>
                             </div>
                         </div>
                     </div>
@@ -127,13 +111,13 @@ export default async function HistoryPage() {
                             <div className="text-center py-16 border border-dashed rounded-2xl bg-muted/20">
                                 <Trophy className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                                 <p className="text-muted-foreground">
-                                    Our history timeline is being built. Check back soon.
+                                    No milestones yet.
                                 </p>
                             </div>
                         ) : (
                             <>
                                 <h2 className="text-2xl md:text-3xl font-extrabold mb-12 flex items-center gap-3">
-                                    <Trophy className="w-7 h-7 text-primary" /> Key Milestones
+                                    <Trophy className="w-7 h-7 text-primary" /> Milestones
                                 </h2>
 
                                 <div className="relative">
@@ -171,7 +155,7 @@ export default async function HistoryPage() {
                                             </span>
                                         </div>
                                         <p className="text-muted-foreground max-w-lg">
-                                            Former members who shaped our group. Their dedication built the foundation we stand on today.
+                                            Former members of the group and their last role.
                                         </p>
                                     </div>
                                     <a

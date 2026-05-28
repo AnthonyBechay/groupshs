@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Date and title are required" }, { status: 400 });
         }
 
-        // date comes in as "YYYY-MM" from the month input — parse to first of month
-        const parsedDate = new Date(`${date}-01T00:00:00.000Z`);
+        // date comes in as "YYYY-MM-DD" from the date input
+        const parsedDate = new Date(`${date}T00:00:00.000Z`);
 
         const last = await prisma.historyMilestone.findFirst({ orderBy: { sortOrder: "desc" } });
         const sortOrder = (last?.sortOrder ?? -1) + 1;
