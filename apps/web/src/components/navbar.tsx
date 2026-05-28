@@ -52,7 +52,7 @@ export function Navbar({ logoUrl }: { logoUrl?: string | null }) {
             <div className="container mx-auto flex h-16 items-center justify-between px-4">
                 <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-transform hover:scale-105 active:scale-100 shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="Group SHS Logo" width={40} height={40} className="w-9 h-9 sm:w-10 sm:h-10 object-contain" />
+                    <img src={src} alt="Group SHS Logo" width={40} height={40} className="w-9 h-9 sm:w-10 sm:h-10 object-contain mix-blend-multiply dark:mix-blend-screen" />
                     <div className="flex flex-col leading-none">
                         <span className="text-base sm:text-lg font-extrabold tracking-tight text-primary">Group SHS</span>
                         <span className="text-[9px] sm:text-[10px] font-medium text-muted-foreground tracking-widest uppercase">Scouts du Liban</span>

@@ -20,8 +20,8 @@ const TYPE_LABELS: Record<string, string> = {
     CAMP: "Camp", JOURNEE: "Journee", TEMPS: "Temps", MARCHE: "Marche", OTHER: "Autre",
 };
 
-function formatDate(d: Date) {
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+function formatDate(d: Date | string) {
+    return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default async function UnitPage({ params }: { params: Promise<{ id: string }> }) {

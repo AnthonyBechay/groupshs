@@ -402,11 +402,11 @@ function AchievementCard({ m, side }: { m: MilestoneData; side: "left" | "right"
                 <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{m.description}</p>
             )}
             {imgCount > 0 && (
-                <div className="flex gap-1.5 mt-2 overflow-x-auto snap-x pb-0.5">
+                <div className="flex gap-2 mt-2.5 overflow-x-auto snap-x pb-1">
                     {m.imageUrls.map((url, i) => (
-                        <div key={i} className="relative flex-none w-20 h-14 rounded-lg overflow-hidden snap-start">
+                        <div key={i} className="relative flex-none w-32 h-24 rounded-xl overflow-hidden snap-start">
                             <Image src={url} alt={`${m.title} ${i + 1}`} fill
-                                sizes="80px" className="object-cover" loading="lazy"
+                                sizes="128px" className="object-cover" loading="lazy"
                             />
                         </div>
                     ))}

@@ -12,8 +12,8 @@ export const metadata: Metadata = {
     description: "Latest news and updates from Scouts du Liban at Sagesse High School.",
 };
 
-function formatDate(d: Date) {
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+function formatDate(d: Date | string) {
+    return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default async function NewsPage() {
