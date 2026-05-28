@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
     const [settings, socialLinks] = await Promise.all([
-        prisma.siteSettings.findUnique({ where: { id: "default" } }),
-        prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
+        getCachedSettings(),
+        getCachedSocialLinks(),
     ]);
 
     const heroTitle = settings?.aboutTitle || "Our Story";

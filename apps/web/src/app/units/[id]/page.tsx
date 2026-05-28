@@ -1,14 +1,13 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { prisma } from "@/db";
+import { getCachedUnit, getCachedSocialLinks, getCachedSettings } from "@/lib/query-cache";
 import { notFound } from "next/navigation";
 import { Calendar, MapPin, Clock, Tent, Phone, User, ArrowRight, Compass, TreePine, Mountain, Shield } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
-// Re-render at most every 5 minutes.
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 const UNIT_META: Record<string, { icon: typeof Tent; ageRange: string; color: string; gradient: string }> = {
     LOUVETEAUX: { icon: TreePine, ageRange: "8-12 ans", color: "text-emerald-600", gradient: "from-emerald-700 via-emerald-800 to-emerald-900" },
@@ -29,23 +28,9 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
     const { id } = await params;
 
     const [unit, socialLinks, settings] = await Promise.all([
-        prisma.unit.findUnique({
-            where: { id },
-            include: {
-                activities: {
-                    where: { hidden: false },
-                    orderBy: { startDate: "desc" },
-                },
-                contacts: {
-                    include: {
-                        member: { select: { firstName: true, lastName: true, phone: true, role: true, photoUrl: true } },
-                    },
-                    orderBy: { sortOrder: "asc" },
-                },
-            },
-        }),
-        prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
-        prisma.siteSettings.findUnique({ where: { id: "default" } }),
+        getCachedUnit(id),
+        getCachedSocialLinks(),
+        getCachedSettings(),
     ]);
     const siteLogoUrl = settings?.logoUrl;
 

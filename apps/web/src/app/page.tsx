@@ -7,9 +7,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/db";
 import { SocialIcon } from "@/components/social-icons";
+import { getCachedGallery, getCachedPartners, getCachedSocialLinks, getCachedSettings } from "@/lib/query-cache";
 
-// Re-render at most every 5 minutes (stale-while-revalidate).
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -36,9 +36,9 @@ export default async function Home() {
       orderBy: { startDate: "asc" },
       take: 3,
     }),
-    prisma.galleryPhoto.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, imageUrl: true, caption: true } }),
-    prisma.partner.findMany({ orderBy: { sortOrder: "asc" } }),
-    prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
+    getCachedGallery(),
+    getCachedPartners(),
+    getCachedSocialLinks(),
     prisma.activity.findMany({
       where: {
         hidden: false,
@@ -58,7 +58,7 @@ export default async function Home() {
     prisma.member.count(),
     prisma.unit.count(),
     prisma.activity.count({ where: { hidden: false } }),
-    prisma.siteSettings.findUnique({ where: { id: "default" } }),
+    getCachedSettings(),
   ]);
 
   const groupFoundedYear = settings?.groupFoundedYear ?? 2014;

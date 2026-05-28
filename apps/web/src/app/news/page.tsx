@@ -1,12 +1,11 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Metadata } from "next";
-import { prisma } from "@/db";
+import { getCachedNewsArticles, getCachedSocialLinks, getCachedSettings } from "@/lib/query-cache";
 import { Calendar, Newspaper, Compass } from "lucide-react";
 import Image from "next/image";
 
-// Re-render at most every 5 minutes.
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
     title: "News - Group SHS",
@@ -19,9 +18,9 @@ function formatDate(d: Date) {
 
 export default async function NewsPage() {
     const [articles, socialLinks, settings] = await Promise.all([
-        prisma.newsArticle.findMany({ where: { published: true }, orderBy: { date: "desc" } }),
-        prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
-        prisma.siteSettings.findUnique({ where: { id: "default" } }),
+        getCachedNewsArticles(),
+        getCachedSocialLinks(),
+        getCachedSettings(),
     ]);
     const siteLogoUrl = settings?.logoUrl;
 

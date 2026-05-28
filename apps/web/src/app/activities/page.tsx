@@ -2,11 +2,10 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Compass, Sparkles } from "lucide-react";
 import { Metadata } from "next";
-import { prisma } from "@/db";
+import { getCachedUnitsWithActivities, getCachedAllActivities, getCachedSocialLinks, getCachedSettings } from "@/lib/query-cache";
 import { UnitTabs } from "./unit-tabs";
 
-// Re-render at most every 5 minutes.
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
     title: "Activities - Group SHS",
@@ -15,25 +14,10 @@ export const metadata: Metadata = {
 
 export default async function ActivitiesPage() {
     const [units, allActivities, socialLinks, settings] = await Promise.all([
-        prisma.unit.findMany({
-            include: {
-                activities: { where: { hidden: false } },
-                contacts: {
-                    include: {
-                        member: { select: { firstName: true, lastName: true, phone: true, role: true, photoUrl: true } },
-                    },
-                    orderBy: { sortOrder: "asc" },
-                },
-            },
-            orderBy: { name: "asc" },
-        }),
-        prisma.activity.findMany({
-            where: { hidden: false },
-            include: { unit: { select: { name: true, id: true } } },
-            orderBy: { startDate: "desc" },
-        }),
-        prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
-        prisma.siteSettings.findUnique({ where: { id: "default" } }),
+        getCachedUnitsWithActivities(),
+        getCachedAllActivities(),
+        getCachedSocialLinks(),
+        getCachedSettings(),
     ]);
     const siteLogoUrl = settings?.logoUrl;
 
