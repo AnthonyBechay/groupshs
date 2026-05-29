@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { getSession, isAdmin } from "@/lib/auth";
-import { Users, Trophy, Calendar, Clock, Lock, Zap, Target, ImageIcon, Star } from "lucide-react";
+import { Users, Trophy, Calendar, Clock, Zap, Target, ImageIcon, Star, Phone, Mail, ExternalLink, Briefcase, Shield, ChevronRight } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import Image from "next/image";
 
@@ -37,6 +37,26 @@ const getCachedAnciens = unstable_cache(
     ["history-anciens"],
     { revalidate: 300 }
 );
+
+// ─── Ancien types ─────────────────────────────────────────────────────────────
+
+type ScoutRoleEntry   = { role: string; startYear: string; endYear: string };
+type ProfessionEntry  = { title: string; organization: string; url: string; details: string };
+
+type AncienData = {
+    id: string;
+    name: string;
+    joinedYear: number | null;
+    leftYear: number | null;
+    progression: string[];
+    scoutRoles: ScoutRoleEntry[];
+    professions: ProfessionEntry[];
+    phone: string | null;
+    email: string | null;
+    photoUrl: string | null;
+    bio: string | null;
+    sortOrder: number;
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -137,26 +157,23 @@ export default async function HistoryPage() {
                     </div>
                 </section>
 
-                {/* ════════════════════ ANCIENS (admin-only) ════════════════════ */}
-                {adminUser && (
+                {/* ════════════════════ ANCIENS ════════════════════ */}
+                {(anciens.length > 0 || adminUser) && (
                     <section className="border-t bg-muted/20 py-14 md:py-20">
                         <div className="container mx-auto px-4">
                             <div className="max-w-5xl mx-auto">
                                 <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
                                     <div>
-                                        <div className="flex items-center gap-3 mb-1.5">
-                                            <h2 className="text-xl md:text-2xl font-extrabold flex items-center gap-2">
-                                                <Users className="w-6 h-6 text-primary" /> Anciens
-                                            </h2>
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 text-xs font-bold">
-                                                <Lock className="w-3 h-3" /> Admin only
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground max-w-lg">Former members and their last role.</p>
+                                        <h2 className="text-xl md:text-2xl font-extrabold flex items-center gap-2 mb-1">
+                                            <Users className="w-6 h-6 text-primary" /> Anciens
+                                        </h2>
+                                        <p className="text-sm text-muted-foreground max-w-lg">Former members who shaped who we are today.</p>
                                     </div>
-                                    <a href="/admin/history" className="text-xs text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
-                                        Manage in admin →
-                                    </a>
+                                    {adminUser && (
+                                        <a href="/admin/history" className="text-xs text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
+                                            Manage in admin →
+                                        </a>
+                                    )}
                                 </div>
 
                                 {anciens.length === 0 ? (
@@ -164,36 +181,13 @@ export default async function HistoryPage() {
                                         <Users className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
                                         <p className="text-sm text-muted-foreground">
                                             No anciens yet.{" "}
-                                            <a href="/admin/history" className="text-primary underline underline-offset-4">Add in admin.</a>
+                                            {adminUser && <a href="/admin/history" className="text-primary underline underline-offset-4">Add in admin.</a>}
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {anciens.map((a) => (
-                                            <div key={a.id} className="group relative overflow-hidden flex flex-col items-center text-center p-5 rounded-2xl bg-card border shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
-                                                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary/0 via-primary/40 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                {a.photoUrl ? (
-                                                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-4 border-background shadow-md mb-3">
-                                                        <Image src={a.photoUrl} alt={a.name} fill sizes="64px" className="object-cover" loading="lazy" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3 border-4 border-background shadow-md">
-                                                        <span className="text-primary font-extrabold text-base">
-                                                            {a.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <h3 className="font-bold text-sm mb-1">{a.name}</h3>
-                                                <span className="inline-block text-xs font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full mb-1.5">{a.lastRole}</span>
-                                                {a.yearsActive && (
-                                                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1 mb-2">
-                                                        <Clock className="w-3 h-3" /> {a.yearsActive}
-                                                    </p>
-                                                )}
-                                                {a.bio && (
-                                                    <p className="text-xs text-muted-foreground leading-relaxed border-t pt-2.5 w-full">{a.bio}</p>
-                                                )}
-                                            </div>
+                                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                        {(anciens as AncienData[]).map((a) => (
+                                            <AncienCard key={a.id} a={a} />
                                         ))}
                                     </div>
                                 )}
@@ -212,6 +206,141 @@ export default async function HistoryPage() {
                 phone={settings?.footerPhone}
                 email={settings?.footerEmail}
             />
+        </div>
+    );
+}
+
+// ─── Ancien Card ──────────────────────────────────────────────────────────────
+
+function AncienCard({ a }: { a: AncienData }) {
+    const scoutRoles   = Array.isArray(a.scoutRoles)  ? a.scoutRoles  as ScoutRoleEntry[]  : [];
+    const professions  = Array.isArray(a.professions) ? a.professions as ProfessionEntry[] : [];
+    const progression  = Array.isArray(a.progression) ? a.progression : [];
+
+    const scoutPeriod =
+        a.joinedYear && a.leftYear ? `${a.joinedYear} – ${a.leftYear}` :
+        a.joinedYear ? `Since ${a.joinedYear}` :
+        a.leftYear   ? `Until ${a.leftYear}` : null;
+
+    const initials = a.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+
+    return (
+        <div className="group relative flex flex-col rounded-2xl bg-card border shadow-sm hover:shadow-md hover:border-primary/30 transition-all overflow-hidden">
+            {/* top accent line */}
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+            {/* ── Header: photo + name + period ── */}
+            <div className="flex items-center gap-3 p-4 pb-3">
+                {a.photoUrl ? (
+                    <div className="relative w-14 h-14 rounded-full overflow-hidden border-4 border-background shadow-md shrink-0">
+                        <Image src={a.photoUrl} alt={a.name} fill sizes="56px" className="object-cover" loading="lazy" />
+                    </div>
+                ) : (
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border-4 border-background shadow-md shrink-0">
+                        <span className="text-primary font-extrabold text-sm">{initials}</span>
+                    </div>
+                )}
+                <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-sm leading-snug truncate">{a.name}</h3>
+                    {scoutPeriod && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                            <Calendar className="w-3 h-3 shrink-0" /> {scoutPeriod}
+                        </span>
+                    )}
+                    {progression.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                            {progression.map((p) => (
+                                <span key={p} className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                                    <Shield className="w-2.5 h-2.5" /> {p}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Scout Roles ── */}
+            {scoutRoles.length > 0 && (
+                <div className="px-4 pb-3">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <Shield className="w-2.5 h-2.5" /> Scout roles
+                    </div>
+                    <ul className="space-y-1">
+                        {scoutRoles.map((r, i) => (
+                            <li key={i} className="flex items-center gap-2 text-[11px]">
+                                <ChevronRight className="w-3 h-3 text-primary/60 shrink-0" />
+                                <span className="font-medium flex-1 truncate">{r.role}</span>
+                                {(r.startYear || r.endYear) && (
+                                    <span className="text-muted-foreground shrink-0 tabular-nums">
+                                        {r.startYear || "?"}{r.endYear && r.endYear !== r.startYear ? ` – ${r.endYear}` : ""}
+                                    </span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {/* ── Current Professions ── */}
+            {professions.length > 0 && (
+                <div className="px-4 pb-3 border-t pt-3">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <Briefcase className="w-2.5 h-2.5" /> Today
+                    </div>
+                    <ul className="space-y-2">
+                        {professions.map((p, i) => (
+                            <li key={i} className="text-[11px]">
+                                <div className="flex items-center gap-1 flex-wrap">
+                                    <span className="font-semibold">{p.title}</span>
+                                    {p.organization && (
+                                        <>
+                                            <span className="text-muted-foreground">·</span>
+                                            {p.url ? (
+                                                <a
+                                                    href={p.url.startsWith("http") ? p.url : `https://${p.url}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-primary hover:underline underline-offset-2 flex items-center gap-0.5"
+                                                >
+                                                    {p.organization} <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                                </a>
+                                            ) : (
+                                                <span className="text-muted-foreground">{p.organization}</span>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                                {p.details && (
+                                    <p className="text-muted-foreground mt-0.5 leading-relaxed">{p.details}</p>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {/* ── Bio ── */}
+            {a.bio && (
+                <div className="px-4 pb-3 border-t pt-3">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">{a.bio}</p>
+                </div>
+            )}
+
+            {/* ── Contact ── */}
+            {(a.phone || a.email) && (
+                <div className="px-4 py-2.5 mt-auto border-t bg-muted/30 flex flex-wrap gap-3">
+                    {a.phone && (
+                        <a href={`tel:${a.phone}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+                            <Phone className="w-3 h-3 shrink-0" /> {a.phone}
+                        </a>
+                    )}
+                    {a.email && (
+                        <a href={`mailto:${a.email}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+                            <Mail className="w-3 h-3 shrink-0" /> {a.email}
+                        </a>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

@@ -26,10 +26,13 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { name, lastRole, yearsActive, photoUrl, bio } = body;
+        const {
+            name, joinedYear, leftYear, progression, scoutRoles, professions,
+            phone, email, photoUrl, bio,
+        } = body;
 
-        if (!name || !lastRole) {
-            return NextResponse.json({ error: "Name and last role are required" }, { status: 400 });
+        if (!name) {
+            return NextResponse.json({ error: "Name is required" }, { status: 400 });
         }
 
         const last = await prisma.ancien.findFirst({ orderBy: { sortOrder: "desc" } });
@@ -38,8 +41,13 @@ export async function POST(request: NextRequest) {
         const ancien = await prisma.ancien.create({
             data: {
                 name,
-                lastRole,
-                yearsActive: yearsActive || null,
+                joinedYear: joinedYear ?? null,
+                leftYear: leftYear ?? null,
+                progression: progression ?? [],
+                scoutRoles: scoutRoles ?? [],
+                professions: professions ?? [],
+                phone: phone || null,
+                email: email || null,
                 photoUrl: photoUrl || null,
                 bio: bio || null,
                 sortOrder,

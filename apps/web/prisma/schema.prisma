@@ -440,13 +440,20 @@ model HistoryMilestone {
 
 // Old members of the group (private — admin-only visibility)
 model Ancien {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
-  lastRole    String  @map("last_role")
-  yearsActive String? @map("years_active") // e.g. "2014–2018"
-  photoUrl    String? @map("photo_url")
+  joinedYear  Int?     @map("joined_year")      // year they joined scouting
+  leftYear    Int?     @map("left_year")         // year they left scouting
+  progression String[]                           // ["Premiere veille", "Depart"]
+  // [{role,startYear,endYear}] – all scout roles held, ordered chronologically
+  scoutRoles  Json     @default("[]") @map("scout_roles")
+  // [{title,organization,url,details}] – current real-life professions
+  professions Json     @default("[]")
+  phone       String?
+  email       String?
+  photoUrl    String?  @map("photo_url")
   bio         String?
-  sortOrder   Int     @default(0) @map("sort_order")
+  sortOrder   Int      @default(0) @map("sort_order")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")

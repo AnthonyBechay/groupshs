@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import {
     Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload,
     Users, Trophy, Clock, Zap, Target, ImageIcon,
-    FileText, AlignLeft, Star,
+    FileText, AlignLeft, Star, Phone, Mail, Briefcase, Shield,
 } from "lucide-react";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -40,11 +40,19 @@ type Milestone = {
     sortOrder: number;
 };
 
+type ScoutRoleEntry = { role: string; startYear: string; endYear: string };
+type ProfessionEntry = { title: string; organization: string; url: string; details: string };
+
 type Ancien = {
     id: string;
     name: string;
-    lastRole: string;
-    yearsActive: string | null;
+    joinedYear: number | null;
+    leftYear: number | null;
+    progression: string[];
+    scoutRoles: ScoutRoleEntry[];
+    professions: ProfessionEntry[];
+    phone: string | null;
+    email: string | null;
     photoUrl: string | null;
     bio: string | null;
     sortOrder: number;
@@ -571,21 +579,31 @@ function MilestonesTab() {
 
 // ─── Anciens Tab ──────────────────────────────────────────────────────────────
 
+const PROGRESSION_OPTIONS = ["Première veille", "Départ"] as const;
+
+function emptyRole(): ScoutRoleEntry { return { role: "", startYear: "", endYear: "" }; }
+function emptyProfession(): ProfessionEntry { return { title: "", organization: "", url: "", details: "" }; }
+
 function AnciensTab() {
     const [anciens, setAnciens] = useState<Ancien[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState<Ancien | null>(null);
+
+    // form state
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [progression, setProgression] = useState<string[]>([]);
+    const [scoutRoles, setScoutRoles] = useState<ScoutRoleEntry[]>([emptyRole()]);
+    const [professions, setProfessions] = useState<ProfessionEntry[]>([emptyProfession()]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const formRef = useRef<HTMLFormElement>(null);
 
     async function fetchAnciens() {
         const res = await fetch("/api/admin/history/anciens");
         if (res.ok) setAnciens(await res.json());
         setLoading(false);
     }
-
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchAnciens(); }, []);
 
@@ -595,12 +613,10 @@ function AnciensTab() {
         setUploading(true);
         const fd = new FormData();
         fd.append("file", file);
+        fd.append("preserveAlpha", "true");
         try {
             const res = await fetch("/api/upload", { method: "POST", body: fd });
-            if (res.ok) {
-                const { url } = await res.json();
-                setPhotoUrl(url);
-            }
+            if (res.ok) setPhotoUrl((await res.json()).url);
         } finally {
             setUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
@@ -610,27 +626,37 @@ function AnciensTab() {
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
+        const cleanRoles = scoutRoles.filter(r => r.role.trim());
+        const cleanProfs = professions.filter(p => p.title.trim() || p.organization.trim());
         const body = {
             name: fd.get("name"),
-            lastRole: fd.get("lastRole"),
-            yearsActive: fd.get("yearsActive") || null,
+            joinedYear: fd.get("joinedYear") ? Number(fd.get("joinedYear")) : null,
+            leftYear: fd.get("leftYear") ? Number(fd.get("leftYear")) : null,
+            progression,
+            scoutRoles: cleanRoles.map(r => ({
+                role: r.role,
+                startYear: r.startYear ? Number(r.startYear) : null,
+                endYear: r.endYear ? Number(r.endYear) : null,
+            })),
+            professions: cleanProfs.map(p => ({
+                title: p.title,
+                organization: p.organization,
+                url: p.url || null,
+                details: p.details || null,
+            })),
+            phone: fd.get("phone") || null,
+            email: fd.get("email") || null,
             bio: fd.get("bio") || null,
             photoUrl,
         };
-        const url = editing
-            ? `/api/admin/history/anciens/${editing.id}`
-            : "/api/admin/history/anciens";
-        await fetch(url, {
-            method: editing ? "PUT" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        });
+        const url = editing ? `/api/admin/history/anciens/${editing.id}` : "/api/admin/history/anciens";
+        await fetch(url, { method: editing ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         closeForm();
         fetchAnciens();
     }
 
     async function handleDelete(id: string) {
-        if (!confirm("Remove this ancien from the directory?")) return;
+        if (!confirm("Remove this ancien?")) return;
         await fetch(`/api/admin/history/anciens/${id}`, { method: "DELETE" });
         fetchAnciens();
     }
@@ -638,19 +664,39 @@ function AnciensTab() {
     function startEdit(a: Ancien) {
         setEditing(a);
         setPhotoUrl(a.photoUrl);
+        setProgression(a.progression ?? []);
+        setScoutRoles(a.scoutRoles?.length ? a.scoutRoles.map(r => ({
+            role: r.role ?? "",
+            startYear: r.startYear != null ? String(r.startYear) : "",
+            endYear: r.endYear != null ? String(r.endYear) : "",
+        })) : [emptyRole()]);
+        setProfessions(a.professions?.length ? a.professions.map(p => ({
+            title: p.title ?? "",
+            organization: p.organization ?? "",
+            url: p.url ?? "",
+            details: p.details ?? "",
+        })) : [emptyProfession()]);
         setShowForm(true);
+        setTimeout(() => document.getElementById("ancien-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     }
 
     function startCreate() {
         setEditing(null);
         setPhotoUrl(null);
+        setProgression([]);
+        setScoutRoles([emptyRole()]);
+        setProfessions([emptyProfession()]);
         setShowForm(true);
+        setTimeout(() => document.getElementById("ancien-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     }
 
     function closeForm() {
         setShowForm(false);
         setEditing(null);
         setPhotoUrl(null);
+        setProgression([]);
+        setScoutRoles([emptyRole()]);
+        setProfessions([emptyProfession()]);
     }
 
     async function move(idx: number, dir: -1 | 1) {
@@ -666,21 +712,34 @@ function AnciensTab() {
         });
     }
 
+    // helpers for dynamic lists
+    function updateRole(i: number, field: keyof ScoutRoleEntry, val: string) {
+        setScoutRoles(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+    }
+    function updateProfession(i: number, field: keyof ProfessionEntry, val: string) {
+        setProfessions(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: val } : p));
+    }
+    function toggleProgression(opt: string) {
+        setProgression(prev => prev.includes(opt) ? prev.filter(p => p !== opt) : [...prev, opt]);
+    }
+
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <p className="text-sm text-muted-foreground">
-                    Manage the private Anciens directory — visible only to logged-in admins.
+                    Manage the Anciens directory — visible only to logged-in admins.
                 </p>
                 <Button onClick={startCreate} className="gap-2 shrink-0">
                     <Plus className="w-4 h-4" /> Add Ancien
                 </Button>
             </div>
 
+            {/* ── Form ── */}
             {showForm && (
-                <form onSubmit={handleSubmit} className="border rounded-2xl p-6 mb-8 space-y-4 bg-card">
+                <form id="ancien-form" ref={formRef} onSubmit={handleSubmit}
+                    className="border rounded-2xl p-6 mb-8 space-y-6 bg-card">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-semibold">{editing ? "Edit ancien" : "New ancien"}</h2>
                         <button type="button" onClick={closeForm} className="text-muted-foreground hover:text-foreground">
@@ -688,20 +747,11 @@ function AnciensTab() {
                         </button>
                     </div>
 
+                    {/* ── Name + Photo ── */}
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="name">Full Name *</Label>
-                            <Input id="name" name="name" defaultValue={editing?.name ?? ""} placeholder="Jean Dupont" required />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="lastRole">Last Role *</Label>
-                            <Input id="lastRole" name="lastRole" defaultValue={editing?.lastRole ?? ""} placeholder="Chef de Groupe" required />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="yearsActive" className="flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5 text-primary" /> Years Active
-                            </Label>
-                            <Input id="yearsActive" name="yearsActive" defaultValue={editing?.yearsActive ?? ""} placeholder="2014–2019" />
+                            <Input id="name" name="name" required defaultValue={editing?.name ?? ""} placeholder="Jean Dupont" />
                         </div>
                         <div className="space-y-2">
                             <Label>Photo (optional)</Label>
@@ -712,9 +762,7 @@ function AnciensTab() {
                                     {uploading ? "Uploading…" : photoUrl ? "Change photo" : "Upload photo"}
                                 </Button>
                                 {photoUrl && (
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => setPhotoUrl(null)} className="text-destructive">
-                                        <X className="w-4 h-4" />
-                                    </Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => setPhotoUrl(null)} className="text-destructive"><X className="w-4 h-4" /></Button>
                                 )}
                             </div>
                             {photoUrl && (
@@ -722,23 +770,163 @@ function AnciensTab() {
                                 <img src={photoUrl} alt="Preview" className="w-16 h-16 object-cover rounded-full border mt-2" />
                             )}
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="bio">Short bio (optional)</Label>
-                            <textarea
-                                id="bio" name="bio" defaultValue={editing?.bio ?? ""}
-                                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-y"
-                                placeholder="A few words about their contribution to the group..."
-                            />
+                    </div>
+
+                    {/* ── Contact ── */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="phone" className="flex items-center gap-1.5">
+                                <Phone className="w-3.5 h-3.5 text-primary" /> Phone
+                            </Label>
+                            <Input id="phone" name="phone" type="tel" defaultValue={editing?.phone ?? ""} placeholder="+961 xx xxx xxx" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="flex items-center gap-1.5">
+                                <Mail className="w-3.5 h-3.5 text-primary" /> Email
+                            </Label>
+                            <Input id="email" name="email" type="email" defaultValue={editing?.email ?? ""} placeholder="jean@example.com" />
                         </div>
                     </div>
 
-                    <div className="flex gap-2 pt-1">
+                    {/* ── Scouting dates ── */}
+                    <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5" /> Scouting Period
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="joinedYear" className="text-xs">Year joined</Label>
+                                <Input id="joinedYear" name="joinedYear" type="number" min="1990" max="2100"
+                                    defaultValue={editing?.joinedYear ?? ""} placeholder="e.g. 2010" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="leftYear" className="text-xs">Year left</Label>
+                                <Input id="leftYear" name="leftYear" type="number" min="1990" max="2100"
+                                    defaultValue={editing?.leftYear ?? ""} placeholder="e.g. 2018" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Progression ── */}
+                    <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                            <Star className="w-3.5 h-3.5 text-amber-500" /> Scout Progression
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                            {PROGRESSION_OPTIONS.map(opt => (
+                                <label key={opt} className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={progression.includes(opt)}
+                                        onChange={() => toggleProgression(opt)}
+                                        className="w-4 h-4 rounded border-gray-300 text-primary"
+                                    />
+                                    <span className="text-sm font-medium">{opt}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── Scout Roles ── */}
+                    <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                <Shield className="w-3.5 h-3.5 text-primary" /> Scout Roles Held
+                            </p>
+                            <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1"
+                                onClick={() => setScoutRoles(p => [...p, emptyRole()])}>
+                                <Plus className="w-3 h-3" /> Add role
+                            </Button>
+                        </div>
+                        <div className="space-y-2">
+                            {scoutRoles.map((r, i) => (
+                                <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+                                    <Input
+                                        placeholder="e.g. Chef de Groupe, Akela…"
+                                        value={r.role}
+                                        onChange={e => updateRole(i, "role", e.target.value)}
+                                    />
+                                    <Input
+                                        className="w-24"
+                                        placeholder="From"
+                                        type="number" min="1990" max="2100"
+                                        value={r.startYear}
+                                        onChange={e => updateRole(i, "startYear", e.target.value)}
+                                    />
+                                    <Input
+                                        className="w-24"
+                                        placeholder="To"
+                                        type="number" min="1990" max="2100"
+                                        value={r.endYear}
+                                        onChange={e => updateRole(i, "endYear", e.target.value)}
+                                    />
+                                    <button type="button" onClick={() => setScoutRoles(p => p.filter((_, idx) => idx !== i))}
+                                        className="text-muted-foreground hover:text-destructive transition-colors p-1 disabled:opacity-30"
+                                        disabled={scoutRoles.length === 1}>
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Add roles in chronological order. Leave "To" empty for the final role.</p>
+                    </div>
+
+                    {/* ── Current Professions ── */}
+                    <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                <Briefcase className="w-3.5 h-3.5 text-primary" /> Current Professions
+                            </p>
+                            <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1"
+                                onClick={() => setProfessions(p => [...p, emptyProfession()])}>
+                                <Plus className="w-3 h-3" /> Add
+                            </Button>
+                        </div>
+                        <div className="space-y-4">
+                            {professions.map((p, i) => (
+                                <div key={i} className="border rounded-xl bg-background p-3 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-semibold text-muted-foreground">Position {i + 1}</span>
+                                        <button type="button"
+                                            onClick={() => setProfessions(prev => prev.filter((_, idx) => idx !== i))}
+                                            className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30"
+                                            disabled={professions.length === 1}>
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <div className="grid md:grid-cols-2 gap-2">
+                                        <Input placeholder="Job title / Role" value={p.title}
+                                            onChange={e => updateProfession(i, "title", e.target.value)} />
+                                        <Input placeholder="Company / Organization" value={p.organization}
+                                            onChange={e => updateProfession(i, "organization", e.target.value)} />
+                                    </div>
+                                    <Input placeholder="Website URL (optional)" type="url" value={p.url}
+                                        onChange={e => updateProfession(i, "url", e.target.value)} />
+                                    <Input placeholder="Additional details (optional)" value={p.details}
+                                        onChange={e => updateProfession(i, "details", e.target.value)} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── Bio ── */}
+                    <div className="space-y-2">
+                        <Label htmlFor="bio">Bio / Notes (optional)</Label>
+                        <textarea
+                            id="bio" name="bio" defaultValue={editing?.bio ?? ""}
+                            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-y"
+                            placeholder="A few words about their contribution to the group..."
+                        />
+                    </div>
+
+                    <div className="flex gap-2 pt-1 border-t">
                         <Button type="submit">{editing ? "Update" : "Add Ancien"}</Button>
                         <Button type="button" variant="outline" onClick={closeForm}>Cancel</Button>
                     </div>
                 </form>
             )}
 
+            {/* ── List ── */}
             {anciens.length === 0 ? (
                 <div className="text-center py-20 border border-dashed rounded-2xl bg-muted/30">
                     <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -748,14 +936,10 @@ function AnciensTab() {
             ) : (
                 <div className="space-y-3">
                     {anciens.map((a, idx) => (
-                        <div key={a.id} className="border rounded-2xl bg-card p-4 flex items-center gap-4 hover:border-primary/30 transition-colors">
-                            <div className="flex flex-col gap-1 shrink-0">
-                                <button onClick={() => move(idx, -1)} disabled={idx === 0} className="w-7 h-7 rounded-md border bg-background hover:bg-muted disabled:opacity-30 flex items-center justify-center">
-                                    <ArrowUp className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => move(idx, 1)} disabled={idx === anciens.length - 1} className="w-7 h-7 rounded-md border bg-background hover:bg-muted disabled:opacity-30 flex items-center justify-center">
-                                    <ArrowDown className="w-3.5 h-3.5" />
-                                </button>
+                        <div key={a.id} className="border rounded-2xl bg-card p-4 flex items-start gap-4 hover:border-primary/30 transition-colors">
+                            <div className="flex flex-col gap-1 shrink-0 mt-1">
+                                <button onClick={() => move(idx, -1)} disabled={idx === 0} className="w-7 h-7 rounded-md border bg-background hover:bg-muted disabled:opacity-30 flex items-center justify-center"><ArrowUp className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => move(idx, 1)} disabled={idx === anciens.length - 1} className="w-7 h-7 rounded-md border bg-background hover:bg-muted disabled:opacity-30 flex items-center justify-center"><ArrowDown className="w-3.5 h-3.5" /></button>
                             </div>
                             {a.photoUrl ? (
                                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -769,12 +953,29 @@ function AnciensTab() {
                             )}
                             <div className="flex-1 min-w-0">
                                 <p className="font-bold text-base">{a.name}</p>
-                                <p className="text-sm text-primary font-medium">{a.lastRole}</p>
-                                {a.yearsActive && (
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                        <Clock className="w-3 h-3" /> {a.yearsActive}
+                                {(a.joinedYear || a.leftYear) && (
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {a.joinedYear ?? "?"} → {a.leftYear ?? "present"}
                                     </p>
                                 )}
+                                {a.scoutRoles?.length > 0 && (
+                                    <p className="text-xs text-primary font-medium mt-0.5">
+                                        {a.scoutRoles.map((r: ScoutRoleEntry) => r.role).filter(Boolean).join(" · ")}
+                                    </p>
+                                )}
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {a.progression?.map((p: string) => (
+                                        <span key={p} className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                            ★ {p}
+                                        </span>
+                                    ))}
+                                    {a.professions?.length > 0 && (
+                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                            {a.professions.length} profession{a.professions.length !== 1 ? "s" : ""}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex gap-1 shrink-0">
                                 <Button variant="ghost" size="sm" onClick={() => startEdit(a)}><Pencil className="w-4 h-4" /></Button>
