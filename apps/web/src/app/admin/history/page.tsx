@@ -9,6 +9,7 @@ import {
     Users, Trophy, Clock, Zap, Target, ImageIcon,
     FileText, AlignLeft, Star, Phone, Mail, Briefcase, Shield,
 } from "lucide-react";
+import { ANCIEN_SCOUT_ROLES } from "@/lib/scout-config";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -841,11 +842,20 @@ function AnciensTab() {
                         <div className="space-y-2">
                             {scoutRoles.map((r, i) => (
                                 <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
-                                    <Input
-                                        placeholder="e.g. Chef de Groupe, Akela…"
+                                    <select
                                         value={r.role}
                                         onChange={e => updateRole(i, "role", e.target.value)}
-                                    />
+                                        className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    >
+                                        <option value="">— Select role —</option>
+                                        {ANCIEN_SCOUT_ROLES.map(({ group, options }) => (
+                                            <optgroup key={group} label={group}>
+                                                {options.map(o => (
+                                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                                ))}
+                                            </optgroup>
+                                        ))}
+                                    </select>
                                     <Input
                                         className="w-24"
                                         placeholder="From"
@@ -868,7 +878,7 @@ function AnciensTab() {
                                 </div>
                             ))}
                         </div>
-                        <p className="text-[11px] text-muted-foreground">Add roles in chronological order. Leave "To" empty for the final role.</p>
+                        <p className="text-[11px] text-muted-foreground">Add roles in chronological order. Leave "To" empty for a current/final role.</p>
                     </div>
 
                     {/* ── Current Professions ── */}

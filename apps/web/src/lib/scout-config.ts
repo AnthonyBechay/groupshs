@@ -37,6 +37,7 @@ export const ROLES_BY_UNIT_TYPE: Record<string, { value: string; label: string }
         { value: "CC", label: "CC (Chef Clan)" },
         { value: "CE", label: "CE (Chef d'equipe)" },
         { value: "ACC", label: "ACC (Assistant Chef Clan)" },
+        { value: "AU", label: "AU (Aumônier)" },
     ],
 };
 
@@ -75,6 +76,23 @@ export const PROGRESSION_BY_UNIT_TYPE: Record<string, { value: string; label: st
     ],
     GROUP: [{ value: "Depart", label: "Depart" }],
 };
+
+// Grouped role list used in the Anciens form — reuses ROLES_BY_UNIT_TYPE directly.
+export const ANCIEN_SCOUT_ROLES: { group: string; options: { value: string; label: string }[] }[] = [
+    { group: "Louveteaux", options: ROLES_BY_UNIT_TYPE.LOUVETEAUX },
+    { group: "Eclaireurs", options: ROLES_BY_UNIT_TYPE.ECLAIREURS },
+    { group: "Routiers",   options: ROLES_BY_UNIT_TYPE.ROUTIERS },
+    { group: "Groupe",     options: ROLES_BY_UNIT_TYPE.GROUP },
+];
+
+// Flat lookup: role value → label (across all branches)
+export function ancienRoleLabel(value: string): string {
+    for (const { options } of ANCIEN_SCOUT_ROLES) {
+        const m = options.find(o => o.value === value);
+        if (m) return m.label;
+    }
+    return value;
+}
 
 // Look up a label for any progression value across all unit types
 export function progressionLabel(value: string): string {
