@@ -56,6 +56,12 @@ model RecruitmentSubmission {
   otherComments     String?  @map("other_comments")
   status            String   @default("PENDING") // PENDING, CONTACTED, WAITING_LIST, RECRUITED, REJECTED
   statusNote        String?  @map("status_note")
+
+  // Set when the applicant has been enrolled as a real Member in a unit — the
+  // final step of recruitment. Until then a "RECRUITED" status is just a label.
+  memberId   String?   @unique @map("member_id")
+  enrolledAt DateTime? @map("enrolled_at")
+
   createdAt         DateTime @default(now()) @map("created_at")
 
   @@map("recruitment_submission")
@@ -72,7 +78,8 @@ model Unit {
   contactPhone String? @map("contact_phone") // Responsible person phone
   imageUrl    String? @map("image_url")      // Unit photo
 
-  members    Member[]
+  members    Member[]   @relation("UnitMembers")
+  maitrise   Member[]   @relation("UnitMaitrise")  // leaders serving this unit from elsewhere
   activities Activity[]
   subgroups  Subgroup[]
   contacts   UnitContact[]
@@ -130,11 +137,20 @@ model Member {
   email       String?
   bloodType   String?  @map("blood_type")
   role        String?
+  // Concurrent roles. Normally empty, but the group does make exceptions —
+  // someone can be a CM (unit maitrise) and an ACG (conseil) at the same time.
+  extraRoles  String[] @default([]) @map("extra_roles")
   progressions String[] @default([])
   joinedAt    DateTime @default(now()) @map("joined_at")
 
+  // Home unit — where the member actually belongs. Unit maitrise (CT, CM, CC…)
+  // stay members of the Routiers / Pionnieres while they run a younger unit.
   unitId String @map("unit_id")
-  unit   Unit   @relation(fields: [unitId], references: [id])
+  unit   Unit   @relation("UnitMembers", fields: [unitId], references: [id])
+
+  // The unit this leader runs, when it differs from their home unit.
+  servesUnitId String? @map("serves_unit_id")
+  servesUnit   Unit?   @relation("UnitMaitrise", fields: [servesUnitId], references: [id], onDelete: SetNull)
 
   subgroupId String?   @map("subgroup_id")
   subgroup   Subgroup? @relation(fields: [subgroupId], references: [id], onDelete: SetNull)
@@ -213,6 +229,7 @@ model Member {
   @@index([unitId])
   @@index([subgroupId])
   @@index([status])
+  @@index([servesUnitId])
 }
 
 // Brothers/sisters of the member that are also in the group

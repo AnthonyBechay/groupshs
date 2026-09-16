@@ -8,7 +8,7 @@ import {
     TransitionSettings, DEFAULT_TRANSITION_SETTINGS,
     TRANSITION_PATH, evaluateMember, getFiscalYear, currentAge,
 } from "@/lib/age-transition";
-import { isLeadershipRole } from "@/lib/scout-config";
+import { isLeadershipRoleIn } from "@/lib/scout-config";
 
 /** Read the configured transition rules, falling back to defaults. */
 export async function getTransitionSettings(): Promise<TransitionSettings> {
@@ -93,7 +93,9 @@ export async function buildUnitTransitionPreview(unitId: string, ref: Date = new
     const rows: CandidateRow[] = members.map((m) => {
         // Leaders (maîtrise) are never swept up by the age rule — they move
         // between units by decision, through the maîtrise transfer flow.
-        const eva = isLeadershipRole(m.role)
+        // Context-aware: inside the Louveteaux, "SE" is a Second de Sizaine (a
+        // youth who must still be promoted), not the Secretaire de Groupe.
+        const eva = isLeadershipRoleIn(m.role, unit.unitType)
             ? {
                 eligible: false, reason: "LEADERSHIP" as const,
                 ageReached: null, threshold: null,

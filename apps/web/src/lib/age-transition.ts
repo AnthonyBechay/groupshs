@@ -175,6 +175,45 @@ export function evaluateMember(
     return { eligible: true, reason: "ELIGIBLE", ageReached, threshold, targetUnitType };
 }
 
+// ─── Placing a new recruit ────────────────────────────────────────────────────
+
+/** Branch ladders, youngest first, per track. */
+export const TRACK_BRANCHES: Record<"MALE" | "FEMALE", string[]> = {
+    MALE: ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS"],
+    FEMALE: ["LOUVETTES", "ECLAIREUSES", "PIONNIERES"],
+};
+
+/**
+ * Which branch a new recruit belongs in, from their gender and date of birth.
+ * Uses the same "age reached during the fiscal year" rule as promotions, so a
+ * recruit lands where they would sit after this year's move-ups — no one is
+ * placed in a branch they are already due to leave.
+ *
+ * Returns null when gender or date of birth is missing.
+ */
+export function suggestBranchForAge(
+    gender: string | null | undefined,
+    dob: string | null | undefined,
+    settings: TransitionSettings,
+    ref: Date = new Date()
+): { unitType: string; ageReached: number } | null {
+    if (gender !== "MALE" && gender !== "FEMALE") return null;
+
+    const fy = getFiscalYear(ref, settings.fiscalYearStartMonth);
+    const ageReached = ageReachedDuringFiscalYear(dob, fy, settings.fiscalYearStartMonth);
+    if (ageReached === null) return null;
+
+    const branches = TRACK_BRANCHES[gender];
+    // Walk up the ladder while the member has outgrown the current branch.
+    let unitType = branches[0];
+    for (const branch of branches) {
+        const threshold = thresholdForUnitType(branch, settings);
+        unitType = branch;
+        if (threshold === null || ageReached < threshold) break;
+    }
+    return { unitType, ageReached };
+}
+
 export const REASON_LABEL: Record<EligibilityReason, string> = {
     ELIGIBLE: "Due to move up",
     NO_DOB: "No date of birth on file",

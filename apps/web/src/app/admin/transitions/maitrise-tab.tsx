@@ -1,17 +1,25 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-    Shuffle, Shield, CheckCircle2, Loader2, AlertTriangle, Info, Plus, X, UserPlus,
+    Shuffle, Shield, CheckCircle2, Loader2, AlertTriangle, Info, Plus, X, UserPlus, Search,
 } from "lucide-react";
-import { unitTypeLabel, LEADERSHIP_ROLE_OPTIONS } from "@/lib/scout-config";
+import {
+    unitTypeLabel, LEADERSHIP_ROLE_GROUPS, isCouncilRole, allRolesOf,
+} from "@/lib/scout-config";
+
+/** Only the senior branches are old enough to join the maîtrise. */
+const PROMOTABLE_BRANCHES = ["ROUTIERS", "PIONNIERES"];
+const PROMOTE_LIMIT = 50;
 
 type Unit = { id: string; name: string; unitType: string };
 type Leader = {
-    id: string; firstName: string; lastName: string; role: string | null;
+    id: string; firstName: string; lastName: string;
+    role: string | null; extraRoles: string[];
     photoUrl: string | null; unitId: string;
     unit: { id: string; name: string; unitType: string };
+    servesUnit: { id: string; name: string; unitType: string } | null;
 };
 
 type Draft = { memberId: string; toUnitId: string; toRole: string };
@@ -28,6 +36,7 @@ export function MaitriseTab() {
     const [error, setError] = useState("");
     const [done, setDone] = useState<number | null>(null);
     const [showPromote, setShowPromote] = useState(false);
+    const [promoteSearch, setPromoteSearch] = useState("");
 
     const load = useCallback(async () => {
         const res = await fetch("/api/admin/transitions/maitrise");
@@ -43,6 +52,33 @@ export function MaitriseTab() {
     useEffect(() => { load(); }, [load]);
 
     const all = [...leaders, ...others];
+
+    // Split the current maîtrise into its two tiers.
+    const council = useMemo(
+        () => leaders.filter(m => allRolesOf(m).some(isCouncilRole)),
+        [leaders]
+    );
+    const unitLeaders = useMemo(
+        () => leaders.filter(m => !allRolesOf(m).some(isCouncilRole)),
+        [leaders]
+    );
+
+    // Only the senior branches are old enough to join the maîtrise.
+    const promotable = useMemo(
+        () => others.filter(m => PROMOTABLE_BRANCHES.includes(m.unit.unitType)),
+        [others]
+    );
+
+    // With a few hundred members a raw list is unusable, so search and cap it.
+    const promoteMatches = useMemo(() => {
+        const q = promoteSearch.trim().toLowerCase();
+        const base = q
+            ? promotable.filter(m => `${m.firstName} ${m.lastName}`.toLowerCase().includes(q))
+            : promotable;
+        return base.slice(0, PROMOTE_LIMIT);
+    }, [promotable, promoteSearch]);
+
+    const promoteTruncated = promoteMatches.length === PROMOTE_LIMIT;
 
     function addDraft(m: Leader) {
         if (drafts.some(d => d.memberId === m.id)) return;
@@ -94,11 +130,17 @@ export function MaitriseTab() {
         <div className="space-y-5">
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-2.5">
                 <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <p className="text-sm text-muted-foreground">
-                    The maîtrise is <strong className="text-foreground">not governed by age</strong>. Leaders move between
-                    units whenever the group decides — an ACG can become CT of the Troupe, a CM can move to the Clan.
-                    Each transfer is recorded and appears in the Move Up tab&apos;s History, where it can be reverted.
-                </p>
+                <div className="text-sm text-muted-foreground space-y-1.5">
+                    <p>
+                        The maîtrise is <strong className="text-foreground">not governed by age</strong> — leaders move
+                        whenever the group decides. Every transfer is recorded and can be reverted from the Move Up tab.
+                    </p>
+                    <p>
+                        <strong className="text-foreground">Unit maîtrise</strong> (CT, CM, CC…) run a younger unit but
+                        stay members of the Routiers / Pionnières. <strong className="text-foreground">The conseil</strong>{" "}
+                        (CG, ACG, EA, TR, SE, AU) sit at group level and leave the branch.
+                    </p>
+                </div>
             </div>
 
             {error && (
@@ -139,25 +181,39 @@ export function MaitriseTab() {
                                         </p>
                                     </div>
                                     <select
-                                        value={d.toUnitId}
-                                        onChange={e => updateDraft(d.memberId, { toUnitId: e.target.value })}
-                                        className="h-9 rounded-md border border-input bg-background px-2 text-sm min-w-[150px]"
-                                    >
-                                        <option value="">Unit…</option>
-                                        {units.map(u => (
-                                            <option key={u.id} value={u.id}>{u.name} ({unitTypeLabel(u.unitType)})</option>
-                                        ))}
-                                    </select>
-                                    <select
                                         value={d.toRole}
                                         onChange={e => updateDraft(d.memberId, { toRole: e.target.value })}
                                         className="h-9 rounded-md border border-input bg-background px-2 text-sm min-w-[150px]"
                                     >
                                         <option value="">Role…</option>
-                                        {LEADERSHIP_ROLE_OPTIONS.map(r => (
-                                            <option key={r.value} value={r.value}>{r.label}</option>
+                                        {LEADERSHIP_ROLE_GROUPS.map(g => (
+                                            <optgroup key={g.tier} label={g.label}>
+                                                {g.options.map(r => (
+                                                    <option key={r.value} value={r.value}>{r.label}</option>
+                                                ))}
+                                            </optgroup>
                                         ))}
                                     </select>
+                                    <div className="flex flex-col gap-0.5 min-w-[170px]">
+                                        <select
+                                            value={d.toUnitId}
+                                            onChange={e => updateDraft(d.memberId, { toUnitId: e.target.value })}
+                                            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                                        >
+                                            <option value="">Unit…</option>
+                                            {units.map(u => (
+                                                <option key={u.id} value={u.id}>{u.name} ({unitTypeLabel(u.unitType)})</option>
+                                            ))}
+                                        </select>
+                                        {/* The unit means different things per tier. */}
+                                        <span className="text-[10px] text-muted-foreground">
+                                            {!d.toRole
+                                                ? "pick a role first"
+                                                : isCouncilRole(d.toRole)
+                                                    ? "their new home unit (leaves the branch)"
+                                                    : "the unit they will run — stays a Routier/Pionnière"}
+                                        </span>
+                                    </div>
                                     {!isChanged && <span className="text-[10px] text-muted-foreground">no change</span>}
                                     <button onClick={() => removeDraft(d.memberId)} className="text-muted-foreground hover:text-destructive p-1">
                                         <X className="w-4 h-4" />
@@ -198,22 +254,51 @@ export function MaitriseTab() {
                     </p>
                 ) : (
                     <div className="divide-y">
-                        {leaders.map(m => (
-                            <div key={m.id} className="px-4 py-3 flex flex-wrap items-center gap-3">
-                                <div className="flex-1 min-w-[180px]">
-                                    <p className="text-sm font-semibold">{m.firstName} {m.lastName}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {m.unit.name} · {unitTypeLabel(m.unit.unitType)}
-                                    </p>
-                                </div>
-                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary">{m.role}</span>
-                                <Button
-                                    variant="outline" size="sm" className="gap-1.5"
-                                    disabled={drafts.some(d => d.memberId === m.id)}
-                                    onClick={() => addDraft(m)}
-                                >
-                                    <Shuffle className="w-3.5 h-3.5" /> Reassign
-                                </Button>
+                        {[
+                            { key: "COUNCIL", label: "Conseil — leaders of leaders", list: council },
+                            { key: "UNIT", label: "Unit maîtrise", list: unitLeaders },
+                        ].filter(s => s.list.length > 0).map(section => (
+                            <div key={section.key}>
+                                <p className="px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/20">
+                                    {section.label} ({section.list.length})
+                                </p>
+                                {section.list.map(m => {
+                                    const roles = allRolesOf(m);
+                                    return (
+                                        <div key={m.id} className="px-4 py-3 flex flex-wrap items-center gap-3 border-t">
+                                            <div className="flex-1 min-w-[180px]">
+                                                <p className="text-sm font-semibold">{m.firstName} {m.lastName}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {m.unit.name} · {unitTypeLabel(m.unit.unitType)}
+                                                    {m.servesUnit && (
+                                                        <> · runs <strong className="text-foreground">{m.servesUnit.name}</strong></>
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1">
+                                                {roles.map(r => (
+                                                    <span
+                                                        key={r}
+                                                        className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                                                            isCouncilRole(r)
+                                                                ? "bg-primary/10 text-primary"
+                                                                : "bg-muted text-muted-foreground"
+                                                        }`}
+                                                    >
+                                                        {r}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            <Button
+                                                variant="outline" size="sm" className="gap-1.5"
+                                                disabled={drafts.some(d => d.memberId === m.id)}
+                                                onClick={() => addDraft(m)}
+                                            >
+                                                <Shuffle className="w-3.5 h-3.5" /> Reassign
+                                            </Button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         ))}
                     </div>
@@ -228,27 +313,57 @@ export function MaitriseTab() {
                 >
                     <UserPlus className="w-4 h-4 text-primary" />
                     Promote a member into the maîtrise
-                    <span className="text-muted-foreground font-normal">({others.length} available)</span>
+                    <span className="text-muted-foreground font-normal">({promotable.length} eligible)</span>
                 </button>
                 {showPromote && (
-                    <div className="max-h-80 overflow-y-auto divide-y">
-                        {others.map(m => (
-                            <div key={m.id} className="px-4 py-2.5 flex flex-wrap items-center gap-3">
-                                <div className="flex-1 min-w-[180px]">
-                                    <p className="text-sm">{m.firstName} {m.lastName}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {m.unit.name}{m.role ? ` · ${m.role}` : ""}
+                    <div className="p-4 space-y-3">
+                        <p className="text-xs text-muted-foreground">
+                            Only <strong>Routiers</strong> and <strong>Pionnières</strong> are old enough to join the maîtrise.
+                        </p>
+                        <div className="relative">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                value={promoteSearch}
+                                onChange={e => setPromoteSearch(e.target.value)}
+                                placeholder="Search by name…"
+                                className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                            />
+                        </div>
+
+                        {promotable.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-6">
+                                No Routiers or Pionnières available to promote.
+                            </p>
+                        ) : promoteMatches.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-6">
+                                Nobody matches &quot;{promoteSearch}&quot;.
+                            </p>
+                        ) : (
+                            <div className="max-h-72 overflow-y-auto divide-y border rounded-lg">
+                                {promoteMatches.map(m => (
+                                    <div key={m.id} className="px-3 py-2.5 flex flex-wrap items-center gap-3">
+                                        <div className="flex-1 min-w-[160px]">
+                                            <p className="text-sm">{m.firstName} {m.lastName}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {m.unit.name} · {unitTypeLabel(m.unit.unitType)}{m.role ? ` · ${m.role}` : ""}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="ghost" size="sm" className="gap-1.5 text-primary"
+                                            disabled={drafts.some(d => d.memberId === m.id)}
+                                            onClick={() => addDraft(m)}
+                                        >
+                                            <Plus className="w-3.5 h-3.5" /> Add
+                                        </Button>
+                                    </div>
+                                ))}
+                                {promoteTruncated && (
+                                    <p className="px-3 py-2 text-xs text-muted-foreground bg-muted/30">
+                                        Showing the first 50 — keep typing to narrow it down.
                                     </p>
-                                </div>
-                                <Button
-                                    variant="ghost" size="sm" className="gap-1.5 text-primary"
-                                    disabled={drafts.some(d => d.memberId === m.id)}
-                                    onClick={() => addDraft(m)}
-                                >
-                                    <Plus className="w-3.5 h-3.5" /> Add
-                                </Button>
+                                )}
                             </div>
-                        ))}
+                        )}
                     </div>
                 )}
             </div>

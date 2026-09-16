@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Plus, Pencil, Upload, X, ImagePlus } from "lucide-react";
-import { UNIT_TYPE_OPTIONS, unitTypeLabel } from "@/lib/scout-config";
+import { UNIT_TYPE_OPTIONS, unitTypeLabel, isLeadershipRoleIn } from "@/lib/scout-config";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 
 // Grouped for the picker so the boys'/girls'/leadership tracks are obvious.
@@ -34,7 +34,10 @@ type Unit = {
     _count: { members: number; activities: number };
 };
 
-type Member = { id: string; firstName: string; lastName: string; unitId: string; role: string | null };
+type Member = {
+    id: string; firstName: string; lastName: string; unitId: string; role: string | null;
+    unit?: { name: string; unitType: string } | null;
+};
 
 export default function AdminUnitsPage() {
     const [units, setUnits] = useState<Unit[]>([]);
@@ -143,9 +146,16 @@ export default function AdminUnitsPage() {
 
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
 
-    const eligibleMembers = editing
-        ? allMembers.filter(m => m.unitId === editing.id || m.role && ["CG", "ACG", "CT", "ACT", "CM", "ACM", "CC", "ACC"].includes(m.role))
-        : allMembers;
+    // Contacts are leaders, never random members: the maîtrise serving in THIS
+    // unit, plus the group-wide maîtrise (CG, ACG, EA, TR, AU…) who can be the
+    // contact for any unit. Uses the context-aware check so a Second de Sizaine
+    // (SE) isn't offered as though they were the Secrétaire de Groupe.
+    const eligibleMembers = allMembers.filter(m => {
+        const type = m.unit?.unitType ?? "";
+        if (!isLeadershipRoleIn(m.role, type)) return false;
+        if (type === "GROUP") return true;                 // group maîtrise
+        return editing ? m.unitId === editing.id : false;  // this unit's maîtrise
+    });
 
     return (
         <div>
@@ -212,7 +222,10 @@ export default function AdminUnitsPage() {
                     <div className="border-t pt-5 space-y-3">
                         <div>
                             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contact persons</h3>
-                            <p className="text-xs text-muted-foreground mt-0.5">Select one or more members to display as unit contacts on the public site.</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                Shown on the public site. Only the maîtrise can be a contact —
+                                {editing ? " this unit's leaders" : " leaders of this unit (available once the unit is saved)"} plus the group maîtrise.
+                            </p>
                         </div>
 
                         {/* Selected (ordered) */}
@@ -238,23 +251,40 @@ export default function AdminUnitsPage() {
                         )}
 
                         {/* Picker */}
-                        <details className="rounded-lg border p-3 bg-background">
-                            <summary className="cursor-pointer text-sm font-medium select-none">Add members as contacts ({allMembers.length - contactMemberIds.length} available)</summary>
-                            <div className="mt-3 max-h-64 overflow-y-auto grid sm:grid-cols-2 gap-1.5">
-                                {eligibleMembers.filter(m => !contactMemberIds.includes(m.id)).map(m => (
-                                    <button
-                                        key={m.id}
-                                        type="button"
-                                        onClick={() => toggleContact(m.id)}
-                                        className="text-left flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-sm"
-                                    >
-                                        <Plus className="w-3 h-3 text-primary" />
-                                        <span>{m.firstName} {m.lastName}</span>
-                                        {m.role && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">{m.role}</span>}
-                                    </button>
-                                ))}
-                            </div>
-                        </details>
+                        {(() => {
+                            const available = eligibleMembers.filter(m => !contactMemberIds.includes(m.id));
+                            return (
+                                <details className="rounded-lg border p-3 bg-background">
+                                    <summary className="cursor-pointer text-sm font-medium select-none">
+                                        Add a leader as contact ({available.length} available)
+                                    </summary>
+                                    {available.length === 0 ? (
+                                        <p className="mt-3 text-xs text-muted-foreground">
+                                            No eligible leaders. Give a member a maîtrise role in{" "}
+                                            <span className="font-medium">Members</span> first, or assign them to this unit.
+                                        </p>
+                                    ) : (
+                                        <div className="mt-3 max-h-64 overflow-y-auto grid sm:grid-cols-2 gap-1.5">
+                                            {available.map(m => (
+                                                <button
+                                                    key={m.id}
+                                                    type="button"
+                                                    onClick={() => toggleContact(m.id)}
+                                                    className="text-left flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-sm"
+                                                >
+                                                    <Plus className="w-3 h-3 text-primary shrink-0" />
+                                                    <span className="flex-1 truncate">{m.firstName} {m.lastName}</span>
+                                                    {m.unit?.unitType === "GROUP" && (
+                                                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary shrink-0">GROUP</span>
+                                                    )}
+                                                    {m.role && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground shrink-0">{m.role}</span>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </details>
+                            );
+                        })()}
 
                         {/* Legacy contact (fallback if no members linked) */}
                         <div className="grid md:grid-cols-2 gap-4 pt-2">

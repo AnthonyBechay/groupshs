@@ -1,5 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
+import { resolveMemberGender } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -78,10 +79,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Invalid gender" }, { status: 400 });
         }
 
+        // A youth member's gender must match their branch (Eclaireuse = girl).
+        // Blank gender is derived from the branch. Leaders are exempt.
+        const unit = await prisma.unit.findUnique({
+            where: { id: unitId },
+            select: { unitType: true },
+        });
+        if (!unit) {
+            return NextResponse.json({ error: "Unit not found" }, { status: 400 });
+        }
+        const genderCheck = resolveMemberGender(unit.unitType, body.gender, role);
+        if (!genderCheck.ok) {
+            return NextResponse.json({ error: genderCheck.error }, { status: 400 });
+        }
+
         const data: Prisma.MemberUncheckedCreateInput = {
             firstName,
             lastName,
-            gender: body.gender || null,
+            gender: genderCheck.gender,
             dateOfBirth: dateOfBirth || null,
             phone: phone || null,
             role: role || null,

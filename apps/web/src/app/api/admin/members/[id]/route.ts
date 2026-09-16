@@ -1,5 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
+import { resolveMemberGender, LEADERSHIP_ROLES } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 const STRING_FIELDS = [
@@ -100,14 +101,61 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             return NextResponse.json({ error: "Invalid gender" }, { status: 400 });
         }
 
+        // Gender must stay consistent with the branch. Re-check against whatever
+        // the unit / gender / role will be AFTER this update, since any of the
+        // three can change in the same request.
+        const nextUnitId: string = ("unitId" in body && body.unitId) ? body.unitId : existing.unitId;
+        const nextGender = "gender" in body ? (body.gender || null) : existing.gender;
+        const nextRole = "role" in body ? (body.role || null) : existing.role;
+
+        const nextUnit = await prisma.unit.findUnique({
+            where: { id: nextUnitId },
+            select: { unitType: true },
+        });
+        if (!nextUnit) {
+            return NextResponse.json({ error: "Unit not found" }, { status: 400 });
+        }
+        const genderCheck = resolveMemberGender(nextUnit.unitType, nextGender, nextRole);
+        if (!genderCheck.ok) {
+            return NextResponse.json({ error: genderCheck.error }, { status: 400 });
+        }
+
         const data: Record<string, unknown> = {};
         if ("firstName" in body) data.firstName = body.firstName;
         if ("lastName" in body) data.lastName = body.lastName;
-        if ("gender" in body) data.gender = body.gender || null;
+        // Always write the resolved value so a blank gender gets derived.
+        if (genderCheck.gender !== existing.gender) data.gender = genderCheck.gender;
         if ("dateOfBirth" in body) data.dateOfBirth = body.dateOfBirth || null;
         if ("phone" in body) data.phone = body.phone || null;
         if ("role" in body) data.role = body.role || null;
         if ("progressions" in body) data.progressions = Array.isArray(body.progressions) ? body.progressions : [];
+        if ("extraRoles" in body) {
+            const extras: string[] = Array.isArray(body.extraRoles) ? body.extraRoles : [];
+            const bad = extras.find(r => !LEADERSHIP_ROLES.includes(r));
+            if (bad) {
+                return NextResponse.json({ error: `"${bad}" is not a leadership role` }, { status: 400 });
+            }
+            // A role held as primary is not also an "extra".
+            data.extraRoles = [...new Set(extras)].filter(r => r !== (nextRole ?? undefined));
+        }
+        if ("servesUnitId" in body) {
+            if (body.servesUnitId) {
+                const served = await prisma.unit.findUnique({
+                    where: { id: body.servesUnitId },
+                    select: { id: true },
+                });
+                if (!served) {
+                    return NextResponse.json({ error: "The unit they lead no longer exists" }, { status: 400 });
+                }
+                if (body.servesUnitId === nextUnitId) {
+                    return NextResponse.json(
+                        { error: "The unit they lead must be different from their home unit" },
+                        { status: 400 }
+                    );
+                }
+            }
+            data.servesUnitId = body.servesUnitId || null;
+        }
         if ("unitId" in body && body.unitId) data.unitId = body.unitId;
         if ("subgroupId" in body) data.subgroupId = body.subgroupId || null;
         if ("joinedAt" in body && body.joinedAt) data.joinedAt = new Date(body.joinedAt);

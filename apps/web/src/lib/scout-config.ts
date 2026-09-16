@@ -153,12 +153,192 @@ export const PROGRESSION_BY_UNIT_TYPE: Record<string, { value: string; label: st
 
 export const LEADERSHIP_ROLES = ROLES_BY_UNIT_TYPE.GROUP.map(r => r.value);
 
+/**
+ * Two role codes are ambiguous — they mean different things depending on the
+ * unit a member sits in:
+ *
+ *   SE  →  "Second de Sizaine" in the Louveteaux (a youth),
+ *          "Secretaire de Groupe" in the GROUP    (a leader)
+ *   CE  →  "Chef d'Equipe" in the Routiers        (a youth),
+ *          "Chef d'equipe" in the GROUP           (a leader)
+ *
+ * Reading them as leadership everywhere would wrongly exempt a Second de
+ * Sizaine from both the age rule and the gender rule, so the context-aware
+ * check below must be preferred wherever the unit is known.
+ */
+export const AMBIGUOUS_ROLES = LEADERSHIP_ROLES.filter(r =>
+    Object.entries(ROLES_BY_UNIT_TYPE)
+        .some(([type, roles]) => type !== "GROUP" && roles.some(o => o.value === r))
+);
+
+/**
+ * Context-free check — only safe when the role cannot be a branch role
+ * (e.g. values already validated against LEADERSHIP_ROLES). Prefer
+ * {@link isLeadershipRoleIn} whenever the member's unit is known.
+ */
 export function isLeadershipRole(role: string | null | undefined): boolean {
     return !!role && LEADERSHIP_ROLES.includes(role);
 }
 
+/**
+ * Is this role a maîtrise role *for a member sitting in this unit*?
+ * Inside a branch unit, a code that also exists in that branch means the youth
+ * role, never the leadership one.
+ */
+export function isLeadershipRoleIn(role: string | null | undefined, unitType: string): boolean {
+    if (!role || !LEADERSHIP_ROLES.includes(role)) return false;
+    const branchRoles = ROLES_BY_UNIT_TYPE[unitType];
+    if (!branchRoles || unitType === "GROUP") return true;
+    // Claimed by this branch → it's the youth role, not the leadership one.
+    return !branchRoles.some(o => o.value === role);
+}
+
 /** Every role a leader can hold, for the maîtrise transfer picker. */
 export const LEADERSHIP_ROLE_OPTIONS = ROLES_BY_UNIT_TYPE.GROUP;
+
+// ─── The two tiers of leadership ──────────────────────────────────────────────
+//
+// UNIT MAÎTRISE (CT, ACT, CM, ACM, CC, ACC, CE) lead a younger unit but REMAIN
+// members of the Routiers / Pionnieres branch — a Cheftaine Meute is a Pionniere
+// who serves the Meute. Their home unit stays senior; the unit they run is
+// recorded separately as the unit they "serve".
+//
+// THE CONSEIL (CG, ACG, EA, TR, SE, AU) are the leaders of leaders. They sit at
+// group level and are not Routiers / Pionnieres in parallel.
+
+export const COUNCIL_ROLES = ["CG", "ACG", "EA", "TR", "SE", "AU"] as const;
+
+export const UNIT_MAITRISE_ROLES = LEADERSHIP_ROLES.filter(
+    r => !(COUNCIL_ROLES as readonly string[]).includes(r)
+);
+
+/** Senior branches: where unit maîtrise keep their membership. */
+export const SENIOR_BRANCHES = ["ROUTIERS", "PIONNIERES"];
+
+export function isCouncilRole(role: string | null | undefined): boolean {
+    return !!role && (COUNCIL_ROLES as readonly string[]).includes(role);
+}
+
+/**
+ * A unit-maîtrise role, judged in context (so "CE" inside the Routiers is read
+ * as the youth Chef d'Equipe, not the leadership one).
+ */
+export function isUnitMaitriseRole(role: string | null | undefined, unitType: string): boolean {
+    return isLeadershipRoleIn(role, unitType) && !isCouncilRole(role);
+}
+
+export const ROLE_TIER_LABEL: Record<string, string> = {
+    COUNCIL: "Conseil (group leadership)",
+    UNIT_MAITRISE: "Unit maîtrise",
+};
+
+/** Split the leadership roles into the two tiers, for grouped pickers. */
+export const LEADERSHIP_ROLE_GROUPS = [
+    {
+        tier: "COUNCIL",
+        label: ROLE_TIER_LABEL.COUNCIL,
+        options: ROLES_BY_UNIT_TYPE.GROUP.filter(o => isCouncilRole(o.value)),
+    },
+    {
+        tier: "UNIT_MAITRISE",
+        label: ROLE_TIER_LABEL.UNIT_MAITRISE,
+        options: ROLES_BY_UNIT_TYPE.GROUP.filter(o => !isCouncilRole(o.value)),
+    },
+];
+
+/** Every role a member holds — the primary one plus any concurrent extras. */
+export function allRolesOf(m: { role?: string | null; extraRoles?: string[] | null }): string[] {
+    return [m.role, ...(m.extraRoles ?? [])].filter((r): r is string => !!r);
+}
+
+/**
+ * Non-blocking consistency warnings for a leader's placement.
+ *
+ * These are advisory, not rules: the group does make exceptions (someone can be
+ * a CM *and* an ACG), so the UI surfaces them rather than refusing to save.
+ */
+export function leadershipWarnings(
+    roles: string[],
+    homeUnitType: string,
+    servesUnitId: string | null | undefined
+): string[] {
+    const warnings: string[] = [];
+    const council = roles.filter(isCouncilRole);
+    const unitLed = roles.filter(r => !isCouncilRole(r) && isLeadershipRole(r));
+
+    if (council.length > 0 && SENIOR_BRANCHES.includes(homeUnitType) && unitLed.length === 0) {
+        warnings.push(
+            `${council.join(", ")} is a conseil role — the conseil sits at group level and is normally not ` +
+            `a ${unitTypeLabel(homeUnitType)} member in parallel. Move them to the Group unit unless this is deliberate.`
+        );
+    }
+    if (unitLed.length > 0 && !SENIOR_BRANCHES.includes(homeUnitType) && homeUnitType !== "GROUP") {
+        warnings.push(
+            `Unit maîtrise normally stay members of the Routiers or Pionnieres while they serve a younger unit.`
+        );
+    }
+    if (unitLed.length > 0 && !servesUnitId) {
+        warnings.push(`${unitLed.join(", ")} leads a unit — set which unit they serve.`);
+    }
+    return warnings;
+}
+
+// ─── Gender ↔ branch consistency ──────────────────────────────────────────────
+// A youth member's gender is inseparable from their branch: an Eclaireuse is a
+// girl, an Eclaireur is a boy. The maîtrise is exempt — a Cheftaine Meute (CM)
+// leads the Louveteaux, so leaders may serve in any unit.
+
+export type Gender = "MALE" | "FEMALE";
+
+export const GENDER_LABEL: Record<Gender, string> = { MALE: "Boy", FEMALE: "Girl" };
+
+/** The gender implied by a branch, or null for GROUP / unknown types. */
+export function genderForUnitType(unitType: string): Gender | null {
+    const g = UNIT_GENDER[unitType];
+    if (g === "BOYS") return "MALE";
+    if (g === "GIRLS") return "FEMALE";
+    return null;
+}
+
+/**
+ * Can a member of this gender be a youth member of this branch?
+ * Unknown gender is allowed (it gets derived from the branch on save).
+ */
+export function unitAcceptsGender(unitType: string, gender: string | null | undefined): boolean {
+    const required = genderForUnitType(unitType);
+    if (!required) return true;        // GROUP is mixed
+    if (!gender) return true;          // unknown — will be derived
+    return gender === required;
+}
+
+/**
+ * Validate a member's gender against the unit they are being placed in.
+ * Returns the gender to store (deriving it when it was blank), or an error.
+ * Leaders bypass the check entirely.
+ */
+export function resolveMemberGender(
+    unitType: string,
+    gender: string | null | undefined,
+    role: string | null | undefined
+): { ok: true; gender: string | null } | { ok: false; error: string } {
+    // A leader's gender is their own and is never derived from the unit they
+    // serve in — a Cheftaine Meute is a woman leading the boys' Louveteaux.
+    // Context-aware so a Second de Sizaine (SE) isn't mistaken for a leader.
+    if (isLeadershipRoleIn(role, unitType)) return { ok: true, gender: gender || null };
+
+    const required = genderForUnitType(unitType);
+    if (!required) return { ok: true, gender: gender || null };
+
+    if (!gender) return { ok: true, gender: required };   // derive from the branch
+
+    if (gender !== required) {
+        return {
+            ok: false,
+            error: `${unitTypeLabel(unitType)} is a ${GENDER_LABEL[required].toLowerCase()}s' branch — a ${GENDER_LABEL[gender as Gender]?.toLowerCase() ?? "member"} cannot be a youth member there. Use the matching branch, or give them a leadership role.`,
+        };
+    }
+    return { ok: true, gender };
+}
 
 // Grouped role list used in the Anciens form — reuses ROLES_BY_UNIT_TYPE directly.
 export const ANCIEN_SCOUT_ROLES: { group: string; options: { value: string; label: string }[] }[] = [

@@ -3,9 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-    LogOut, Loader2, AlertTriangle, CheckCircle2, Info, Search, Undo2, Users,
+    LogOut, Loader2, AlertTriangle, CheckCircle2, Info, Search, Undo2, Users, X,
 } from "lucide-react";
 import { unitTypeLabel } from "@/lib/scout-config";
+
+/** Cap rendered rows; the group can have several hundred members. */
+const RESULT_LIMIT = 50;
 
 type Candidate = {
     id: string; firstName: string; lastName: string; role: string | null;
@@ -57,14 +60,22 @@ export function DeparturesTab() {
         return [...map.values()];
     }, [candidates]);
 
-    const filtered = useMemo(() => {
+    // Search-first: with a few hundred members, dumping the whole roster is
+    // unusable, so nothing is listed until a search or unit filter narrows it.
+    const hasQuery = search.trim().length > 0 || unitFilter !== "";
+
+    const matches = useMemo(() => {
+        if (!hasQuery) return [];
         const q = search.trim().toLowerCase();
         return candidates.filter(c => {
             if (unitFilter && c.unit.id !== unitFilter) return false;
             if (!q) return true;
             return `${c.firstName} ${c.lastName}`.toLowerCase().includes(q);
         });
-    }, [candidates, search, unitFilter]);
+    }, [candidates, search, unitFilter, hasQuery]);
+
+    const shown = matches.slice(0, RESULT_LIMIT);
+    const truncated = matches.length > RESULT_LIMIT;
 
     const selectedList = useMemo(
         () => candidates.filter(c => selected.has(c.id)),
@@ -152,51 +163,92 @@ export function DeparturesTab() {
 
             {/* Picker */}
             <div className="rounded-2xl border bg-card overflow-hidden">
-                <div className="px-4 py-3 border-b bg-muted/30 flex flex-wrap items-center gap-3">
-                    <h2 className="text-sm font-bold flex items-center gap-2 flex-1">
+                <div className="px-4 py-3 border-b bg-muted/30 space-y-3">
+                    <h2 className="text-sm font-bold flex items-center gap-2">
                         <Users className="w-4 h-4 text-primary" /> Who is leaving?
+                        <span className="font-normal text-muted-foreground">
+                            ({candidates.length} active members)
+                        </span>
                     </h2>
-                    <div className="relative">
-                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Search…"
-                            className="h-8 w-40 rounded-md border border-input bg-background pl-8 pr-2 text-xs"
-                        />
+                    <div className="flex flex-wrap gap-2">
+                        <div className="relative flex-1 min-w-[200px]">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search by name…"
+                                className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                            />
+                        </div>
+                        <select
+                            value={unitFilter}
+                            onChange={e => setUnitFilter(e.target.value)}
+                            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                        >
+                            <option value="">Filter by unit…</option>
+                            {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
                     </div>
-                    <select
-                        value={unitFilter}
-                        onChange={e => setUnitFilter(e.target.value)}
-                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                    >
-                        <option value="">All units</option>
-                        {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
                 </div>
 
-                {filtered.length === 0 ? (
+                {/* Selected people stay visible even when filtered out of the results. */}
+                {selectedList.length > 0 && (
+                    <div className="px-4 py-3 border-b bg-primary/5 flex flex-wrap gap-1.5 items-center">
+                        <span className="text-xs font-semibold text-muted-foreground mr-1">
+                            Selected ({selectedList.length}):
+                        </span>
+                        {selectedList.map(c => (
+                            <button
+                                key={c.id}
+                                onClick={() => toggle(c.id)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20"
+                            >
+                                {c.firstName} {c.lastName}
+                                <X className="w-3 h-3" />
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => setSelected(new Set())}
+                            className="text-xs text-muted-foreground underline underline-offset-2 ml-1"
+                        >
+                            clear
+                        </button>
+                    </div>
+                )}
+
+                {!hasQuery ? (
+                    <p className="p-8 text-sm text-muted-foreground text-center">
+                        Search for a member by name, or pick a unit, to get started.
+                    </p>
+                ) : matches.length === 0 ? (
                     <p className="p-8 text-sm text-muted-foreground text-center">No members match.</p>
                 ) : (
-                    <div className="max-h-96 overflow-y-auto divide-y">
-                        {filtered.map(c => (
-                            <label key={c.id} className="px-4 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-muted/40">
-                                <input
-                                    type="checkbox"
-                                    checked={selected.has(c.id)}
-                                    onChange={() => toggle(c.id)}
-                                    className="w-4 h-4 accent-primary shrink-0"
-                                />
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium">{c.firstName} {c.lastName}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {c.unit.name} · {unitTypeLabel(c.unit.unitType)}
-                                        {c.role && ` · ${c.role}`}
-                                    </p>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
+                    <>
+                        <div className="max-h-96 overflow-y-auto divide-y">
+                            {shown.map(c => (
+                                <label key={c.id} className="px-4 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-muted/40">
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.has(c.id)}
+                                        onChange={() => toggle(c.id)}
+                                        className="w-4 h-4 accent-primary shrink-0"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium">{c.firstName} {c.lastName}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {c.unit.name} · {unitTypeLabel(c.unit.unitType)}
+                                            {c.role && ` · ${c.role}`}
+                                        </p>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                        {truncated && (
+                            <p className="px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-t">
+                                Showing {RESULT_LIMIT} of {matches.length} — narrow your search to see the rest.
+                            </p>
+                        )}
+                    </>
                 )}
             </div>
 

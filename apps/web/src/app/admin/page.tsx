@@ -18,7 +18,7 @@ export default async function AdminPage() {
         { href: "/admin/social-links", icon: Share2, title: "Social Media", desc: "Manage social media links", show: p.canManageSocialLinks },
         { href: "/admin/news", icon: Newspaper, title: "News", desc: "Publish news and announcements", show: p.canManageNews },
         { href: "/admin/history", icon: Trophy, title: "Milestones", desc: "Manage the group's milestones, achievements, and Anciens directory", show: p.canManageHistory },
-        { href: "/admin/submissions", icon: FileText, title: "Submissions", desc: "View recruitment form submissions", show: p.canViewSubmissions },
+        { href: "/admin/recruitment", icon: FileText, title: "Recruitment", desc: "Review applications and enrol new members into units", show: p.canViewSubmissions },
         { href: "/admin/settings", icon: Settings, title: "Settings", desc: "Branding, footer, stats, About intro", show: p.canManageSettings },
         { href: "/admin/users", icon: Users, title: "Users", desc: "Manage admin accounts and permissions", show: session.isSuperAdmin },
     ].filter(c => c.show);

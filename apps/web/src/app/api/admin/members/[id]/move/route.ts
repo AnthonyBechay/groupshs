@@ -1,5 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
+import { resolveMemberGender } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -28,6 +29,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
         if (toUnitId && !canAccessUnit(session, toUnitId)) {
             return NextResponse.json({ error: "Forbidden: target unit not allowed" }, { status: 403 });
+        }
+
+        // Don't let a manual move drop a youth member into the wrong branch.
+        if (toUnitId && toUnitId !== existing.unitId) {
+            const target = await prisma.unit.findUnique({
+                where: { id: toUnitId },
+                select: { unitType: true },
+            });
+            if (!target) {
+                return NextResponse.json({ error: "Target unit not found" }, { status: 400 });
+            }
+            const nextRole = "toRole" in body ? (toRole || null) : existing.role;
+            const check = resolveMemberGender(target.unitType, existing.gender, nextRole);
+            if (!check.ok) {
+                return NextResponse.json({ error: check.error }, { status: 400 });
+            }
         }
 
         const moveDataDiff: Record<string, unknown> = {};

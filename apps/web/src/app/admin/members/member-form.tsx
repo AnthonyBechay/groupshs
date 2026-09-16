@@ -7,7 +7,12 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, Trash2, Plus, ChevronDown, History, Upload, X } from "lucide-react";
 import Link from "next/link";
-import { ROLES_BY_UNIT_TYPE, PROGRESSION_BY_UNIT_TYPE, progressionLabel } from "@/lib/scout-config";
+import {
+    ROLES_BY_UNIT_TYPE, PROGRESSION_BY_UNIT_TYPE, progressionLabel,
+    LEADERSHIP_ROLE_OPTIONS, LEADERSHIP_ROLE_GROUPS, isLeadershipRoleIn, isLeadershipRole,
+    isCouncilRole, isUnitMaitriseRole, allRolesOf, leadershipWarnings,
+    unitAcceptsGender, genderForUnitType, unitTypeLabel,
+} from "@/lib/scout-config";
 import { useUnsavedChanges, useDirtyTracker } from "@/hooks/use-unsaved-changes";
 
 type Unit = { id: string; name: string; unitType: string };
@@ -35,6 +40,8 @@ export type MemberFormData = {
     email?: string | null;
     bloodType?: string | null;
     role?: string | null;
+    extraRoles?: string[];
+    servesUnitId?: string | null;
     progressions?: string[];
     unitId?: string;
     subgroupId?: string | null;
@@ -99,7 +106,30 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
 
     const isEditing = !!initialData.id;
     const currentUnit = units.find(u => u.id === data.unitId);
-    const roles = ROLES_BY_UNIT_TYPE[currentUnit?.unitType || ""] || [];
+    // Leaders are exempt from the gender↔branch rule (a Cheftaine Meute leads
+    // the Louveteaux), so the check keys off the selected role.
+    const leaderRole = isLeadershipRoleIn(data.role, currentUnit?.unitType ?? "");
+    const genderMismatch = !!currentUnit && !leaderRole && !unitAcceptsGender(currentUnit.unitType, data.gender);
+    // Branch roles for this unit, plus the maîtrise roles (offered everywhere,
+    // since a leader can be attached to any unit). GROUP units already list the
+    // leadership roles as their branch roles, so don't repeat them there.
+    const branchRoles = ROLES_BY_UNIT_TYPE[currentUnit?.unitType || ""] || [];
+    const showLeadershipRoles = !!currentUnit && currentUnit.unitType !== "GROUP";
+
+    // Leadership state, across the primary role and any concurrent extras.
+    const heldRoles = allRolesOf({ role: data.role, extraRoles: data.extraRoles });
+    const anyLeadershipRole = leaderRole || (data.extraRoles ?? []).some(isLeadershipRole);
+    const holdsUnitMaitrise =
+        isUnitMaitriseRole(data.role, currentUnit?.unitType ?? "") ||
+        (data.extraRoles ?? []).some(r => isLeadershipRole(r) && !isCouncilRole(r));
+    const leadershipNotes = currentUnit
+        ? leadershipWarnings(heldRoles, currentUnit.unitType, data.servesUnitId)
+        : [];
+
+    function toggleExtraRole(value: string) {
+        const cur = data.extraRoles ?? [];
+        set("extraRoles", cur.includes(value) ? cur.filter(r => r !== value) : [...cur, value]);
+    }
     const progressionOptions = PROGRESSION_BY_UNIT_TYPE[currentUnit?.unitType || ""] || [];
     const selectedProgressions: string[] = data.progressions || [];
     function toggleProgression(value: string) {
@@ -135,6 +165,14 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
         e.preventDefault();
         if (!data.firstName || !data.lastName || !data.unitId) {
             setError("First name, last name, and unit are required");
+            return;
+        }
+        if (genderMismatch && currentUnit) {
+            setError(
+                `${unitTypeLabel(currentUnit.unitType)} is a ` +
+                `${genderForUnitType(currentUnit.unitType) === "FEMALE" ? "girls'" : "boys'"} branch. ` +
+                `Change the gender, pick another unit, or give them a leadership role.`
+            );
             return;
         }
         setError("");
@@ -322,8 +360,31 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Select...</option>
-                                {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                {units.map(u => {
+                                    // A youth member can only join a branch matching their
+                                    // gender; leaders may serve in any unit.
+                                    const blocked = !leaderRole && !unitAcceptsGender(u.unitType, data.gender);
+                                    return (
+                                        <option key={u.id} value={u.id} disabled={blocked}>
+                                            {u.name} ({unitTypeLabel(u.unitType)}){blocked ? " — wrong branch" : ""}
+                                        </option>
+                                    );
+                                })}
                             </select>
+                            {genderMismatch && (
+                                <p className="text-xs text-destructive font-medium mt-1.5">
+                                    {unitTypeLabel(currentUnit!.unitType)} is a{" "}
+                                    {genderForUnitType(currentUnit!.unitType) === "FEMALE" ? "girls'" : "boys'"} branch.
+                                    Change the gender, pick another unit, or give them a leadership role.
+                                </p>
+                            )}
+                            {!data.gender && currentUnit && genderForUnitType(currentUnit.unitType) && !leaderRole && (
+                                <p className="text-xs text-muted-foreground mt-1.5">
+                                    Gender will be set to{" "}
+                                    <strong>{genderForUnitType(currentUnit.unitType) === "FEMALE" ? "Girl" : "Boy"}</strong>{" "}
+                                    to match this branch.
+                                </p>
+                            )}
                         </Field>
                         <Field label="Sub-group (Sizaine / Patrouille / Equipe)">
                             <select
@@ -342,10 +403,98 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">None</option>
-                                {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                                {branchRoles.length > 0 && (
+                                    <optgroup label={`${unitTypeLabel(currentUnit?.unitType ?? "")} roles`}>
+                                        {branchRoles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                                    </optgroup>
+                                )}
+                                {/* Leaders can serve in any unit, so the maîtrise
+                                    roles are always offered, split by tier. */}
+                                {showLeadershipRoles && LEADERSHIP_ROLE_GROUPS.map(g => (
+                                    <optgroup key={g.tier} label={g.label}>
+                                        {g.options.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                                    </optgroup>
+                                ))}
                             </select>
                         </Field>
                     </Grid>
+
+                    {/* Leadership details — only relevant once a maîtrise role is held. */}
+                    {anyLeadershipRole && (
+                        <div className="mt-4 rounded-xl border bg-muted/20 p-4 space-y-4">
+                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                                Leadership
+                            </p>
+
+                            {/* Which unit they run, if not their home unit. */}
+                            {holdsUnitMaitrise && (
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium">Unit they lead</label>
+                                    <select
+                                        value={data.servesUnitId || ""}
+                                        onChange={e => set("servesUnitId", e.target.value || null)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                    >
+                                        <option value="">Not set</option>
+                                        {units.filter(u => u.id !== data.unitId).map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.name} ({unitTypeLabel(u.unitType)})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Unit maîtrise stay members of the Routiers / Pionnières (their unit above)
+                                        while running a younger unit. This records which one.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Concurrent roles — the exceptional case. */}
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Additional roles held at the same time</label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {LEADERSHIP_ROLE_OPTIONS
+                                        .filter(r => r.value !== data.role)
+                                        .map(r => {
+                                            const on = (data.extraRoles ?? []).includes(r.value);
+                                            return (
+                                                <button
+                                                    key={r.value}
+                                                    type="button"
+                                                    onClick={() => toggleExtraRole(r.value)}
+                                                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                                        on
+                                                            ? "bg-primary text-primary-foreground border-primary"
+                                                            : "bg-background hover:bg-muted"
+                                                    }`}
+                                                >
+                                                    {r.value}
+                                                </button>
+                                            );
+                                        })}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Usually none. Used for the exceptional case where one person holds two
+                                    roles — a CM who is also ACG, for instance.
+                                </p>
+                            </div>
+
+                            {leadershipNotes.length > 0 && (
+                                <div className="rounded-lg border border-amber-300 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-1">
+                                    {leadershipNotes.map((w, i) => (
+                                        <p key={i} className="text-xs text-amber-900 dark:text-amber-300 flex items-start gap-1.5">
+                                            <span className="mt-1 w-1 h-1 rounded-full bg-amber-500 shrink-0" />
+                                            {w}
+                                        </p>
+                                    ))}
+                                    <p className="text-[11px] text-amber-800/70 dark:text-amber-400/70 pt-1">
+                                        These are conventions, not rules — save anyway if this is deliberate.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {progressionOptions.length > 0 && (
                         <div className="space-y-2 mt-4">
                             <Label>Progressions earned (select all that apply)</Label>

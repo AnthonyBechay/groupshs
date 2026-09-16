@@ -2,6 +2,7 @@ import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import { getTransitionSettings } from "@/lib/transition-service";
 import { getFiscalYear, TRANSITION_PATH } from "@/lib/age-transition";
+import { resolveMemberGender } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
         const members = await prisma.member.findMany({
             where: { id: { in: memberIds } },
             select: {
-                id: true, firstName: true, lastName: true,
+                id: true, firstName: true, lastName: true, gender: true,
                 unitId: true, subgroupId: true, role: true, progressions: true,
             },
         });
@@ -118,6 +119,20 @@ export async function POST(request: NextRequest) {
                 { error: `${strayMember.firstName} ${strayMember.lastName} is no longer in this unit — refresh and try again` },
                 { status: 409 }
             );
+        }
+
+        // The branch path preserves the track (Louvettes → Eclaireuses), so this
+        // only trips on pre-existing bad data — better surfaced than propagated.
+        for (const mv of moves) {
+            const m = members.find(x => x.id === mv.memberId)!;
+            const target = targetUnits.find(u => u.id === mv.toUnitId)!;
+            const check = resolveMemberGender(target.unitType, m.gender, m.role);
+            if (!check.ok) {
+                return NextResponse.json(
+                    { error: `${m.firstName} ${m.lastName}: ${check.error}` },
+                    { status: 400 }
+                );
+            }
         }
 
         // Any target subgroup must belong to that member's destination unit.

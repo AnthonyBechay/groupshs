@@ -1,6 +1,8 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
-import { LEADERSHIP_ROLES, isLeadershipRole } from "@/lib/scout-config";
+import {
+    LEADERSHIP_ROLES, isLeadershipRole, isLeadershipRoleIn, isCouncilRole,
+} from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
@@ -27,9 +29,11 @@ export async function GET() {
             prisma.member.findMany({
                 where: { status: "ACTIVE" },
                 select: {
-                    id: true, firstName: true, lastName: true, role: true,
+                    id: true, firstName: true, lastName: true,
+                    role: true, extraRoles: true,
                     photoUrl: true, unitId: true,
                     unit: { select: { id: true, name: true, unitType: true } },
+                    servesUnit: { select: { id: true, name: true, unitType: true } },
                 },
                 orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
             }),
@@ -39,10 +43,15 @@ export async function GET() {
             }),
         ]);
 
-        // A leader is anyone currently holding a maîtrise role. Everyone else is
-        // offered too, so a member can be promoted INTO the maîtrise.
-        const leaders = members.filter(m => isLeadershipRole(m.role));
-        const others = members.filter(m => !isLeadershipRole(m.role));
+        // A leader is anyone holding a maîtrise role, as a primary role or one of
+        // their concurrent extras. The primary role is judged in context so a
+        // Second de Sizaine (SE) isn't mistaken for the Secrétaire de Groupe.
+        const isLeader = (m: (typeof members)[number]) =>
+            isLeadershipRoleIn(m.role, m.unit.unitType) ||
+            (m.extraRoles ?? []).some(isLeadershipRole);
+
+        const leaders = members.filter(isLeader);
+        const others = members.filter(m => !isLeader(m));
 
         return NextResponse.json({ leaders, others, units, roles: LEADERSHIP_ROLES });
     } catch (error) {
@@ -51,6 +60,17 @@ export async function GET() {
     }
 }
 
+/**
+ * `toUnitId` means different things per tier, which is the whole point of the
+ * two-tier model:
+ *
+ *   UNIT MAÎTRISE (CT, CM, CC…) → the unit they will RUN. Their home unit stays
+ *   in the Routiers / Pionnieres, because a Cheftaine Meute is still a Pionniere.
+ *
+ *   CONSEIL (CG, ACG, EA, TR, SE, AU) → they move to group level outright and
+ *   stop being a Routier / Pionniere in parallel, so this is their new HOME unit
+ *   and anything they were running is cleared.
+ */
 type LeaderMove = { memberId: string; toUnitId: string; toRole: string };
 
 export async function POST(request: NextRequest) {
@@ -109,15 +129,23 @@ export async function POST(request: NextRequest) {
         await prisma.$transaction(async (tx) => {
             for (const mv of moves) {
                 const before = members.find(m => m.id === mv.memberId)!;
-                const unitChanged = before.unitId !== mv.toUnitId;
+                const council = isCouncilRole(mv.toRole);
+
+                // Conseil: group level becomes their home, and they stop running
+                // a unit. Unit maîtrise: home unit is untouched — they merely
+                // take over a unit, which is recorded as the unit they serve.
+                const nextHomeUnitId = council ? mv.toUnitId : before.unitId;
+                const nextServesUnitId = council ? null : mv.toUnitId;
+                const homeChanged = nextHomeUnitId !== before.unitId;
 
                 await tx.member.update({
                     where: { id: mv.memberId },
                     data: {
-                        unitId: mv.toUnitId,
+                        unitId: nextHomeUnitId,
+                        servesUnitId: nextServesUnitId,
                         role: mv.toRole,
                         // A leader belongs to the unit, not to one of its sub-groups.
-                        subgroupId: unitChanged ? null : before.subgroupId,
+                        subgroupId: homeChanged ? null : before.subgroupId,
                     },
                 });
 
@@ -125,9 +153,9 @@ export async function POST(request: NextRequest) {
                     data: {
                         memberId: mv.memberId,
                         fromUnitId: before.unitId,
-                        toUnitId: mv.toUnitId,
+                        toUnitId: nextHomeUnitId,
                         fromSubgroupId: before.subgroupId,
-                        toSubgroupId: unitChanged ? null : before.subgroupId,
+                        toSubgroupId: homeChanged ? null : before.subgroupId,
                         fromRole: before.role,
                         toRole: mv.toRole,
                         fromProgression: before.progressions ?? [],

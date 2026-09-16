@@ -60,6 +60,7 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
             items: [
                 { href: "/admin/units", label: "Units", show: p.canManageUnits },
                 { href: "/admin/members", label: "Members", show: p.canManageMembers },
+                { href: "/admin/recruitment", label: "Recruitment", show: p.canViewSubmissions },
                 { href: "/admin/transitions", label: "Move Up / Transitions", show: p.canManageMembers },
                 { href: "/admin/activities", label: "Activities", show: p.canManageActivities },
             ],
