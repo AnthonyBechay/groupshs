@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, Trash2, Plus, ChevronDown, History, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { ROLES_BY_UNIT_TYPE, PROGRESSION_BY_UNIT_TYPE, progressionLabel } from "@/lib/scout-config";
+import { useUnsavedChanges, useDirtyTracker } from "@/hooks/use-unsaved-changes";
 
 type Unit = { id: string; name: string; unitType: string };
 type Subgroup = { id: string; name: string; unitId: string };
@@ -27,6 +28,7 @@ export type MemberFormData = {
     id?: string;
     firstName?: string;
     lastName?: string;
+    gender?: string | null;
     dateOfBirth?: string | null;
     placeOfBirth?: string | null;
     phone?: string | null;
@@ -88,6 +90,12 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
 
     const [photoUploading, setPhotoUploading] = useState(false);
     const photoInputRef = useRef<HTMLInputElement>(null);
+
+    // Warn before navigating away with unsaved edits. Sub-resources (siblings,
+    // medications) save immediately via their own endpoints, so only the main
+    // record needs tracking.
+    const { dirty, disableGuard } = useDirtyTracker(data as Record<string, unknown>);
+    useUnsavedChanges(dirty, "This member has unsaved changes. Leave and discard them?");
 
     const isEditing = !!initialData.id;
     const currentUnit = units.find(u => u.id === data.unitId);
@@ -153,6 +161,8 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
             return;
         }
 
+        // Saved — drop the guard before navigating away.
+        disableGuard();
         // Always go back to the members list after a successful save
         router.push("/admin/members");
     }
@@ -197,9 +207,16 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
 
     async function deleteMember() {
         if (!data.id) return;
-        if (!confirm("Delete this member? This cannot be undone.")) return;
+        if (!confirm(
+            "Delete this member permanently? This cannot be undone.\n\n" +
+            "If they are simply leaving the group, use Transitions → Leaving instead — " +
+            "that keeps their record and adds them to the Anciens."
+        )) return;
         const res = await fetch(`/api/admin/members/${data.id}`, { method: "DELETE" });
-        if (res.ok) router.push("/admin/members");
+        if (res.ok) {
+            disableGuard();
+            router.push("/admin/members");
+        }
     }
 
     return (
@@ -258,6 +275,17 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
                         </Field>
                         <Field label="Last Name *">
                             <Input value={data.lastName || ""} onChange={e => set("lastName", e.target.value)} required />
+                        </Field>
+                        <Field label="Gender">
+                            <select
+                                value={data.gender || ""}
+                                onChange={e => set("gender", e.target.value || null)}
+                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            >
+                                <option value="">Not specified</option>
+                                <option value="MALE">Boy</option>
+                                <option value="FEMALE">Girl</option>
+                            </select>
                         </Field>
                         <Field label="Date of Birth">
                             <Input type="date" value={data.dateOfBirth || ""} onChange={e => set("dateOfBirth", e.target.value || null)} />

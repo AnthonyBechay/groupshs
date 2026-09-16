@@ -4,7 +4,14 @@ import { NextResponse } from "next/server";
 export async function GET() {
     try {
         const units = await prisma.unit.findMany({
-            include: { _count: { select: { members: true, activities: true } } },
+            include: {
+                _count: {
+                    select: {
+                        members: { where: { status: "ACTIVE" } },
+                        activities: true,
+                    },
+                },
+            },
             orderBy: { name: "asc" },
         });
         return NextResponse.json(units);

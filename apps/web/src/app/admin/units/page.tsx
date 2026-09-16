@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Plus, Pencil, Upload, X, ImagePlus } from "lucide-react";
+import { UNIT_TYPE_OPTIONS, unitTypeLabel } from "@/lib/scout-config";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 
-const UNIT_TYPES = [
-    { value: "LOUVETEAUX", label: "Louveteaux" },
-    { value: "ECLAIREURS", label: "Eclaireurs" },
-    { value: "ROUTIERS", label: "Routiers" },
-    { value: "GROUP", label: "Group" },
+// Grouped for the picker so the boys'/girls'/leadership tracks are obvious.
+const UNIT_TYPE_GROUPS = [
+    { label: "Boys", options: UNIT_TYPE_OPTIONS.filter(o => o.gender === "BOYS") },
+    { label: "Girls", options: UNIT_TYPE_OPTIONS.filter(o => o.gender === "GIRLS") },
+    { label: "Other", options: UNIT_TYPE_OPTIONS.filter(o => o.gender === "MIXED") },
 ];
 
 type Contact = {
@@ -43,7 +45,11 @@ export default function AdminUnitsPage() {
     const [uploading, setUploading] = useState(false);
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [contactMemberIds, setContactMemberIds] = useState<string[]>([]);
+    const [formDirty, setFormDirty] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Only guard while the unit form is actually open with edits in it.
+    useUnsavedChanges(showForm && formDirty, "This unit has unsaved changes. Leave and discard them?");
 
     async function fetchAll() {
         const [uRes, mRes] = await Promise.all([
@@ -95,13 +101,18 @@ export default function AdminUnitsPage() {
         setEditing(null);
         setImageUrl(null);
         setContactMemberIds([]);
+        setFormDirty(false);
         fetchAll();
     }
 
     async function handleDelete(id: string) {
         if (!confirm("Delete this unit? All members and activities in it must be removed first.")) return;
         const res = await fetch(`/api/admin/units/${id}`, { method: "DELETE" });
-        if (!res.ok) { alert("Cannot delete unit with existing members or activities"); return; }
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Cannot delete unit with existing members or activities");
+            return;
+        }
         fetchAll();
     }
 
@@ -146,7 +157,7 @@ export default function AdminUnitsPage() {
             </div>
 
             {showForm && (
-                <form onSubmit={handleSubmit} className="border rounded-2xl p-6 mb-8 space-y-5 bg-card">
+                <form onSubmit={handleSubmit} onChange={() => setFormDirty(true)} className="border rounded-2xl p-6 mb-8 space-y-5 bg-card">
                     <h2 className="text-lg font-semibold">{editing ? "Edit Unit" : "New Unit"}</h2>
 
                     {/* Logo */}
@@ -184,7 +195,11 @@ export default function AdminUnitsPage() {
                             <Label htmlFor="unitType">Type *</Label>
                             <select id="unitType" name="unitType" defaultValue={editing?.unitType || ""} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                                 <option value="">Select type...</option>
-                                {UNIT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                {UNIT_TYPE_GROUPS.map(g => (
+                                    <optgroup key={g.label} label={g.label}>
+                                        {g.options.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                    </optgroup>
+                                ))}
                             </select>
                         </div>
                         <div className="space-y-2 md:col-span-2">
@@ -256,7 +271,17 @@ export default function AdminUnitsPage() {
 
                     <div className="flex gap-2">
                         <Button type="submit">{editing ? "Update" : "Create"}</Button>
-                        <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setImageUrl(null); setContactMemberIds([]); }}>Cancel</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                if (formDirty && !confirm("Discard your changes to this unit?")) return;
+                                setShowForm(false); setEditing(null); setImageUrl(null);
+                                setContactMemberIds([]); setFormDirty(false);
+                            }}
+                        >
+                            Cancel
+                        </Button>
                     </div>
                 </form>
             )}
@@ -286,7 +311,7 @@ export default function AdminUnitsPage() {
                                     ) : <div className="w-12 h-12 rounded-lg bg-muted" />}
                                 </td>
                                 <td className="p-3 text-sm font-medium">{u.name}</td>
-                                <td className="p-3 text-sm"><span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">{u.unitType}</span></td>
+                                <td className="p-3 text-sm"><span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">{unitTypeLabel(u.unitType)}</span></td>
                                 <td className="p-3 text-sm text-muted-foreground">
                                     {u.contacts && u.contacts.length > 0
                                         ? u.contacts.slice(0, 2).map(c => `${c.member.firstName} ${c.member.lastName}`).join(", ") + (u.contacts.length > 2 ? ` +${u.contacts.length - 2}` : "")

@@ -21,7 +21,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
         const [members, records] = await Promise.all([
             prisma.member.findMany({
-                where: { unitId: activity.unitId },
+                where: { unitId: activity.unitId, status: "ACTIVE" },
                 include: { subgroup: { select: { id: true, name: true } } },
                 orderBy: [{ subgroupId: "asc" }, { lastName: "asc" }, { firstName: "asc" }],
             }),

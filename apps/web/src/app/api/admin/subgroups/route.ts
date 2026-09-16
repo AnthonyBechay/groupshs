@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
             where,
             include: {
                 unit: { select: { id: true, name: true, unitType: true } },
-                _count: { select: { members: true } },
+                _count: { select: { members: { where: { status: "ACTIVE" } } } },
             },
             orderBy: { name: "asc" },
         });

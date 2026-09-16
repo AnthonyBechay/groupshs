@@ -878,7 +878,7 @@ function AnciensTab() {
                                 </div>
                             ))}
                         </div>
-                        <p className="text-[11px] text-muted-foreground">Add roles in chronological order. Leave "To" empty for a current/final role.</p>
+                        <p className="text-[11px] text-muted-foreground">Add roles in chronological order. Leave &quot;To&quot; empty for a current/final role.</p>
                     </div>
 
                     {/* ── Current Professions ── */}

@@ -12,6 +12,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const { id } = await params;
         const existing = await prisma.member.findUnique({ where: { id } });
         if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        if (existing.status !== "ACTIVE") {
+            return NextResponse.json(
+                { error: "This member has left the group. Bring them back from Transitions → Leaving before moving them." },
+                { status: 409 }
+            );
+        }
         if (!canAccessUnit(session, existing.unitId)) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }

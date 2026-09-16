@@ -5,11 +5,15 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
 
-        const { fullName, dateOfBirth, schoolLevel, memberPhone, parentWereScouts, parentScoutGroup, parentName, parentPhone, parentContactInfo, siblingsInGroup, siblingNames, otherComments } = body;
+        const { fullName, gender, dateOfBirth, schoolLevel, memberPhone, parentWereScouts, parentScoutGroup, parentName, parentPhone, parentContactInfo, siblingsInGroup, siblingNames, otherComments } = body;
 
         // Support both new separate fields and legacy combined field
         if (!fullName || !dateOfBirth || !schoolLevel || parentWereScouts === undefined || siblingsInGroup === undefined) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        }
+
+        if (gender && !["MALE", "FEMALE"].includes(gender)) {
+            return NextResponse.json({ error: "Invalid gender" }, { status: 400 });
         }
 
         if (!parentName && !parentContactInfo) {
@@ -19,6 +23,7 @@ export async function POST(request: Request) {
         await prisma.recruitmentSubmission.create({
             data: {
                 fullName,
+                gender: gender || null,
                 dateOfBirth,
                 schoolLevel,
                 memberPhone: memberPhone || null,

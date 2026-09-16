@@ -59,6 +59,8 @@ export const getCachedUnitsWithActivities = unstable_cache(
         include: {
             activities: { where: { hidden: false } },
             contacts: {
+                // Never advertise a leader who has left the group.
+                where: { member: { status: "ACTIVE" } },
                 include: {
                     member: {
                         select: { firstName: true, lastName: true, phone: true, role: true, photoUrl: true },
@@ -94,6 +96,8 @@ export const getCachedUnit = unstable_cache(
                 orderBy: { startDate: "desc" },
             },
             contacts: {
+                // Never advertise a leader who has left the group.
+                where: { member: { status: "ACTIVE" } },
                 include: {
                     member: {
                         select: { firstName: true, lastName: true, phone: true, role: true, photoUrl: true },

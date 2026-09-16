@@ -13,9 +13,17 @@ const STATUSES = [
     { value: "REJECTED", label: "Rejected", color: "bg-red-100 text-red-800" },
 ];
 
+/** "MALE" → "Boy", "FEMALE" → "Girl". */
+function genderLabel(g: string | null): string {
+    if (g === "MALE") return "Boy";
+    if (g === "FEMALE") return "Girl";
+    return "";
+}
+
 type Submission = {
     id: string;
     fullName: string;
+    gender: string | null;
     dateOfBirth: string;
     schoolLevel: string;
     memberPhone: string | null;
@@ -64,9 +72,9 @@ export default function AdminSubmissionsPage() {
     }
 
     function exportCSV() {
-        const headers = ["Full Name", "Date of Birth", "School Level", "Member Phone", "Parent Name", "Parent Phone", "Parent Were Scouts", "Parent Scout Group", "Siblings in Group", "Sibling Names", "Comments", "Status", "Status Note", "Submitted"];
+        const headers = ["Full Name", "Gender", "Date of Birth", "School Level", "Member Phone", "Parent Name", "Parent Phone", "Parent Were Scouts", "Parent Scout Group", "Siblings in Group", "Sibling Names", "Comments", "Status", "Status Note", "Submitted"];
         const rows = filtered.map(s => [
-            s.fullName, s.dateOfBirth, s.schoolLevel, s.memberPhone || "",
+            s.fullName, genderLabel(s.gender), s.dateOfBirth, s.schoolLevel, s.memberPhone || "",
             s.parentName || "", s.parentPhone || "",
             s.parentWereScouts ? "Yes" : "No", s.parentScoutGroup || "", s.siblingsInGroup ? "Yes" : "No",
             s.siblingNames || "", s.otherComments || "", s.status, s.statusNote || "",
@@ -155,6 +163,15 @@ export default function AdminSubmissionsPage() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3">
                                             <span className="font-semibold truncate">{s.fullName}</span>
+                                            {s.gender && (
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                                                    s.gender === "FEMALE"
+                                                        ? "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
+                                                        : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                                }`}>
+                                                    {genderLabel(s.gender)}
+                                                </span>
+                                            )}
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
                                         </div>
                                         <div className="text-xs text-muted-foreground mt-0.5">
@@ -181,6 +198,7 @@ export default function AdminSubmissionsPage() {
                                 {isExpanded && (
                                     <div className="px-4 pb-4 pt-0 border-t">
                                         <div className="grid md:grid-cols-2 gap-3 text-sm pt-4">
+                                            <div><strong>Gender:</strong> {genderLabel(s.gender) || "-"}</div>
                                             <div><strong>Date of Birth:</strong> {s.dateOfBirth}</div>
                                             <div><strong>School Level:</strong> {s.schoolLevel}</div>
                                             <div><strong>Member Phone:</strong> {s.memberPhone || "-"}</div>

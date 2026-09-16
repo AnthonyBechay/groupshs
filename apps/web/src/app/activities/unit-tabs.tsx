@@ -89,6 +89,31 @@ const UNIT_THEME: Record<string, {
         chip: "bg-rose-100 text-rose-800",
         icon: Mountain,
     },
+    // ─── Girls track ─────────────────────────────────────────────────────────
+    LOUVETTES: {
+        bg: "bg-gradient-to-br from-teal-400 to-cyan-500 text-white border-teal-500",
+        softBg: "bg-teal-50 hover:bg-teal-100 border-teal-200/70",
+        border: "border-teal-500/40",
+        text: "text-teal-700",
+        chip: "bg-teal-100 text-teal-800",
+        icon: TreePine,
+    },
+    ECLAIREUSES: {
+        bg: "bg-gradient-to-br from-violet-600 to-purple-700 text-white border-violet-700",
+        softBg: "bg-violet-50 hover:bg-violet-100 border-violet-200/70",
+        border: "border-violet-600/40",
+        text: "text-violet-700",
+        chip: "bg-violet-100 text-violet-800",
+        icon: Compass,
+    },
+    PIONNIERES: {
+        bg: "bg-gradient-to-br from-pink-500 to-fuchsia-600 text-white border-pink-600",
+        softBg: "bg-pink-50 hover:bg-pink-100 border-pink-200/70",
+        border: "border-pink-600/40",
+        text: "text-pink-700",
+        chip: "bg-pink-100 text-pink-800",
+        icon: Mountain,
+    },
     GROUP: {
         bg: "bg-gradient-to-br from-primary to-emerald-800 text-white border-primary",
         softBg: "bg-muted hover:bg-muted/80 border-border",

@@ -10,9 +10,14 @@ import { Button } from "@/components/ui/button";
 export const dynamic = "force-dynamic";
 
 const UNIT_META: Record<string, { icon: typeof Tent; ageRange: string; color: string; gradient: string }> = {
+    // Boys
     LOUVETEAUX: { icon: TreePine, ageRange: "8-12 ans", color: "text-emerald-600", gradient: "from-emerald-700 via-emerald-800 to-emerald-900" },
     ECLAIREURS: { icon: Compass, ageRange: "12-17 ans", color: "text-blue-600", gradient: "from-blue-700 via-blue-800 to-blue-900" },
     ROUTIERS: { icon: Mountain, ageRange: "17+ ans", color: "text-amber-600", gradient: "from-amber-700 via-amber-800 to-amber-900" },
+    // Girls
+    LOUVETTES: { icon: TreePine, ageRange: "8-12 ans", color: "text-teal-600", gradient: "from-teal-700 via-teal-800 to-teal-900" },
+    ECLAIREUSES: { icon: Compass, ageRange: "12-17 ans", color: "text-violet-600", gradient: "from-violet-700 via-violet-800 to-violet-900" },
+    PIONNIERES: { icon: Mountain, ageRange: "17+ ans", color: "text-rose-600", gradient: "from-rose-700 via-rose-800 to-rose-900" },
     GROUP: { icon: Shield, ageRange: "Leadership", color: "text-primary", gradient: "from-primary via-primary to-emerald-800" },
 };
 

@@ -55,7 +55,7 @@ export default async function Home() {
       include: { unit: { select: { name: true } } },
       orderBy: { startDate: "desc" },
     }),
-    prisma.member.count(),
+    prisma.member.count({ where: { status: "ACTIVE" } }),
     prisma.unit.count(),
     prisma.activity.count({ where: { hidden: false } }),
     getCachedSettings(),

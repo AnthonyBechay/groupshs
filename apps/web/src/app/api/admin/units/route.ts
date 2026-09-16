@@ -1,5 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, isAdmin, hasPermission } from "@/lib/auth";
+import { UNIT_TYPES } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
@@ -16,7 +17,12 @@ export async function GET() {
         const units = await prisma.unit.findMany({
             where,
             include: {
-                _count: { select: { members: true, activities: true } },
+                _count: {
+                    select: {
+                        members: { where: { status: "ACTIVE" } },
+                        activities: true,
+                    },
+                },
                 contacts: {
                     include: {
                         member: { select: { id: true, firstName: true, lastName: true, phone: true, role: true, photoUrl: true } },
@@ -52,8 +58,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Name and unit type are required" }, { status: 400 });
         }
 
-        const validTypes = ["LOUVETEAUX", "ECLAIREURS", "ROUTIERS", "GROUP"];
-        if (!validTypes.includes(unitType)) {
+        if (!(UNIT_TYPES as readonly string[]).includes(unitType)) {
             return NextResponse.json({ error: "Invalid unit type" }, { status: 400 });
         }
 

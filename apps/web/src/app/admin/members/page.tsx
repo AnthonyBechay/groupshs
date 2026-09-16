@@ -78,6 +78,34 @@ const UNIT_THEME: Record<string, {
         leadChip: "bg-rose-600 text-white",
         assistantChip: "bg-rose-100 text-rose-700",
     },
+    // ─── Girls track ─────────────────────────────────────────────────────────
+    LOUVETTES: {
+        headerBg: "bg-gradient-to-br from-teal-100 via-cyan-50 to-teal-50 border-b border-teal-200",
+        pageAccent: "bg-gradient-to-br from-teal-500 via-cyan-500 to-teal-600",
+        chip: "bg-teal-100 text-teal-800",
+        iconBg: "bg-teal-100 text-teal-700",
+        icon: TreePine,
+        leadChip: "bg-teal-500 text-white",
+        assistantChip: "bg-teal-100 text-teal-700",
+    },
+    ECLAIREUSES: {
+        headerBg: "bg-gradient-to-br from-violet-100 via-purple-50 to-violet-50 border-b border-violet-200",
+        pageAccent: "bg-gradient-to-br from-violet-600 via-purple-700 to-violet-800",
+        chip: "bg-violet-100 text-violet-800",
+        iconBg: "bg-violet-100 text-violet-700",
+        icon: Compass,
+        leadChip: "bg-violet-600 text-white",
+        assistantChip: "bg-violet-100 text-violet-700",
+    },
+    PIONNIERES: {
+        headerBg: "bg-gradient-to-br from-pink-100 via-fuchsia-50 to-pink-50 border-b border-pink-200",
+        pageAccent: "bg-gradient-to-br from-pink-500 via-fuchsia-600 to-pink-700",
+        chip: "bg-pink-100 text-pink-800",
+        iconBg: "bg-pink-100 text-pink-700",
+        icon: Mountain,
+        leadChip: "bg-pink-600 text-white",
+        assistantChip: "bg-pink-100 text-pink-700",
+    },
     GROUP: {
         headerBg: "bg-gradient-to-br from-primary/5 to-transparent border-b border-border",
         pageAccent: "bg-gradient-to-br from-primary via-primary to-emerald-700",
@@ -93,8 +121,8 @@ const UNIT_THEME: Record<string, {
 function roleSortIndex(role: string | null, labels: { lead: string; assistant: string }): number {
     if (role === labels.lead) return 0;
     if (role === labels.assistant) return 1;
-    if (role === "SI" || role === "CP" || role === "CE") return 2;
-    if (role === "SE" || role === "SP") return 3;
+    if (["SI", "CP", "CE", "SIS", "CPS", "CES"].includes(role ?? "")) return 2;
+    if (["SE", "SP", "SES", "SPS"].includes(role ?? "")) return 3;
     return 10;
 }
 
@@ -303,7 +331,10 @@ function VisualView({
                     <div className="flex gap-2">
                         <Button
                             type="button"
-                            onClick={() => exportMembersToPDF(unit, subgroups, members)}
+                            onClick={() => {
+                                exportMembersToPDF(unit, subgroups, members)
+                                    .catch(() => alert("Could not generate the PDF."));
+                            }}
                             disabled={members.length === 0}
                             className="bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur text-white gap-2"
                         >
@@ -488,7 +519,10 @@ function ListView({
                 </div>
                 <Button
                     type="button"
-                    onClick={() => exportMembersToExcel(unit, members)}
+                    onClick={() => {
+                        exportMembersToExcel(unit, members)
+                            .catch(() => alert("Could not generate the Excel file."));
+                    }}
                     disabled={members.length === 0}
                     variant="outline"
                     className="gap-2"

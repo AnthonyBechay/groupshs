@@ -5,7 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Save, Settings as SettingsIcon, Upload, X, History } from "lucide-react";
+import { Save, Settings as SettingsIcon, Upload, X, History, ArrowUpRight, Info } from "lucide-react";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+
+const MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+];
 
 type Settings = {
     groupFoundedYear: number;
@@ -20,6 +26,11 @@ type Settings = {
     aboutSubtitle: string | null;
     aboutIntro: string | null;
     aboutMission: string | null;
+    fiscalYearStartMonth: number;
+    ageLouveteauxToEclaireurs: number;
+    ageEclaireursToRoutiers: number;
+    ageLouvettesToEclaireuses: number;
+    ageEclaireusesToPionnieres: number;
 };
 
 export default function AdminSettingsPage() {
@@ -30,6 +41,10 @@ export default function AdminSettingsPage() {
     const [logoUploading, setLogoUploading] = useState(false);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const logoInputRef = useRef<HTMLInputElement>(null);
+    const [dirty, setDirty] = useState(false);
+
+    // Warn before navigating away with unsaved edits.
+    useUnsavedChanges(dirty, "You have unsaved settings. Leave and discard them?");
 
     useEffect(() => {
         fetch("/api/admin/settings").then(r => r.json()).then(data => {
@@ -79,6 +94,11 @@ export default function AdminSettingsPage() {
             aboutSubtitle: (fd.get("aboutSubtitle") as string) || null,
             aboutIntro: (fd.get("aboutIntro") as string) || null,
             aboutMission: (fd.get("aboutMission") as string) || null,
+            fiscalYearStartMonth: parseInt(fd.get("fiscalYearStartMonth") as string) || settings.fiscalYearStartMonth,
+            ageLouveteauxToEclaireurs: parseInt(fd.get("ageLouveteauxToEclaireurs") as string) || settings.ageLouveteauxToEclaireurs,
+            ageEclaireursToRoutiers: parseInt(fd.get("ageEclaireursToRoutiers") as string) || settings.ageEclaireursToRoutiers,
+            ageLouvettesToEclaireuses: parseInt(fd.get("ageLouvettesToEclaireuses") as string) || settings.ageLouvettesToEclaireuses,
+            ageEclaireusesToPionnieres: parseInt(fd.get("ageEclaireusesToPionnieres") as string) || settings.ageEclaireusesToPionnieres,
         };
 
         const res = await fetch("/api/admin/settings", {
@@ -90,8 +110,12 @@ export default function AdminSettingsPage() {
         if (res.ok) {
             const updated = await res.json();
             setSettings(updated);
+            setDirty(false);
             setSuccess("Settings saved");
             setTimeout(() => setSuccess(""), 3000);
+        } else {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Could not save the settings");
         }
         setSaving(false);
     }
@@ -114,7 +138,7 @@ export default function AdminSettingsPage() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} onChange={() => setDirty(true)} className="space-y-6">
                 {/* Branding */}
                 <Card title="Branding">
                     <div className="space-y-2">
@@ -158,6 +182,71 @@ export default function AdminSettingsPage() {
                     <div className="space-y-2">
                         <Label htmlFor="manualMemberCount">Number of members override (optional)</Label>
                         <Input id="manualMemberCount" name="manualMemberCount" type="number" min="0" placeholder="Leave empty to compute" defaultValue={settings.manualMemberCount ?? ""} />
+                    </div>
+                </Card>
+
+                {/* Age transitions */}
+                <Card title="Moving up between branches" extra={
+                    <Link href="/admin/transitions" className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1">
+                        Run a transition <ArrowUpRight className="w-3 h-3" />
+                    </Link>
+                }>
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 flex items-start gap-2.5">
+                        <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                        <p className="text-xs text-muted-foreground">
+                            A member is due to move up when they reach the age below <strong className="text-foreground">at any point
+                            during the fiscal year</strong>. Example: with a September start and an age of 12, a Louveteau turning 12
+                            between 1 September and 31 August is due to join the Eclaireurs.
+                            The maîtrise is never moved by age.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="fiscalYearStartMonth">Fiscal year starts in</Label>
+                        <select
+                            id="fiscalYearStartMonth"
+                            name="fiscalYearStartMonth"
+                            defaultValue={settings.fiscalYearStartMonth}
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-5 pt-1">
+                        {/* Boys */}
+                        <div className="space-y-3 rounded-xl border p-4 bg-background">
+                            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Boys</h3>
+                            <div className="space-y-2">
+                                <Label htmlFor="ageLouveteauxToEclaireurs" className="text-xs font-normal">
+                                    Louveteaux → Eclaireurs at age
+                                </Label>
+                                <Input id="ageLouveteauxToEclaireurs" name="ageLouveteauxToEclaireurs" type="number" min="5" max="30" defaultValue={settings.ageLouveteauxToEclaireurs} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="ageEclaireursToRoutiers" className="text-xs font-normal">
+                                    Eclaireurs → Routiers at age
+                                </Label>
+                                <Input id="ageEclaireursToRoutiers" name="ageEclaireursToRoutiers" type="number" min="5" max="30" defaultValue={settings.ageEclaireursToRoutiers} required />
+                            </div>
+                        </div>
+
+                        {/* Girls */}
+                        <div className="space-y-3 rounded-xl border p-4 bg-background">
+                            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Girls</h3>
+                            <div className="space-y-2">
+                                <Label htmlFor="ageLouvettesToEclaireuses" className="text-xs font-normal">
+                                    Louvettes → Eclaireuses at age
+                                </Label>
+                                <Input id="ageLouvettesToEclaireuses" name="ageLouvettesToEclaireuses" type="number" min="5" max="30" defaultValue={settings.ageLouvettesToEclaireuses} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="ageEclaireusesToPionnieres" className="text-xs font-normal">
+                                    Eclaireuses → Pionnieres at age
+                                </Label>
+                                <Input id="ageEclaireusesToPionnieres" name="ageEclaireusesToPionnieres" type="number" min="5" max="30" defaultValue={settings.ageEclaireusesToPionnieres} required />
+                            </div>
+                        </div>
                     </div>
                 </Card>
 

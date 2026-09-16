@@ -96,9 +96,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             }
         }
 
+        if (body.gender && !["MALE", "FEMALE"].includes(body.gender)) {
+            return NextResponse.json({ error: "Invalid gender" }, { status: 400 });
+        }
+
         const data: Record<string, unknown> = {};
         if ("firstName" in body) data.firstName = body.firstName;
         if ("lastName" in body) data.lastName = body.lastName;
+        if ("gender" in body) data.gender = body.gender || null;
         if ("dateOfBirth" in body) data.dateOfBirth = body.dateOfBirth || null;
         if ("phone" in body) data.phone = body.phone || null;
         if ("role" in body) data.role = body.role || null;

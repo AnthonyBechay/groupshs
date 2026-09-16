@@ -1,8 +1,8 @@
 "use client";
 
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// PERFORMANCE: `xlsx` and `jspdf` together weigh ~760 kB. Exporting is a rare,
+// deliberate click, so these are loaded on demand inside the export functions
+// instead of being pulled into the members page bundle on every visit.
 import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, progressionLabel } from "./scout-config";
 
 type ExportMember = {
@@ -32,7 +32,9 @@ type ExportMember = {
 type Subgroup = { id: string; name: string };
 type Unit = { id: string; name: string; unitType: string };
 
-export function exportMembersToExcel(unit: Unit, members: ExportMember[]) {
+export async function exportMembersToExcel(unit: Unit, members: ExportMember[]) {
+    const XLSX = await import("xlsx");
+
     const rows = members.map(m => ({
         "First Name": m.firstName,
         "Last Name": m.lastName,
@@ -68,7 +70,12 @@ export function exportMembersToExcel(unit: Unit, members: ExportMember[]) {
     XLSX.writeFile(wb, `members_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
-export function exportMembersToPDF(unit: Unit, subgroups: Subgroup[], members: ExportMember[]) {
+export async function exportMembersToPDF(unit: Unit, subgroups: Subgroup[], members: ExportMember[]) {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+    ]);
+
     const labels = SUBGROUP_LABEL_BY_UNIT_TYPE[unit.unitType] || SUBGROUP_LABEL_BY_UNIT_TYPE.GROUP;
     const container = UNIT_CONTAINER_NAME[unit.unitType] || "Unit";
 

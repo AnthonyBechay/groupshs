@@ -6,13 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Compass, CheckCircle2, Phone } from "lucide-react";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 
 export default function JoinPage() {
+    const [gender, setGender] = useState<string>("");
     const [parentWereScouts, setParentWereScouts] = useState<string>("");
     const [siblingsInGroup, setSiblingsInGroup] = useState<string>("");
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState("");
+    const [dirty, setDirty] = useState(false);
+
+    // Don't let a half-filled application be lost by accident.
+    useUnsavedChanges(dirty && !submitted, "Your application is not submitted yet. Leave and lose it?");
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -24,6 +30,7 @@ export default function JoinPage() {
 
         const data = {
             fullName: formData.get("fullName") as string,
+            gender: gender || null,
             dateOfBirth: formData.get("dateOfBirth") as string,
             schoolLevel: formData.get("schoolLevel") as string,
             memberPhone: formData.get("memberPhone") as string || null,
@@ -82,7 +89,7 @@ export default function JoinPage() {
                         </div>
                         <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-4">Join Our Group</h1>
                         <p className="text-white/80 max-w-lg mx-auto text-sm md:text-base">
-                            If you are a boy between 8 and 18 years old, Les Scouts du Liban of Group Sagesse High School &mdash; Ain Saade invite you to join their amazing adventures!
+                            If you are a boy or a girl between 8 and 18 years old, Les Scouts du Liban of Group Sagesse High School &mdash; Ain Saade invite you to join their amazing adventures!
                         </p>
                     </div>
                     <div className="absolute bottom-0 left-0 right-0">
@@ -106,10 +113,28 @@ export default function JoinPage() {
                 <div className="container mx-auto px-4 max-w-2xl pb-20">
                     <p className="text-sm text-muted-foreground mb-6"><span className="text-destructive">*</span> Indicates required question</p>
 
-                    <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6 bg-card border rounded-2xl p-5 md:p-8 shadow-sm">
+                    <form onSubmit={handleSubmit} onChange={() => setDirty(true)} className="space-y-5 md:space-y-6 bg-card border rounded-2xl p-5 md:p-8 shadow-sm">
                         <div className="space-y-2">
                             <Label htmlFor="fullName">Full Name of the Member <span className="text-destructive">*</span></Label>
                             <Input id="fullName" name="fullName" required className="h-11" />
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label>Boy or Girl? <span className="text-destructive">*</span></Label>
+                            <div className="flex gap-5">
+                                <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px]">
+                                    <input type="radio" name="gender" value="MALE" required className="w-4 h-4 accent-primary" onChange={() => setGender("MALE")} />
+                                    <span className="text-sm font-medium">Boy</span>
+                                </label>
+                                <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px]">
+                                    <input type="radio" name="gender" value="FEMALE" className="w-4 h-4 accent-primary" onChange={() => setGender("FEMALE")} />
+                                    <span className="text-sm font-medium">Girl</span>
+                                </label>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                This tells us which branch to place you in &mdash; Louveteaux/Eclaireurs/Routiers for boys,
+                                Louvettes/Eclaireuses/Pionnieres for girls.
+                            </p>
                         </div>
 
                         <div className="space-y-2">

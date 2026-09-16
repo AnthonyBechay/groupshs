@@ -25,8 +25,11 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const unitId = searchParams.get("unitId");
         const includeSheet = searchParams.get("includeSheet") === "true";
+        // Departed members are hidden unless explicitly requested.
+        const status = searchParams.get("status") ?? "ACTIVE";
 
         const where: Record<string, unknown> = {};
+        if (status !== "ALL") where.status = status;
         if (unitId) where.unitId = unitId;
         if (session && !session.isSuperAdmin && session.allowedUnitIds.length > 0) {
             where.unitId = { in: session.allowedUnitIds };
@@ -71,9 +74,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Forbidden: cannot manage this unit" }, { status: 403 });
         }
 
+        if (body.gender && !["MALE", "FEMALE"].includes(body.gender)) {
+            return NextResponse.json({ error: "Invalid gender" }, { status: 400 });
+        }
+
         const data: Prisma.MemberUncheckedCreateInput = {
             firstName,
             lastName,
+            gender: body.gender || null,
             dateOfBirth: dateOfBirth || null,
             phone: phone || null,
             role: role || null,
