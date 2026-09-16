@@ -9,7 +9,9 @@ import {
     Users, Trophy, Clock, Zap, Target, ImageIcon,
     FileText, AlignLeft, Star, Phone, Mail, Briefcase, Shield,
 } from "lucide-react";
-import { ANCIEN_SCOUT_ROLES } from "@/lib/scout-config";
+import {
+    ANCIEN_SCOUT_ROLES, ANCIEN_PROGRESSION_OPTIONS, ancienRoleLabel, progressionLabel,
+} from "@/lib/scout-config";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -44,20 +46,38 @@ type Milestone = {
 type ScoutRoleEntry = { role: string; startYear: string; endYear: string };
 type ProfessionEntry = { title: string; organization: string; url: string; details: string };
 
+/**
+ * An ancien is a former member — a Member with status "LEFT". The API returns
+ * the member record, so the shape mirrors the member, not a separate table.
+ */
 type Ancien = {
     id: string;
-    name: string;
-    joinedYear: number | null;
-    leftYear: number | null;
-    progression: string[];
-    scoutRoles: ScoutRoleEntry[];
+    firstName: string;
+    lastName: string;
+    gender: string | null;
+    joinedAt: string | null;
+    leftAt: string | null;
+    leftNote: string | null;
+    progressions: string[];
+    scoutRolesHistory: ScoutRoleEntry[];
     professions: ProfessionEntry[];
     phone: string | null;
     email: string | null;
     photoUrl: string | null;
     bio: string | null;
-    sortOrder: number;
+    ancienSortOrder: number;
+    hiddenFromAnciens: boolean;
+    unit: { id: string; name: string; unitType: string } | null;
 };
+
+/** Year part of a stored timestamp, for the year-only inputs. */
+function yearOf(iso: string | null): string {
+    if (!iso) return "";
+    const y = new Date(iso).getUTCFullYear();
+    return Number.isFinite(y) ? String(y) : "";
+}
+
+const fullName = (a: Ancien) => `${a.firstName} ${a.lastName === "-" ? "" : a.lastName}`.trim();
 
 // ─── Section label helper ─────────────────────────────────────────────────────
 
@@ -580,7 +600,9 @@ function MilestonesTab() {
 
 // ─── Anciens Tab ──────────────────────────────────────────────────────────────
 
-const PROGRESSION_OPTIONS = ["Première veille", "Départ"] as const;
+// Canonical codes (see ANCIEN_PROGRESSION_OPTIONS) so that anciens created by
+// the departure flow and anciens entered by hand use the same values.
+const PROGRESSION_OPTIONS = ANCIEN_PROGRESSION_OPTIONS;
 
 function emptyRole(): ScoutRoleEntry { return { role: "", startYear: "", endYear: "" }; }
 function emptyProfession(): ProfessionEntry { return { title: "", organization: "", url: "", details: "" }; }
@@ -629,12 +651,15 @@ function AnciensTab() {
         const fd = new FormData(e.currentTarget);
         const cleanRoles = scoutRoles.filter(r => r.role.trim());
         const cleanProfs = professions.filter(p => p.title.trim() || p.organization.trim());
+        const rawName = String(fd.get("name") ?? "").trim();
+        const nameParts = rawName.split(/\s+/);
         const body = {
-            name: fd.get("name"),
+            firstName: nameParts[0] ?? "",
+            lastName: nameParts.slice(1).join(" ") || "-",
             joinedYear: fd.get("joinedYear") ? Number(fd.get("joinedYear")) : null,
             leftYear: fd.get("leftYear") ? Number(fd.get("leftYear")) : null,
-            progression,
-            scoutRoles: cleanRoles.map(r => ({
+            progressions: progression,
+            scoutRolesHistory: cleanRoles.map(r => ({
                 role: r.role,
                 startYear: r.startYear ? Number(r.startYear) : null,
                 endYear: r.endYear ? Number(r.endYear) : null,
@@ -657,16 +682,26 @@ function AnciensTab() {
     }
 
     async function handleDelete(id: string) {
-        if (!confirm("Remove this ancien?")) return;
-        await fetch(`/api/admin/history/anciens/${id}`, { method: "DELETE" });
+        // Hides them from the public list — never deletes the person, because an
+        // ancien is a real member record with a file and history behind it.
+        if (!confirm(
+            "Hide this person from the public Anciens list?\n\n" +
+            "Their member record is kept. To delete the person entirely, use their member page."
+        )) return;
+        const res = await fetch(`/api/admin/history/anciens/${id}`, { method: "DELETE" });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Could not hide this ancien");
+            return;
+        }
         fetchAnciens();
     }
 
     function startEdit(a: Ancien) {
         setEditing(a);
         setPhotoUrl(a.photoUrl);
-        setProgression(a.progression ?? []);
-        setScoutRoles(a.scoutRoles?.length ? a.scoutRoles.map(r => ({
+        setProgression(a.progressions ?? []);
+        setScoutRoles(a.scoutRolesHistory?.length ? a.scoutRolesHistory.map(r => ({
             role: r.role ?? "",
             startYear: r.startYear != null ? String(r.startYear) : "",
             endYear: r.endYear != null ? String(r.endYear) : "",
@@ -752,7 +787,7 @@ function AnciensTab() {
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="name">Full Name *</Label>
-                            <Input id="name" name="name" required defaultValue={editing?.name ?? ""} placeholder="Jean Dupont" />
+                            <Input id="name" name="name" required defaultValue={editing ? fullName(editing) : ""} placeholder="Jean Dupont" />
                         </div>
                         <div className="space-y-2">
                             <Label>Photo (optional)</Label>
@@ -798,12 +833,12 @@ function AnciensTab() {
                             <div className="space-y-1.5">
                                 <Label htmlFor="joinedYear" className="text-xs">Year joined</Label>
                                 <Input id="joinedYear" name="joinedYear" type="number" min="1990" max="2100"
-                                    defaultValue={editing?.joinedYear ?? ""} placeholder="e.g. 2010" />
+                                    defaultValue={editing ? yearOf(editing.joinedAt) : ""} placeholder="e.g. 2010" />
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="leftYear" className="text-xs">Year left</Label>
                                 <Input id="leftYear" name="leftYear" type="number" min="1990" max="2100"
-                                    defaultValue={editing?.leftYear ?? ""} placeholder="e.g. 2018" />
+                                    defaultValue={editing ? yearOf(editing.leftAt) : ""} placeholder="e.g. 2018" />
                             </div>
                         </div>
                     </div>
@@ -815,14 +850,14 @@ function AnciensTab() {
                         </p>
                         <div className="flex flex-wrap gap-3">
                             {PROGRESSION_OPTIONS.map(opt => (
-                                <label key={opt} className="flex items-center gap-2 cursor-pointer select-none">
+                                <label key={opt.value} className="flex items-center gap-2 cursor-pointer select-none">
                                     <input
                                         type="checkbox"
-                                        checked={progression.includes(opt)}
-                                        onChange={() => toggleProgression(opt)}
+                                        checked={progression.includes(opt.value)}
+                                        onChange={() => toggleProgression(opt.value)}
                                         className="w-4 h-4 rounded border-gray-300 text-primary"
                                     />
-                                    <span className="text-sm font-medium">{opt}</span>
+                                    <span className="text-sm font-medium">{opt.label}</span>
                                 </label>
                             ))}
                         </div>
@@ -953,31 +988,41 @@ function AnciensTab() {
                             </div>
                             {a.photoUrl ? (
                                 /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={a.photoUrl} alt={a.name} className="w-12 h-12 rounded-full object-cover border shrink-0" />
+                                <img src={a.photoUrl} alt={fullName(a)} className="w-12 h-12 rounded-full object-cover border shrink-0" />
                             ) : (
                                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                                     <span className="text-primary font-bold text-sm">
-                                        {a.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                        {fullName(a).split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
                                     </span>
                                 </div>
                             )}
                             <div className="flex-1 min-w-0">
-                                <p className="font-bold text-base">{a.name}</p>
-                                {(a.joinedYear || a.leftYear) && (
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <p className="font-bold text-base">{fullName(a)}</p>
+                                <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                    <span className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
-                                        {a.joinedYear ?? "?"} → {a.leftYear ?? "present"}
-                                    </p>
-                                )}
-                                {a.scoutRoles?.length > 0 && (
+                                        {yearOf(a.joinedAt) || "?"} → {yearOf(a.leftAt) || "present"}
+                                    </span>
+                                    {a.unit && <span>· was {a.unit.name}</span>}
+                                    {a.hiddenFromAnciens && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                            HIDDEN
+                                        </span>
+                                    )}
+                                </p>
+                                {a.scoutRolesHistory?.length > 0 && (
                                     <p className="text-xs text-primary font-medium mt-0.5">
-                                        {a.scoutRoles.map((r: ScoutRoleEntry) => r.role).filter(Boolean).join(" · ")}
+                                        {a.scoutRolesHistory
+                                            .map((r: ScoutRoleEntry) => r.role)
+                                            .filter(Boolean)
+                                            .map(ancienRoleLabel)
+                                            .join(" · ")}
                                     </p>
                                 )}
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                    {a.progression?.map((p: string) => (
+                                    {a.progressions?.map((p: string) => (
                                         <span key={p} className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                                            ★ {p}
+                                            ★ {progressionLabel(p)}
                                         </span>
                                     ))}
                                     {a.professions?.length > 0 && (

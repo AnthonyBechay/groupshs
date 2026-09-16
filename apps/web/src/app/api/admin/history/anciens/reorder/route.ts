@@ -1,6 +1,7 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 export async function POST(request: NextRequest) {
     try {
@@ -14,14 +15,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "ids must be an array" }, { status: 400 });
         }
 
-        await Promise.all(
+        // Anciens are members with status LEFT; ordering lives on the member.
+        await prisma.$transaction(
             ids.map((id: string, index: number) =>
-                prisma.ancien.update({
+                prisma.member.update({
                     where: { id },
-                    data: { sortOrder: index },
+                    data: { ancienSortOrder: index },
                 })
             )
         );
+
+        revalidatePath("/history");
 
         return NextResponse.json({ ok: true });
     } catch (error) {

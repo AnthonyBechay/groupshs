@@ -5,6 +5,7 @@ import { getSession, isAdmin } from "@/lib/auth";
 import { Users, Trophy, Calendar, Clock, Zap, Target, ImageIcon, Star, Phone, Mail, ExternalLink, Briefcase, Shield, ChevronRight } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import Image from "next/image";
+import { ancienRoleLabel, progressionLabel } from "@/lib/scout-config";
 
 // DB is unreachable during `docker build`; force-dynamic prevents build-time
 // pre-rendering. unstable_cache wrappers below keep runtime performance fast.
@@ -30,9 +31,23 @@ const getCachedMilestones = unstable_cache(
     { revalidate: 300 }
 );
 
+/**
+ * Anciens ARE former members — members whose status is LEFT. There is no
+ * separate alumni table: one person, one record.
+ */
 const getCachedAnciens = unstable_cache(
-    () => prisma.ancien
-        .findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] })
+    () => prisma.member
+        .findMany({
+            where: { status: "LEFT", hiddenFromAnciens: false },
+            select: {
+                id: true, firstName: true, lastName: true,
+                joinedAt: true, leftAt: true,
+                progressions: true, scoutRolesHistory: true, professions: true,
+                phone: true, email: true, photoUrl: true, bio: true,
+                ancienSortOrder: true,
+            },
+            orderBy: [{ ancienSortOrder: "asc" }, { lastName: "asc" }, { firstName: "asc" }],
+        })
         .catch(() => []),
     ["history-anciens"],
     { revalidate: 300 }
@@ -43,19 +58,21 @@ const getCachedAnciens = unstable_cache(
 type ScoutRoleEntry   = { role: string; startYear: string; endYear: string };
 type ProfessionEntry  = { title: string; organization: string; url: string; details: string };
 
+/** A former member, as shown in the public Anciens section. */
 type AncienData = {
     id: string;
-    name: string;
-    joinedYear: number | null;
-    leftYear: number | null;
-    progression: string[];
-    scoutRoles: ScoutRoleEntry[];
-    professions: ProfessionEntry[];
+    firstName: string;
+    lastName: string;
+    joinedAt: Date | string;
+    leftAt: Date | string | null;
+    progressions: string[];
+    scoutRolesHistory: unknown;   // [{role,startYear,endYear}] — Json column
+    professions: unknown;         // [{title,organization,url,details}] — Json column
     phone: string | null;
     email: string | null;
     photoUrl: string | null;
     bio: string | null;
-    sortOrder: number;
+    ancienSortOrder: number;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -213,16 +230,20 @@ export default async function HistoryPage() {
 // ─── Ancien Card ──────────────────────────────────────────────────────────────
 
 function AncienCard({ a }: { a: AncienData }) {
-    const scoutRoles   = Array.isArray(a.scoutRoles)  ? a.scoutRoles  as ScoutRoleEntry[]  : [];
-    const professions  = Array.isArray(a.professions) ? a.professions as ProfessionEntry[] : [];
-    const progression  = Array.isArray(a.progression) ? a.progression : [];
+    const scoutRoles   = Array.isArray(a.scoutRolesHistory) ? a.scoutRolesHistory as ScoutRoleEntry[]  : [];
+    const professions  = Array.isArray(a.professions)       ? a.professions       as ProfessionEntry[] : [];
+    const progression  = Array.isArray(a.progressions)      ? a.progressions : [];
+
+    const name = `${a.firstName} ${a.lastName}`.trim();
+    const joinedYear = a.joinedAt ? new Date(a.joinedAt).getUTCFullYear() : null;
+    const leftYear = a.leftAt ? new Date(a.leftAt).getUTCFullYear() : null;
 
     const scoutPeriod =
-        a.joinedYear && a.leftYear ? `${a.joinedYear} – ${a.leftYear}` :
-        a.joinedYear ? `Since ${a.joinedYear}` :
-        a.leftYear   ? `Until ${a.leftYear}` : null;
+        joinedYear && leftYear ? `${joinedYear} – ${leftYear}` :
+        joinedYear ? `Since ${joinedYear}` :
+        leftYear   ? `Until ${leftYear}` : null;
 
-    const initials = a.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+    const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
     return (
         <div className="group relative flex flex-col rounded-2xl bg-card border shadow-sm hover:shadow-md hover:border-primary/30 transition-all overflow-hidden">
@@ -233,7 +254,7 @@ function AncienCard({ a }: { a: AncienData }) {
             <div className="flex items-center gap-3 p-4 pb-3">
                 {a.photoUrl ? (
                     <div className="relative w-14 h-14 rounded-full overflow-hidden border-4 border-background shadow-md shrink-0">
-                        <Image src={a.photoUrl} alt={a.name} fill sizes="56px" className="object-cover" loading="lazy" />
+                        <Image src={a.photoUrl} alt={name} fill sizes="56px" className="object-cover" loading="lazy" />
                     </div>
                 ) : (
                     <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border-4 border-background shadow-md shrink-0">
@@ -241,7 +262,7 @@ function AncienCard({ a }: { a: AncienData }) {
                     </div>
                 )}
                 <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-sm leading-snug truncate">{a.name}</h3>
+                    <h3 className="font-bold text-sm leading-snug truncate">{name}</h3>
                     {scoutPeriod && (
                         <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                             <Calendar className="w-3 h-3 shrink-0" /> {scoutPeriod}
@@ -251,7 +272,7 @@ function AncienCard({ a }: { a: AncienData }) {
                         <div className="flex flex-wrap gap-1 mt-1.5">
                             {progression.map((p) => (
                                 <span key={p} className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                                    <Shield className="w-2.5 h-2.5" /> {p}
+                                    <Shield className="w-2.5 h-2.5" /> {progressionLabel(p)}
                                 </span>
                             ))}
                         </div>
@@ -269,7 +290,7 @@ function AncienCard({ a }: { a: AncienData }) {
                         {scoutRoles.map((r, i) => (
                             <li key={i} className="flex items-center gap-2 text-[11px]">
                                 <ChevronRight className="w-3 h-3 text-primary/60 shrink-0" />
-                                <span className="font-medium flex-1 truncate">{r.role}</span>
+                                <span className="font-medium flex-1 truncate">{ancienRoleLabel(r.role)}</span>
                                 {(r.startYear || r.endYear) && (
                                     <span className="text-muted-foreground shrink-0 tabular-nums">
                                         {r.startYear || "?"}{r.endYear && r.endYear !== r.startYear ? ` – ${r.endYear}` : ""}

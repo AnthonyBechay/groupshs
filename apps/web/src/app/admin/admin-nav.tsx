@@ -79,7 +79,6 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
             label: "Site",
             items: [
                 { href: "/admin/settings", label: "Settings", show: p.canManageSettings },
-                { href: "/admin/submissions", label: "Submissions", show: p.canViewSubmissions },
             ],
         },
     ].map(g => ({ ...g, items: g.items.filter(i => i.show) }))

@@ -78,17 +78,28 @@ export default function AdminRecruitmentPage() {
     useEffect(() => { fetchSubmissions(); }, [fetchSubmissions]);
 
     async function updateStatus(id: string, status: string) {
-        await fetch(`/api/admin/submissions/${id}`, {
+        // Note: only `status` is sent. The API leaves statusNote untouched when
+        // it is absent, so changing status never discards an existing note.
+        const res = await fetch(`/api/admin/submissions/${id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status }),
         });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Could not update the status");
+        }
         fetchSubmissions();
     }
 
     async function handleDelete(id: string) {
         if (!confirm("Delete this application permanently?")) return;
-        await fetch(`/api/admin/submissions/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/admin/submissions/${id}`, { method: "DELETE" });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Could not delete the application");
+            return;
+        }
         fetchSubmissions();
     }
 

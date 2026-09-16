@@ -21,7 +21,7 @@ type Candidate = {
 // { name, unitType } only (no id).
 type Departed = {
     id: string; firstName: string; lastName: string; role: string | null;
-    leftAt: string | null; ancienId: string | null;
+    leftAt: string | null; hiddenFromAnciens: boolean;
     unit: { name: string; unitType: string };
 };
 
@@ -123,7 +123,8 @@ export function DeparturesTab() {
     async function undo(m: Departed) {
         if (!confirm(
             `Bring ${m.firstName} ${m.lastName} back into ${m.unit.name}?\n\n` +
-            `Their Ancien entry will be removed and they will appear on the roster again.`
+            `They will come off the Anciens list and appear on the roster again. ` +
+            `Their bio and professions are kept.`
         )) return;
         const res = await fetch(`/api/admin/transitions/departures?memberId=${m.id}`, { method: "DELETE" });
         const data = await res.json();
@@ -140,8 +141,9 @@ export function DeparturesTab() {
                 <p className="text-sm text-muted-foreground">
                     Anyone can leave the group — an Eclaireur who stops scouting, a CT stepping down, a Routier
                     finishing their Départ. The member record is <strong className="text-foreground">never deleted</strong>:
-                    it is marked as left (keeping their file, attendance and move history) and mirrored into the
-                    Anciens list, with their role history filled in automatically. This can be undone.
+                    it is marked as left, keeping their file, attendance and move history intact.
+                    A former member <strong className="text-foreground">is</strong> an ancien — the same record appears
+                    on the Anciens list, with their role history filled in automatically. This can be undone.
                 </p>
             </div>
 
@@ -288,10 +290,10 @@ export function DeparturesTab() {
                             className="w-4 h-4 accent-primary mt-0.5 shrink-0"
                         />
                         <span>
-                            <span className="text-sm font-medium">Add them to the Anciens list</span>
+                            <span className="text-sm font-medium">Show them on the public Anciens list</span>
                             <span className="block text-xs text-muted-foreground">
-                                Creates an Ancien entry with their joined/left years, progressions and role history.
-                                You can enrich it afterwards in Milestones → Anciens.
+                                Their joined/left years, progressions and role history come across automatically.
+                                Add a bio and their professions afterwards in Milestones → Anciens.
                             </span>
                         </span>
                     </label>
@@ -341,8 +343,8 @@ export function DeparturesTab() {
                                         {m.leftAt && ` · left ${new Date(m.leftAt).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}`}
                                     </p>
                                 </div>
-                                {m.ancienId && (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">ANCIEN</span>
+                                {!m.hiddenFromAnciens && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">ON ANCIENS LIST</span>
                                 )}
                                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => undo(m)}>
                                     <Undo2 className="w-3.5 h-3.5" /> Bring back

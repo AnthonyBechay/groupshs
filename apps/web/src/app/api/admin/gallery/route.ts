@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth";
-import { compressImage } from "@/lib/image";
+import { compressImage, MAX_UPLOAD_BYTES, ALLOWED_IMAGE_TYPES } from "@/lib/image";
 import { uploadToR2 } from "@/lib/r2";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -36,9 +36,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
         }
 
-        const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-        if (!allowedTypes.includes(file.type)) {
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
             return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
+        }
+
+        // Cap before decoding: sharp allocates from the decoded pixel buffer, so
+        // an unbounded upload here is a memory spike, not just a slow request.
+        if (file.size > MAX_UPLOAD_BYTES) {
+            return NextResponse.json(
+                { error: `"${file.name}" is too large. Maximum 10MB per photo.` },
+                { status: 400 }
+            );
         }
 
         const rawBuffer = Buffer.from(await file.arrayBuffer());

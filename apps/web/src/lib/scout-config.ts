@@ -340,6 +340,16 @@ export function resolveMemberGender(
     return { ok: true, gender };
 }
 
+// ─── Anciens progression ──────────────────────────────────────────────────────
+// Stored as CODES, identical to the Routiers/Pionnieres progression values, so
+// that an Ancien created automatically by the "leaving the group" flow (which
+// copies the member's own progressions) matches what the Anciens form writes.
+// Rendering always goes through progressionLabel().
+export const ANCIEN_PROGRESSION_OPTIONS = [
+    { value: "PremiereVeille", label: "Premiere Veille" },
+    { value: "Depart", label: "Depart" },
+] as const;
+
 // Grouped role list used in the Anciens form — reuses ROLES_BY_UNIT_TYPE directly.
 export const ANCIEN_SCOUT_ROLES: { group: string; options: { value: string; label: string }[] }[] = [
     { group: "Louveteaux",  options: ROLES_BY_UNIT_TYPE.LOUVETEAUX },

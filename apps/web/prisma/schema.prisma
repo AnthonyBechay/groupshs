@@ -65,6 +65,9 @@ model RecruitmentSubmission {
   createdAt         DateTime @default(now()) @map("created_at")
 
   @@map("recruitment_submission")
+  // The admin list is always newest-first, usually narrowed by status.
+  @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 // ─── Units ───────────────────────────────────────────────────────────────────
@@ -208,13 +211,23 @@ model Member {
   photoUrl String? @map("photo_url")
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
-  // ACTIVE members appear on rosters. LEFT members have departed the group and
-  // are normally mirrored into an Ancien record, but are kept here (never hard
-  // deleted) so their history, attendance and medical file stay intact.
+  // ACTIVE members appear on rosters. LEFT members have departed the group —
+  // they ARE the anciens. Nothing is ever hard deleted, so their history,
+  // attendance and medical file stay intact.
   status   String    @default("ACTIVE")          // ACTIVE | LEFT
   leftAt   DateTime? @map("left_at")
   leftNote String?   @map("left_note")
-  ancienId String?   @map("ancien_id")           // Ancien record created on departure
+  ancienId String?   @map("ancien_id")           // legacy link to the old `ancien` table
+
+  // ─── Ancien profile ────────────────────────────────────────────────────────
+  // Shown on the public Anciens section once the member has left. These live on
+  // the member rather than in a parallel table, so a former member is one
+  // record: their file, their history and their alumni profile together.
+  bio               String?
+  professions       Json     @default("[]")                      // [{title,organization,url,details}]
+  scoutRolesHistory Json     @default("[]") @map("scout_roles_history") // [{role,startYear,endYear}]
+  ancienSortOrder   Int      @default(0) @map("ancien_sort_order")
+  hiddenFromAnciens Boolean  @default(false) @map("hidden_from_anciens")
 
   groupSiblings GroupSibling[]
   medications   MemberMedication[]

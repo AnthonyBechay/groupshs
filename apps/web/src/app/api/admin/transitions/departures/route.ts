@@ -89,13 +89,6 @@ export async function POST(request: NextRequest) {
         if (!hasPermission(session, "canManageMembers")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-        // Writing to the Anciens list is a history operation.
-        if (!hasPermission(session, "canManageHistory")) {
-            return NextResponse.json(
-                { error: "You also need permission to manage History to create Anciens" },
-                { status: 403 }
-            );
-        }
 
         const body = await request.json();
         const {
@@ -134,48 +127,33 @@ export async function POST(request: NextRequest) {
         const year = typeof leftYear === "number" ? leftYear : now.getUTCFullYear();
 
         const created = await prisma.$transaction(async (tx) => {
-            const out: { memberId: string; ancienId: string | null; name: string }[] = [];
+            const out: { memberId: string; name: string }[] = [];
 
-            // Append new Anciens after the existing ones.
-            let sortOrder = createAncien
-                ? ((await tx.ancien.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } }))?.sortOrder ?? -1) + 1
-                : 0;
+            // Anciens are ordered after those already on the list.
+            const lastOrder = (await tx.member.findFirst({
+                where: { status: "LEFT" },
+                orderBy: { ancienSortOrder: "desc" },
+                select: { ancienSortOrder: true },
+            }))?.ancienSortOrder ?? -1;
+            let sortOrder = lastOrder + 1;
 
             for (const m of members) {
-                let ancienId: string | null = null;
-
-                if (createAncien) {
-                    const ancien = await tx.ancien.create({
-                        data: {
-                            name: `${m.firstName} ${m.lastName}`.trim(),
-                            joinedYear: new Date(m.joinedAt).getUTCFullYear(),
-                            leftYear: year,
-                            progression: m.progressions ?? [],
-                            scoutRoles: buildScoutRoleHistory(m.joinedAt, m.role, m.moves, year),
-                            professions: [],
-                            phone: m.phone,
-                            email: m.email,
-                            photoUrl: m.photoUrl,
-                            bio: null,
-                            sortOrder: sortOrder++,
-                            sourceMemberId: m.id,
-                        },
-                        select: { id: true },
-                    });
-                    ancienId = ancien.id;
-                }
-
+                // The member IS the ancien — mark them left and fill in the
+                // alumni profile on the same record. Their role history is
+                // reconstructed from their moves so it needs no re-typing.
                 await tx.member.update({
                     where: { id: m.id },
                     data: {
                         status: "LEFT",
                         leftAt: now,
                         leftNote: note || null,
-                        ancienId,
+                        scoutRolesHistory: buildScoutRoleHistory(m.joinedAt, m.role, m.moves, year),
+                        ancienSortOrder: sortOrder++,
+                        hiddenFromAnciens: !createAncien,
                     },
                 });
 
-                out.push({ memberId: m.id, ancienId, name: `${m.firstName} ${m.lastName}` });
+                out.push({ memberId: m.id, name: `${m.firstName} ${m.lastName}` });
             }
 
             return out;
@@ -207,7 +185,7 @@ export async function DELETE(request: NextRequest) {
 
         const member = await prisma.member.findUnique({
             where: { id: memberId },
-            select: { id: true, status: true, ancienId: true, unitId: true },
+            select: { id: true, status: true, unitId: true },
         });
         if (!member) return NextResponse.json({ error: "Member not found" }, { status: 404 });
         if (member.status !== "LEFT") {
@@ -217,13 +195,12 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        await prisma.$transaction(async (tx) => {
-            await tx.member.update({
-                where: { id: memberId },
-                data: { status: "ACTIVE", leftAt: null, leftNote: null, ancienId: null },
-            });
-            // Only remove the Ancien this flow generated — never a hand-written one.
-            await tx.ancien.deleteMany({ where: { sourceMemberId: memberId } });
+        // Reactivating removes them from the Anciens list. The alumni profile
+        // (bio, professions, role history) is kept — it costs nothing and is
+        // still correct if they leave again.
+        await prisma.member.update({
+            where: { id: memberId },
+            data: { status: "ACTIVE", leftAt: null, leftNote: null, hiddenFromAnciens: false },
         });
 
         revalidatePath("/history");
