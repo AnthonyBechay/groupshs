@@ -12,7 +12,7 @@ in English; stored values stay French.
 
 ## 1. Branches
 
-Members are organised by age into **branches**, along two parallel tracks.
+Members are organized by age into **branches**, along two parallel tracks.
 
 | | Boys | Girls | Ages |
 |---|---|---|---|

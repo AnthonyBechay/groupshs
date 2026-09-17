@@ -387,6 +387,7 @@ model SiteSettings {
   groupFoundedYear   Int     @default(2014) @map("group_founded_year")
   manualUnitCount    Int?    @map("manual_unit_count")
   manualMemberCount  Int?    @map("manual_member_count")
+  manualActivityCount Int?   @map("manual_activity_count")
   logoUrl            String? @map("logo_url")
 
   // ─── Age-based branch transitions ──────────────────────────────────────────

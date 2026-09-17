@@ -87,24 +87,38 @@ hashes. After that, admins are managed at `/admin/users`.
 
 ## Architecture notes
 
-### Public pages: `force-dynamic` + `unstable_cache`
+### Public pages: `force-dynamic`, no data cache
 
 Every public page exports `export const dynamic = "force-dynamic"`. This is
 deliberate: the database is unreachable during `docker build`, so build-time
-prerendering would fail the build. Runtime speed comes from `unstable_cache`
-wrappers in `src/lib/query-cache.ts` instead, busted by `revalidatePath()` in
-admin mutations.
+prerendering would fail the build.
 
-**Gotcha:** `unstable_cache` serialises through JSON, so `Date` objects come
-back as ISO **strings** on a cache hit but as `Date` on the first call. Always
-wrap before calling date methods:
+**There is no data cache, on purpose.** Queries in `src/lib/query-cache.ts`
+read the database fresh on every request. They used to be wrapped in
+`unstable_cache`, but no admin route ever invalidated those entries, so every
+edit — a stats override, a gallery photo, a partner — stayed invisible on the
+public site for 10–60 minutes. Traffic is low enough that fresh reads cost
+nothing. (The `getCached*` names survive only to avoid churning call sites.)
+
+**Do not reintroduce caching casually.** If it is ever needed, it requires
+`tags` on every cached query **and** an invalidation call in every admin
+mutation that touches that data. Missing a single route brings the
+"I saved it but nothing changed" bug straight back.
+
+In Next 16, `revalidateTag(tag, profile)` requires a profile. Use
+`{ expire: 0 }` for immediate expiry — the `"max"` profile is
+stale-while-revalidate and still serves the old data on the first request.
+`updateTag()` only works inside Server Actions, not route handlers.
+
+**Gotcha, if caching returns:** anything serialized through a cache comes back
+with `Date` fields as ISO **strings**. Wrap before calling date methods:
 
 ```ts
 new Date(value).toISOString()   // safe
 value.toISOString()             // throws on a cache hit
 ```
 
-### Authorisation
+### Authorization
 
 Three layers, all of which must agree:
 
@@ -169,7 +183,7 @@ still carry an alpha channel; treating those as transparent sends them down the
 lossless PNG path and leaves multi-megabyte files (a 1.5 MB photo shrank only to
 1 MB). Opaque → mozjpeg. Genuinely transparent → WebP, which keeps exact alpha.
 
-Never use `png({ palette: true })`. Palette quantisation turns anti-aliased
+Never use `png({ palette: true })`. Palette quantization turns anti-aliased
 edges into a white box — that is what made the logo appear to have a white
 background.
 

@@ -25,10 +25,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
         // Once enrolled, the status reflects a real member in a unit and must not
-        // drift. Undo the enrolment first if it needs to change.
+        // drift. Undo the enrollment first if it needs to change.
         if (existing.memberId && status && status !== "RECRUITED") {
             return NextResponse.json(
-                { error: "This applicant is already enrolled in a unit. Undo the enrolment before changing their status." },
+                { error: "This applicant is already enrolled in a unit. Undo the enrollment before changing their status." },
                 { status: 409 }
             );
         }
@@ -70,7 +70,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
         if (existing.memberId) {
             return NextResponse.json(
-                { error: "This applicant is enrolled as a member. Undo the enrolment before deleting the application." },
+                { error: "This applicant is enrolled as a member. Undo the enrollment before deleting the application." },
                 { status: 409 }
             );
         }

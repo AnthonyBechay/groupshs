@@ -40,6 +40,7 @@ export async function PUT(request: NextRequest) {
         if (typeof body.groupFoundedYear === "number") data.groupFoundedYear = body.groupFoundedYear;
         if (body.manualUnitCount === null || typeof body.manualUnitCount === "number") data.manualUnitCount = body.manualUnitCount;
         if (body.manualMemberCount === null || typeof body.manualMemberCount === "number") data.manualMemberCount = body.manualMemberCount;
+        if (body.manualActivityCount === null || typeof body.manualActivityCount === "number") data.manualActivityCount = body.manualActivityCount;
         if ("logoUrl" in body) data.logoUrl = body.logoUrl || null;
         if ("footerDescription" in body) data.footerDescription = body.footerDescription || null;
         if ("footerAddress" in body) data.footerAddress = body.footerAddress || null;

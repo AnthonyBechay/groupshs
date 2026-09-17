@@ -17,6 +17,7 @@ type Settings = {
     groupFoundedYear: number;
     manualUnitCount: number | null;
     manualMemberCount: number | null;
+    manualActivityCount: number | null;
     logoUrl: string | null;
     footerDescription: string | null;
     footerAddress: string | null;
@@ -85,6 +86,7 @@ export default function AdminSettingsPage() {
             groupFoundedYear: parseInt(fd.get("groupFoundedYear") as string) || settings.groupFoundedYear,
             manualUnitCount: num(fd.get("manualUnitCount") as string),
             manualMemberCount: num(fd.get("manualMemberCount") as string),
+            manualActivityCount: num(fd.get("manualActivityCount") as string),
             logoUrl,
             footerDescription: (fd.get("footerDescription") as string) || null,
             footerAddress: (fd.get("footerAddress") as string) || null,
@@ -182,6 +184,13 @@ export default function AdminSettingsPage() {
                     <div className="space-y-2">
                         <Label htmlFor="manualMemberCount">Number of members override (optional)</Label>
                         <Input id="manualMemberCount" name="manualMemberCount" type="number" min="0" placeholder="Leave empty to compute" defaultValue={settings.manualMemberCount ?? ""} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="manualActivityCount">Number of activities override (optional)</Label>
+                        <Input id="manualActivityCount" name="manualActivityCount" type="number" min="0" placeholder="Leave empty to compute" defaultValue={settings.manualActivityCount ?? ""} />
+                        <p className="text-xs text-muted-foreground">
+                            Leave any field empty to show the real count. Overrides appear on the landing page as soon as you save.
+                        </p>
                     </div>
                 </Card>
 

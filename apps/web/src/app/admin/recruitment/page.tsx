@@ -103,15 +103,15 @@ export default function AdminRecruitmentPage() {
         fetchSubmissions();
     }
 
-    async function undoEnrolment(s: Submission) {
+    async function undoEnrollment(s: Submission) {
         if (!confirm(
-            `Undo the enrolment of ${s.fullName}?\n\n` +
+            `Undo the enrollment of ${s.fullName}?\n\n` +
             `Their member record will be removed and the application goes back to Contacted. ` +
             `This only works while the member has no activity recorded.`
         )) return;
         const res = await fetch(`/api/admin/recruitment/${s.id}/enroll`, { method: "DELETE" });
         const data = await res.json();
-        if (!res.ok) { alert(data.error || "Could not undo the enrolment"); return; }
+        if (!res.ok) { alert(data.error || "Could not undo the enrollment"); return; }
         fetchSubmissions();
     }
 
@@ -150,7 +150,7 @@ export default function AdminRecruitmentPage() {
     }, {} as Record<string, number>);
 
     // Applications marked recruited but never actually placed in a unit.
-    const awaitingEnrolment = submissions.filter(s => !s.memberId && s.status !== "REJECTED").length;
+    const awaitingEnrollment = submissions.filter(s => !s.memberId && s.status !== "REJECTED").length;
 
     if (loading) return <p className="text-muted-foreground">Loading…</p>;
 
@@ -161,7 +161,7 @@ export default function AdminRecruitmentPage() {
                     <h1 className="text-3xl font-bold">Recruitment</h1>
                     <p className="text-sm text-muted-foreground mt-1">
                         {submissions.length} application{submissions.length !== 1 ? "s" : ""}
-                        {awaitingEnrolment > 0 && ` · ${awaitingEnrolment} not yet placed in a unit`}
+                        {awaitingEnrollment > 0 && ` · ${awaitingEnrollment} not yet placed in a unit`}
                     </p>
                 </div>
                 <Button onClick={exportCSV} variant="outline" className="gap-2" disabled={filtered.length === 0}>
@@ -174,7 +174,7 @@ export default function AdminRecruitmentPage() {
                 <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <p className="text-sm text-muted-foreground">
                     An application is only finished once the applicant is <strong className="text-foreground">placed in a unit</strong>.
-                    Use <strong className="text-foreground">Enrol into a unit</strong> on an application to create their member
+                    Use <strong className="text-foreground">Enroll into a unit</strong> on an application to create their member
                     record — the branch is suggested automatically from their age and gender.
                 </p>
             </div>
@@ -259,7 +259,7 @@ export default function AdminRecruitmentPage() {
                                                 className="gap-1.5 hidden sm:inline-flex"
                                                 onClick={() => { setEnrollingId(s.id); setExpandedId(s.id); }}
                                             >
-                                                <UserPlus className="w-3.5 h-3.5" /> Enrol
+                                                <UserPlus className="w-3.5 h-3.5" /> Enroll
                                             </Button>
                                         )}
                                         <select
@@ -307,12 +307,12 @@ export default function AdminRecruitmentPage() {
                                                         Open member <ExternalLink className="w-3.5 h-3.5" />
                                                     </Button>
                                                 </Link>
-                                                <Button variant="ghost" size="sm" className="gap-1.5 text-destructive" onClick={() => undoEnrolment(s)}>
+                                                <Button variant="ghost" size="sm" className="gap-1.5 text-destructive" onClick={() => undoEnrollment(s)}>
                                                     <Undo2 className="w-3.5 h-3.5" /> Undo
                                                 </Button>
                                             </div>
                                         ) : enrollingId === s.id ? (
-                                            <EnrolPanel
+                                            <EnrollPanel
                                                 submission={s}
                                                 onCancel={() => setEnrollingId(null)}
                                                 onDone={() => { setEnrollingId(null); fetchSubmissions(); }}
@@ -320,7 +320,7 @@ export default function AdminRecruitmentPage() {
                                         ) : s.status !== "REJECTED" && (
                                             <div className="mt-4">
                                                 <Button className="gap-2" onClick={() => setEnrollingId(s.id)}>
-                                                    <UserPlus className="w-4 h-4" /> Enrol into a unit
+                                                    <UserPlus className="w-4 h-4" /> Enroll into a unit
                                                 </Button>
                                             </div>
                                         )}
@@ -335,9 +335,9 @@ export default function AdminRecruitmentPage() {
     );
 }
 
-// ─── Enrolment panel ──────────────────────────────────────────────────────────
+// ─── Enrollment panel ──────────────────────────────────────────────────────────
 
-function EnrolPanel({ submission, onCancel, onDone }: {
+function EnrollPanel({ submission, onCancel, onDone }: {
     submission: Submission;
     onCancel: () => void;
     onDone: () => void;
@@ -389,10 +389,10 @@ function EnrolPanel({ submission, onCancel, onDone }: {
                 }),
             });
             const data = await res.json();
-            if (!res.ok) { setError(data.error || "Could not enrol this applicant"); return; }
+            if (!res.ok) { setError(data.error || "Could not enroll this applicant"); return; }
             onDone();
         } catch {
-            setError("Could not enrol this applicant");
+            setError("Could not enroll this applicant");
         } finally {
             setSaving(false);
         }
@@ -409,7 +409,7 @@ function EnrolPanel({ submission, onCancel, onDone }: {
     return (
         <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-4">
             <h3 className="text-sm font-bold flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-primary" /> Enrol {submission.fullName}
+                <UserPlus className="w-4 h-4 text-primary" /> Enroll {submission.fullName}
             </h3>
 
             {/* Suggestion */}
@@ -488,7 +488,7 @@ function EnrolPanel({ submission, onCancel, onDone }: {
 
             <p className="text-xs text-muted-foreground border-t pt-3">
                 Their date of birth, phone and parent contact are copied across automatically.
-                You can complete the rest of their file afterwards.
+                You can complete the rest of their file afterward.
             </p>
 
             {error && <p className="text-xs text-destructive font-medium">{error}</p>}

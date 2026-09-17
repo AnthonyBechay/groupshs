@@ -15,9 +15,13 @@ const nextConfig: NextConfig = {
     ],
     minimumCacheTTL: 60 * 60 * 24 * 30,
   },
+  // Top-level in Next 16. It used to sit under `experimental`, where it was
+  // silently ignored — so the per-build id the Dockerfile generates never took
+  // effect, and after a deploy anyone with the site already open could hit
+  // "failed to load chunk" when navigating, their old JS pointing at chunks that
+  // no longer exist. With it set, Next detects the version skew and reloads.
+  deploymentId: process.env.DEPLOYMENT_ID,
   experimental: {
-    // @ts-expect-error deploymentId is a valid Next.js experimental field not yet typed
-    deploymentId: process.env.DEPLOYMENT_ID,
     optimizePackageImports: ["lucide-react"],
   },
 };

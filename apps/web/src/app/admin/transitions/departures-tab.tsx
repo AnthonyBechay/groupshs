@@ -293,7 +293,7 @@ export function DeparturesTab() {
                             <span className="text-sm font-medium">Show them on the public Anciens list</span>
                             <span className="block text-xs text-muted-foreground">
                                 Their joined/left years, progressions and role history come across automatically.
-                                Add a bio and their professions afterwards in Milestones → Anciens.
+                                Add a bio and their professions afterward in Milestones → Anciens.
                             </span>
                         </span>
                     </label>

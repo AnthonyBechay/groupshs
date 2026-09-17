@@ -55,7 +55,7 @@ export async function compressImage(
 
     if (needsAlpha) {
         // WebP keeps exact alpha and is far smaller than PNG. Critically, it does
-        // NOT quantise to a palette — palette quantisation was what turned
+        // NOT quantize to a palette — palette quantization was what turned
         // anti-aliased edges into a white box on transparent logos.
         const out = await base().webp({ quality: 90, alphaQuality: 100, effort: 4 }).toBuffer();
         return smallestOf(out, "image/webp", buffer, meta?.format);

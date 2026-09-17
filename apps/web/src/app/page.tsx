@@ -11,8 +11,8 @@ import { getCachedGallery, getCachedPartners, getCachedSocialLinks, getCachedSet
 
 export const dynamic = "force-dynamic";
 
-// Accepts a string too: anything routed through `unstable_cache` comes back as
-// an ISO string rather than a Date, and calling date methods on it throws.
+// Accepts a string too, so a date that has been serialized (JSON, a cache) can
+// never make this throw.
 function formatDate(d: Date | string) {
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
@@ -58,15 +58,18 @@ export default async function Home() {
       orderBy: { startDate: "desc" },
     }),
     prisma.member.count({ where: { status: "ACTIVE" } }),
-    prisma.unit.count(),
+    // The holding unit for imported anciens is bookkeeping, not a real unit.
+    prisma.unit.count({ where: { name: { not: "Anciens (unit unknown)" } } }),
     prisma.activity.count({ where: { hidden: false } }),
     getCachedSettings(),
   ]);
 
   const groupFoundedYear = settings?.groupFoundedYear ?? 2014;
   const yearsStrong = currentYear - groupFoundedYear;
+  // A manual override, when set, always wins over the computed count.
   const displayedUnitCount = settings?.manualUnitCount ?? unitCount;
   const displayedMemberCount = settings?.manualMemberCount ?? memberCount;
+  const displayedActivityCount = settings?.manualActivityCount ?? totalActivitiesCount;
   const siteLogoUrl = settings?.logoUrl;
 
   return (
@@ -146,7 +149,7 @@ export default async function Home() {
                 { value: `${yearsStrong}+`, label: "Years strong", icon: Award },
                 { value: `${displayedMemberCount}+`, label: "Members", icon: Users },
                 { value: displayedUnitCount.toString(), label: "Units", icon: Tent },
-                { value: totalActivitiesCount.toString(), label: "Activities", icon: Sparkles },
+                { value: displayedActivityCount.toString(), label: "Activities", icon: Sparkles },
               ].map((stat, i) => (
                 <div key={i} className="text-center group">
                   <div className="inline-flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-xl bg-primary/10 text-primary mb-2 group-hover:scale-110 transition-transform">

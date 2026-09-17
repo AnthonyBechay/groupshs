@@ -4,7 +4,7 @@ import { getCachedSettings, getCachedSocialLinks } from "@/lib/query-cache";
 import { Compass, Heart, Mountain, Users, Target } from "lucide-react";
 
 // force-dynamic: DB is unreachable during `docker build`; queries are cached
-// via unstable_cache in query-cache.ts so runtime performance is still fast.
+// Data is read fresh on every request (see query-cache.ts).
 export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {

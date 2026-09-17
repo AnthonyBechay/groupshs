@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // Creating a member is a member-management action.
         if (!hasPermission(session, "canManageMembers")) {
             return NextResponse.json(
-                { error: "You also need permission to manage Members to enrol a recruit" },
+                { error: "You also need permission to manage Members to enroll a recruit" },
                 { status: 403 }
             );
         }
@@ -188,7 +188,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
         return NextResponse.json({ ok: true });
     } catch (error) {
-        console.error("Error undoing enrolment:", error);
+        console.error("Error undoing enrollment:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

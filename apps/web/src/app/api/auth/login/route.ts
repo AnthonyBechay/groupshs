@@ -24,8 +24,8 @@ export async function POST(request: Request) {
         // Limit by IP and by account, so neither spraying one account nor
         // trying many accounts from one host goes unchecked.
         const ip = clientIp(request);
-        const normalisedEmail = String(email).trim().toLowerCase();
-        for (const key of [`login:ip:${ip}`, `login:email:${normalisedEmail}`]) {
+        const normalizedEmail = String(email).trim().toLowerCase();
+        for (const key of [`login:ip:${ip}`, `login:email:${normalizedEmail}`]) {
             const rl = checkRateLimit(key, LIMIT);
             if (!rl.allowed) {
                 return NextResponse.json(
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         }
 
         resetRateLimit(`login:ip:${ip}`);
-        resetRateLimit(`login:email:${normalisedEmail}`);
+        resetRateLimit(`login:email:${normalizedEmail}`);
 
         const token = await createToken(user.id, user.role);
         const cookie = buildSessionCookie(token);

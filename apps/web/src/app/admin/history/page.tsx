@@ -373,7 +373,7 @@ function MilestonesTab() {
                                 defaultValue={editing?.description ?? ""}
                                 rows={3}
                                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-y"
-                                placeholder="A brief sentence summarising what happened and why it matters..."
+                                placeholder="A brief sentence summarizing what happened and why it matters..."
                             />
                         </div>
 

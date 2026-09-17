@@ -1,57 +1,16 @@
-import { prisma } from "@/db";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { getSession, isAdmin } from "@/lib/auth";
 import { Users, Trophy, Calendar, Clock, Zap, Target, ImageIcon, Star, Phone, Mail, ExternalLink, Briefcase, Shield, ChevronRight } from "lucide-react";
-import { unstable_cache } from "next/cache";
 import Image from "next/image";
 import { ancienRoleLabel, progressionLabel } from "@/lib/scout-config";
+import {
+    getCachedSettings, getCachedSocialLinks, getCachedMilestones, getCachedAnciens,
+} from "@/lib/query-cache";
 
 // DB is unreachable during `docker build`; force-dynamic prevents build-time
-// pre-rendering. unstable_cache wrappers below keep runtime performance fast.
+// pre-rendering. Data is read fresh on every request (see query-cache.ts).
 export const dynamic = "force-dynamic";
-
-const getCachedSettings = unstable_cache(
-    () => prisma.siteSettings.findUnique({ where: { id: "default" } }),
-    ["site-settings"],
-    { revalidate: 3600 }
-);
-
-const getCachedSocialLinks = unstable_cache(
-    () => prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
-    ["social-links"],
-    { revalidate: 3600 }
-);
-
-const getCachedMilestones = unstable_cache(
-    () => prisma.historyMilestone
-        .findMany({ orderBy: [{ sortOrder: "asc" }, { date: "asc" }] })
-        .catch(() => []),
-    ["history-milestones"],
-    { revalidate: 300 }
-);
-
-/**
- * Anciens ARE former members — members whose status is LEFT. There is no
- * separate alumni table: one person, one record.
- */
-const getCachedAnciens = unstable_cache(
-    () => prisma.member
-        .findMany({
-            where: { status: "LEFT", hiddenFromAnciens: false },
-            select: {
-                id: true, firstName: true, lastName: true,
-                joinedAt: true, leftAt: true,
-                progressions: true, scoutRolesHistory: true, professions: true,
-                phone: true, email: true, photoUrl: true, bio: true,
-                ancienSortOrder: true,
-            },
-            orderBy: [{ ancienSortOrder: "asc" }, { lastName: "asc" }, { firstName: "asc" }],
-        })
-        .catch(() => []),
-    ["history-anciens"],
-    { revalidate: 300 }
-);
 
 // ─── Ancien types ─────────────────────────────────────────────────────────────
 
