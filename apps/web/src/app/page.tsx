@@ -11,8 +11,10 @@ import { getCachedGallery, getCachedPartners, getCachedSocialLinks, getCachedSet
 
 export const dynamic = "force-dynamic";
 
-function formatDate(d: Date) {
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+// Accepts a string too: anything routed through `unstable_cache` comes back as
+// an ISO string rather than a Date, and calling date methods on it throws.
+function formatDate(d: Date | string) {
+  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 const ACTIVITY_TYPE_LABELS: Record<string, string> = {

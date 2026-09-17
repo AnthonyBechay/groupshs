@@ -49,10 +49,17 @@ export default function JoinPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data),
             });
-            if (!res.ok) throw new Error("Failed to submit");
+            if (!res.ok) {
+                // Show what the server actually said (too many attempts, a
+                // missing field) rather than a generic failure the applicant
+                // cannot act on. The form keeps its values so they can retry.
+                const body = await res.json().catch(() => ({}));
+                setError(body.error || "Something went wrong. Please try again.");
+                return;
+            }
             setSubmitted(true);
         } catch {
-            setError("Something went wrong. Please try again.");
+            setError("We could not reach the server. Check your connection and try again — your answers are still here.");
         } finally {
             setSubmitting(false);
         }

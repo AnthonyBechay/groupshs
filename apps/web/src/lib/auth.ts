@@ -3,9 +3,40 @@ import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/db";
 
-const SECRET = new TextEncoder().encode(
-    process.env.AUTH_SECRET || "default-secret-change-me-in-production-32chars!"
-);
+/**
+ * JWT signing key.
+ *
+ * In production a missing AUTH_SECRET must FAIL, not fall back. The old
+ * fallback string lives in this repository, so running with it would let anyone
+ * who can read the source forge a super-admin session. Failing closed at start-
+ * up surfaces the misconfiguration immediately (the container healthcheck will
+ * report it) instead of silently serving an unprotected admin area.
+ */
+function resolveAuthSecret(): string {
+    const fromEnv = process.env.AUTH_SECRET?.trim();
+
+    if (process.env.NODE_ENV === "production") {
+        if (!fromEnv) {
+            throw new Error(
+                "AUTH_SECRET is not set. Refusing to start: without it, admin session " +
+                "tokens would be signed with a publicly known key. Set AUTH_SECRET to a " +
+                "random string of at least 32 characters."
+            );
+        }
+        if (fromEnv.length < 32) {
+            throw new Error(
+                `AUTH_SECRET is too short (${fromEnv.length} characters). Refusing to start: ` +
+                "use at least 32 random characters."
+            );
+        }
+        return fromEnv;
+    }
+
+    // Local development only — never reached in a production build.
+    return fromEnv || "dev-only-secret-not-for-production-use-32ch";
+}
+
+const SECRET = new TextEncoder().encode(resolveAuthSecret());
 
 const COOKIE_NAME = "auth-token";
 const SEVEN_DAYS = 60 * 60 * 24 * 7;

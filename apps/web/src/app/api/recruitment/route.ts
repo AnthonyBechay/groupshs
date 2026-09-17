@@ -1,4 +1,5 @@
 import { prisma } from "@/db";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 
 /**
@@ -21,6 +22,19 @@ function clamp(value: unknown, field: string): string | null {
 
 export async function POST(request: Request) {
     try {
+        // Public and unauthenticated: cap how fast one host can file
+        // applications. Generous enough for a family submitting for several
+        // children in one sitting.
+        const rl = checkRateLimit(`recruitment:${clientIp(request)}`, {
+            limit: 10, windowMs: 60 * 60 * 1000, blockMs: 60 * 60 * 1000,
+        });
+        if (!rl.allowed) {
+            return NextResponse.json(
+                { error: "Too many applications from this connection. Please try again later, or call us." },
+                { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+            );
+        }
+
         const body = await request.json();
 
         const { fullName, gender, dateOfBirth, schoolLevel, memberPhone, parentWereScouts, parentScoutGroup, parentName, parentPhone, parentContactInfo, siblingsInGroup, siblingNames, otherComments } = body;

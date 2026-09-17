@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { getSession } from "@/lib/auth";
+import { getSession, hasPermission } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -12,7 +12,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
     const session = await getSession();
-    if (!session || session.role !== "admin" && session.role !== "super_admin") {
+    if (!hasPermission(session, "canManageNews")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { getSession } from "@/lib/auth";
+import { getSession, hasPermission } from "@/lib/auth";
 import { compressImage } from "@/lib/image";
 import { uploadToR2 } from "@/lib/r2";
 import { NextRequest, NextResponse } from "next/server";
@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET() {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin" && session.role !== "super_admin") {
+        if (!hasPermission(session, "canManagePartners")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
         const partners = await prisma.partner.findMany({ orderBy: { sortOrder: "asc" } });
@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin" && session.role !== "super_admin") {
+        if (!hasPermission(session, "canManagePartners")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 

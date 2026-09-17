@@ -1,11 +1,11 @@
 import { prisma } from "@/db";
-import { getSession } from "@/lib/auth";
+import { getSession, hasPermission } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin" && session.role !== "super_admin") {
+        if (!hasPermission(session, "canViewSubmissions")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -55,7 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession();
-        if (!session || session.role !== "admin" && session.role !== "super_admin") {
+        if (!hasPermission(session, "canViewSubmissions")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 

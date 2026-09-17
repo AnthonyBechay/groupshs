@@ -2,8 +2,10 @@ import { getSession } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export async function GET() {
+    // Infrastructure detail (account id, bucket, endpoint) — super admin only.
+    // A unit leader with admin access has no reason to see the storage config.
     const session = await getSession();
-    if (!session || session.role !== "admin" && session.role !== "super_admin") {
+    if (!session?.isSuperAdmin) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
