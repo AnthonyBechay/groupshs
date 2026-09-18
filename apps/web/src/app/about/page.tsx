@@ -3,7 +3,6 @@ import { Footer } from "@/components/footer";
 import { getCachedSettings, getCachedSocialLinks } from "@/lib/query-cache";
 import { Compass, Heart, Mountain, Users, Target } from "lucide-react";
 
-// force-dynamic: DB is unreachable during `docker build`; queries are cached
 // Data is read fresh on every request (see query-cache.ts).
 export const dynamic = "force-dynamic";
 
@@ -83,7 +82,7 @@ export default async function AboutPage() {
                         </div>
                         <div className="grid sm:grid-cols-3 gap-4 md:gap-6 max-w-5xl mx-auto">
                             {[
-                                { icon: Users, title: "Brotherhood", desc: "Friendships forged through shared challenges.", color: "bg-primary/10 text-primary" },
+                                { icon: Users, title: "Fellowship", desc: "Friendships forged through shared challenges.", color: "bg-primary/10 text-primary" },
                                 { icon: Mountain, title: "Adventure", desc: "From mountain hikes to winter camps, we explore.", color: "bg-scout-gold/10 text-scout-gold" },
                                 { icon: Heart, title: "Service", desc: "Giving back to our community and to nature.", color: "bg-red-100 text-red-600" },
                             ].map((v, i) => (

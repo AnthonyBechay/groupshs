@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Calendar, FileText, Shield, UserCheck, ImageIcon, Handshake, Share2, Settings, Newspaper, Trophy } from "lucide-react";
+import { Users, Calendar, FileText, Shield, UserCheck, ImageIcon, Handshake, Share2, Settings, Newspaper, Trophy, ArrowUpRight } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -12,6 +12,7 @@ export default async function AdminPage() {
     const cards = [
         { href: "/admin/units", icon: Shield, title: "Units", desc: "Manage scout units (Louveteaux, Eclaireurs, Routiers, Chefs)", show: p.canManageUnits },
         { href: "/admin/members", icon: UserCheck, title: "Members", desc: "Manage members, roles, and progression", show: p.canManageMembers },
+        { href: "/admin/transitions", icon: ArrowUpRight, title: "Move Up / Transitions", desc: "Promote members between branches, reassign the maîtrise, record departures", show: p.canManageTransitions },
         { href: "/admin/activities", icon: Calendar, title: "Activities", desc: "Manage camps, journées, and events", show: p.canManageActivities },
         { href: "/admin/gallery", icon: ImageIcon, title: "Gallery", desc: "Manage homepage carousel photos", show: p.canManageGallery },
         { href: "/admin/partners", icon: Handshake, title: "Partners", desc: "Manage partner and sponsor logos", show: p.canManagePartners },

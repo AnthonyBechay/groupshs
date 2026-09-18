@@ -11,6 +11,17 @@ export async function GET() {
 
         const submissions = await prisma.recruitmentSubmission.findMany({
             orderBy: { createdAt: "desc" },
+            include: {
+                // Where they ended up, so the list can show it rather than just
+                // saying "enrolled". Null once the member is deleted.
+                member: {
+                    select: {
+                        id: true, firstName: true, lastName: true, role: true, status: true,
+                        unit: { select: { id: true, name: true, unitType: true } },
+                        subgroup: { select: { name: true } },
+                    },
+                },
+            },
         });
 
         return NextResponse.json(submissions);

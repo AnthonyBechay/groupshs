@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
     try {
         const session = await getSession();
-        if (!hasPermission(session, "canManageMembers")) {
+        if (!hasPermission(session, "canManageTransitions")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 

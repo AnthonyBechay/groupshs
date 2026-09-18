@@ -37,9 +37,39 @@ type Member = {
     doctorPhone: string | null;
     chronicIllnesses: string | null;
     joinedAt: string;
+    // Most recent move only (the list endpoint sends just one), used for the
+    // short-lived "came from …" tag.
+    moves?: Array<{ moveDate: string; fromUnitId: string | null; revertedAt: string | null }>;
 };
 
 type View = "visual" | "list";
+
+// ─── Recent-arrival tags ──────────────────────────────────────────────────────
+// Both tags fade away on their own after this long, so the roster does not stay
+// permanently decorated.
+const RECENT_MONTHS = 2;
+
+function withinRecentWindow(iso: string | null | undefined): boolean {
+    if (!iso) return false;
+    const then = new Date(iso).getTime();
+    if (!Number.isFinite(then)) return false;
+    const cutoff = Date.now() - RECENT_MONTHS * 30 * 24 * 60 * 60 * 1000;
+    return then >= cutoff;
+}
+
+/** A member who joined the group recently — brand new, not moved up. */
+function isNewMember(m: Member): boolean {
+    if (!withinRecentWindow(m.joinedAt)) return false;
+    // Someone who was moved up is not "new" to the group, only to this unit.
+    return !lastMove(m);
+}
+
+/** The most recent move that actually changed unit and has not been reverted. */
+function lastMove(m: Member) {
+    const mv = m.moves?.[0];
+    if (!mv || mv.revertedAt || !mv.fromUnitId) return null;
+    return withinRecentWindow(mv.moveDate) ? mv : null;
+}
 
 // Per-unit-type colors (for subgroup cards in members visual view)
 const UNIT_THEME: Record<string, {
@@ -272,6 +302,7 @@ export default function AdminMembersPage() {
                     onEditSubgroup={(s) => { setEditingSubgroup(s); setShowSubgroupForm(true); }}
                     onDeleteSubgroup={handleDeleteSubgroup}
                     onPreview={setPreviewMemberId}
+                    allUnits={units}
                 />
             ) : (
                 <ListView
@@ -300,7 +331,7 @@ export default function AdminMembersPage() {
 
 function VisualView({
     unit, subgroups, members, labels, containerName,
-    onEditSubgroup, onDeleteSubgroup, onPreview,
+    onEditSubgroup, onDeleteSubgroup, onPreview, allUnits,
 }: {
     unit: Unit;
     subgroups: Subgroup[];
@@ -310,6 +341,8 @@ function VisualView({
     onEditSubgroup: (s: Subgroup) => void;
     onDeleteSubgroup: (id: string) => void;
     onPreview: (id: string) => void;
+    // Needed to turn a move's fromUnitId into a readable unit name.
+    allUnits: Unit[];
 }) {
     const theme = UNIT_THEME[unit.unitType] || UNIT_THEME.GROUP;
     const unassigned = members.filter(m => !m.subgroupId).sort(sortMembers(labels));
@@ -366,6 +399,7 @@ function VisualView({
                             onEdit={() => onEditSubgroup(sg)}
                             onDelete={() => onDeleteSubgroup(sg.id)}
                             onPreview={onPreview}
+                            allUnits={allUnits}
                         />
                     ))}
                 </div>
@@ -377,7 +411,7 @@ function VisualView({
                     <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">Unassigned to a {labels.singular}</h3>
                     <div className="space-y-2">
                         {unassigned.map(m => (
-                            <MemberRow key={m.id} member={m} unitType={unit.unitType} onPreview={onPreview} />
+                            <MemberRow key={m.id} member={m} unitType={unit.unitType} onPreview={onPreview} allUnits={allUnits} />
                         ))}
                     </div>
                 </div>
@@ -396,7 +430,7 @@ function sortMembers(labels: { lead: string; assistant: string }) {
 }
 
 function SubgroupCard({
-    unitType, subgroup, members, labels, onEdit, onDelete, onPreview,
+    unitType, subgroup, members, labels, onEdit, onDelete, onPreview, allUnits = [],
 }: {
     unitType: string;
     subgroup: Subgroup;
@@ -405,6 +439,7 @@ function SubgroupCard({
     onEdit: () => void;
     onDelete: () => void;
     onPreview: (id: string) => void;
+    allUnits?: Unit[];
 }) {
     const theme = UNIT_THEME[unitType] || UNIT_THEME.GROUP;
     const lead = members.find(m => m.role === labels.lead);
@@ -429,20 +464,52 @@ function SubgroupCard({
                 </div>
             </div>
             <div className="p-4 space-y-2">
-                {lead && <MemberRow member={lead} unitType={unitType} accentRole={labels.lead} onPreview={onPreview} />}
-                {assistant && <MemberRow member={assistant} unitType={unitType} accentRole={labels.assistant} onPreview={onPreview} />}
+                {lead && <MemberRow member={lead} unitType={unitType} accentRole={labels.lead} onPreview={onPreview} allUnits={allUnits} />}
+                {assistant && <MemberRow member={assistant} unitType={unitType} accentRole={labels.assistant} onPreview={onPreview} allUnits={allUnits} />}
                 {(lead || assistant) && others.length > 0 && <div className="border-t my-2" />}
                 {others.length === 0 && !lead && !assistant ? (
                     <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">Empty {labels.singular.toLowerCase()}</p>
                 ) : (
-                    others.map(m => <MemberRow key={m.id} member={m} unitType={unitType} onPreview={onPreview} />)
+                    others.map(m => <MemberRow key={m.id} member={m} unitType={unitType} onPreview={onPreview} allUnits={allUnits} />)
                 )}
             </div>
         </div>
     );
 }
 
-function MemberRow({ member, unitType, accentRole, onPreview }: { member: Member; unitType?: string; accentRole?: string; onPreview: (id: string) => void }) {
+/**
+ * "New" for a recent arrival, "from X" for someone recently moved up. Both
+ * disappear on their own after RECENT_MONTHS, so the roster does not stay
+ * permanently tagged.
+ */
+function RecentTags({ member, units }: { member: Member; units: Unit[] }) {
+    const moved = lastMove(member);
+    const fromUnit = moved ? units.find(u => u.id === moved.fromUnitId) : null;
+
+    if (isNewMember(member)) {
+        return (
+            <span
+                title={`Joined ${new Date(member.joinedAt).toLocaleDateString("en-GB")}`}
+                className="px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+            >
+                NEW
+            </span>
+        );
+    }
+    if (moved && fromUnit) {
+        return (
+            <span
+                title={`Moved up on ${new Date(moved.moveDate).toLocaleDateString("en-GB")}`}
+                className="px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+            >
+                FROM {fromUnit.name.toUpperCase()}
+            </span>
+        );
+    }
+    return null;
+}
+
+function MemberRow({ member, unitType, accentRole, onPreview, allUnits = [] }: { member: Member; unitType?: string; accentRole?: string; onPreview: (id: string) => void; allUnits?: Unit[] }) {
     const theme = UNIT_THEME[unitType || "GROUP"] || UNIT_THEME.GROUP;
     const isLead = accentRole && (accentRole === "CP" || accentRole === "SI" || accentRole === "CE");
 
@@ -461,7 +528,10 @@ function MemberRow({ member, unitType, accentRole, onPreview }: { member: Member
                 )}
             </div>
             <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate">{member.firstName} {member.lastName}</div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-semibold truncate">{member.firstName} {member.lastName}</span>
+                    <RecentTags member={member} units={allUnits} />
+                </div>
                 {member.role && (
                     <div className="text-[11px] text-muted-foreground">
                         <span>{member.role}</span>

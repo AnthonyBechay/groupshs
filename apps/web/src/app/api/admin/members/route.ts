@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
-import { resolveMemberGender } from "@/lib/scout-config";
+import { resolveMemberGender, isCouncilRoleIn, COUNCIL_ROLES } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -41,11 +41,22 @@ export async function GET(request: NextRequest) {
             include: {
                 unit: { select: { name: true, unitType: true } },
                 subgroup: { select: { id: true, name: true } },
-                ...(includeSheet ? {
-                    groupSiblings: true,
-                    medications: true,
-                    moves: { orderBy: { moveDate: "desc" } },
-                } : {}),
+                ...(includeSheet
+                    ? {
+                        groupSiblings: true,
+                        medications: true,
+                        moves: { orderBy: { moveDate: "desc" } as const },
+                    }
+                    : {
+                        // Just the latest move, so the roster can show a short-lived
+                        // "came from X" tag. The unit NAME is resolved client-side
+                        // from the units list, since MemberMove stores only ids.
+                        moves: {
+                            orderBy: { moveDate: "desc" } as const,
+                            take: 1,
+                            select: { moveDate: true, fromUnitId: true, revertedAt: true },
+                        },
+                    }),
             },
             orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         });
@@ -91,6 +102,18 @@ export async function POST(request: NextRequest) {
         const genderCheck = resolveMemberGender(unit.unitType, body.gender, role);
         if (!genderCheck.ok) {
             return NextResponse.json({ error: genderCheck.error }, { status: 400 });
+        }
+
+        // Creating someone directly into the conseil is the same group-level
+        // appointment as promoting them into it: super admin only.
+        if (!session?.isSuperAdmin && isCouncilRoleIn(role, unit.unitType)) {
+            return NextResponse.json(
+                {
+                    error: `Only a super admin can assign conseil roles ` +
+                        `(${COUNCIL_ROLES.join(", ")}). Create the member without that role first.`,
+                },
+                { status: 403 }
+            );
         }
 
         const data: Prisma.MemberUncheckedCreateInput = {

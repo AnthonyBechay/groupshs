@@ -99,7 +99,7 @@ export default async function Home() {
               </h1>
 
               <p className="text-lg md:text-xl text-white/85 mb-10 max-w-xl mx-auto leading-relaxed">
-                Building tomorrow&apos;s leaders through adventure, service, and brotherhood since 2014 in the heart of Ain Saade.
+                Building tomorrow&apos;s leaders through adventure, service, and friendship since 2014 in the heart of Ain Saade.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -185,7 +185,7 @@ export default async function Home() {
             </div>
             <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-5 md:gap-6 max-w-5xl mx-auto">
               {[
-                { icon: Users, title: "Brotherhood", desc: "Lifelong friendships forged through shared adventures and challenges within the Sagesse scout family.", color: "from-primary to-emerald-700", iconBg: "bg-primary/10 text-primary" },
+                { icon: Users, title: "Fellowship", desc: "Lifelong friendships forged through shared adventures and challenges within the Sagesse scout family.", color: "from-primary to-emerald-700", iconBg: "bg-primary/10 text-primary" },
                 { icon: Mountain, title: "Adventure", desc: "From mountain hikes to winter camps, we push boundaries and discover the beauty of Lebanon together.", color: "from-scout-gold to-amber-600", iconBg: "bg-scout-gold/10 text-scout-gold" },
                 { icon: Heart, title: "Service", desc: "Giving back to our community through volunteer work, helping those in need, and protecting nature.", color: "from-red-500 to-red-700", iconBg: "bg-red-100 text-red-600" },
               ].map((item, i) => (
@@ -210,16 +210,19 @@ export default async function Home() {
               <h2 className="text-3xl md:text-5xl font-black tracking-tight">A Path for Every Age</h2>
             </div>
             <div className="grid grid-cols-3 max-w-2xl mx-auto gap-3 sm:gap-6">
+              {/* Each age band runs a boys' and a girls' branch, so both names
+                  are shown rather than only the boys' one. */}
               {[
-                { name: "Louveteaux", age: "8-12 yrs", icon: TreePine, desc: "Learning by playing" },
-                { name: "Eclaireurs", age: "12-17 yrs", icon: Compass, desc: "Exploring the path" },
-                { name: "Routiers", age: "17+ yrs", icon: Mountain, desc: "Serving the community" },
+                { name: "Louveteaux", girls: "Louvettes", age: "8-12 yrs", icon: TreePine, desc: "Learning by playing" },
+                { name: "Eclaireurs", girls: "Eclaireuses", age: "12-17 yrs", icon: Compass, desc: "Exploring the path" },
+                { name: "Routiers", girls: "Pionnières", age: "17+ yrs", icon: Mountain, desc: "Serving the community" },
               ].map((unit, i) => (
                 <div key={i} className="text-center group cursor-default">
                   <div className="mx-auto w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-card border flex items-center justify-center mb-3 md:mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm group-hover:shadow-xl group-hover:shadow-primary/30 group-hover:scale-110 group-hover:rotate-3 active:bg-primary active:text-white active:border-primary active:scale-105">
                     <unit.icon className="w-6 h-6 sm:w-9 sm:h-9 text-primary group-hover:text-white transition-colors" />
                   </div>
                   <h3 className="font-bold text-sm sm:text-lg mb-0.5 leading-tight">{unit.name}</h3>
+                  <h4 className="font-semibold text-xs sm:text-base text-muted-foreground mb-0.5 leading-tight">{unit.girls}</h4>
                   <p className="text-xs sm:text-sm text-primary font-semibold mb-0.5 sm:mb-1">{unit.age}</p>
                   <p className="text-xs text-muted-foreground hidden sm:block">{unit.desc}</p>
                 </div>
@@ -407,7 +410,7 @@ export default async function Home() {
             </div>
             <h2 className="text-4xl md:text-6xl font-black tracking-tight mb-6">Ready for the Adventure?</h2>
             <p className="text-lg md:text-xl text-white/85 max-w-lg mx-auto mb-10">
-              Boys aged 8-18 are welcome to join Les Scouts du Liban - Group Sagesse High School, Ain Saade.
+              Boys and girls aged 8-18 are welcome to join Les Scouts du Liban - Group Sagesse High School, Ain Saade.
             </p>
             <Link href="/join">
               <Button size="lg" className="font-bold gap-2 bg-scout-gold hover:bg-scout-gold/90 text-scout-brown shadow-xl shadow-scout-gold/30 px-12 py-6 text-base transition-all hover:scale-105 hover:shadow-scout-gold/50">

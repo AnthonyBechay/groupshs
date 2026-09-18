@@ -8,7 +8,7 @@ import {
     Download, Trash2, ChevronDown, Search, UserPlus, CheckCircle2, ArrowRight,
     Loader2, AlertTriangle, Info, Undo2, ExternalLink,
 } from "lucide-react";
-import { unitTypeLabel } from "@/lib/scout-config";
+import { unitTypeLabel, unitAcceptsGender } from "@/lib/scout-config";
 
 // The recruitment pipeline, in the order an applicant moves through it.
 const STATUSES = [
@@ -45,6 +45,14 @@ type Submission = {
     memberId: string | null;
     enrolledAt: string | null;
     createdAt: string;
+    // Where they were placed. Null if the member record was since deleted, in
+    // which case the application is treated as not enrolled.
+    member: {
+        id: string; firstName: string; lastName: string;
+        role: string | null; status: string;
+        unit: { id: string; name: string; unitType: string } | null;
+        subgroup: { name: string } | null;
+    } | null;
 };
 
 type Unit = { id: string; name: string; unitType: string; _count: { members: number } };
@@ -150,7 +158,7 @@ export default function AdminRecruitmentPage() {
     }, {} as Record<string, number>);
 
     // Applications marked recruited but never actually placed in a unit.
-    const awaitingEnrollment = submissions.filter(s => !s.memberId && s.status !== "REJECTED").length;
+    const awaitingEnrollment = submissions.filter(s => !s.member && s.status !== "REJECTED").length;
 
     if (loading) return <p className="text-muted-foreground">Loading…</p>;
 
@@ -217,7 +225,9 @@ export default function AdminRecruitmentPage() {
                     {filtered.map(s => {
                         const isExpanded = expandedId === s.id;
                         const statusInfo = STATUSES.find(st => st.value === s.status) ?? STATUSES[0];
-                        const enrolled = !!s.memberId;
+                        // Only treat as enrolled when the member still exists — a deleted
+                        // member leaves memberId null via the foreign key.
+                        const enrolled = !!s.memberId && !!s.member;
 
                         return (
                             <div key={s.id}>
@@ -241,9 +251,10 @@ export default function AdminRecruitmentPage() {
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusInfo.color}`}>
                                                 {statusInfo.label}
                                             </span>
-                                            {enrolled && (
+                                            {enrolled && s.member?.unit && (
                                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1">
-                                                    <CheckCircle2 className="w-3 h-3" /> IN A UNIT
+                                                    <CheckCircle2 className="w-3 h-3" />
+                                                    {s.member.unit.name.toUpperCase()}
                                                 </span>
                                             )}
                                         </div>
@@ -298,10 +309,20 @@ export default function AdminRecruitmentPage() {
                                         {enrolled ? (
                                             <div className="mt-4 rounded-xl border border-emerald-300 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/20 p-4 flex flex-wrap items-center gap-3">
                                                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                                                <p className="text-sm text-emerald-900 dark:text-emerald-300 flex-1">
-                                                    Enrolled as a member
-                                                    {s.enrolledAt && ` on ${new Date(s.enrolledAt).toLocaleDateString("en-GB")}`}.
-                                                </p>
+                                                <div className="text-sm text-emerald-900 dark:text-emerald-300 flex-1">
+                                                    <p className="font-semibold">
+                                                        {s.member?.unit
+                                                            ? <>Placed in {s.member.unit.name} ({unitTypeLabel(s.member.unit.unitType)})</>
+                                                            : <>Enrolled as a member</>}
+                                                    </p>
+                                                    <p className="text-xs text-emerald-800/80 dark:text-emerald-400/80 mt-0.5">
+                                                        {s.member?.subgroup && `${s.member.subgroup.name} · `}
+                                                        {s.member?.role && `${s.member.role} · `}
+                                                        {s.enrolledAt
+                                                            ? `enrolled ${new Date(s.enrolledAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                                                            : "enrolled"}
+                                                    </p>
+                                                </div>
                                                 <Link href={`/admin/members/${s.memberId}`}>
                                                     <Button variant="outline" size="sm" className="gap-1.5">
                                                         Open member <ExternalLink className="w-3.5 h-3.5" />
@@ -371,7 +392,45 @@ function EnrollPanel({ submission, onCancel, onDone }: {
         })();
     }, [submission.id, submission.fullName]);
 
-    const units = showAllUnits ? (placement?.allUnits ?? []) : (placement?.suggestedUnits ?? []);
+    // ── Unit choices, narrowed by the applicant's gender and age ─────────────
+    //
+    // The branch a recruit belongs in is determined by gender AND age, so the
+    // picker leads with that instead of listing every unit and letting the
+    // server reject the wrong ones.
+    const allUnits = placement?.allUnits ?? [];
+    const genderWord = submission.gender === "FEMALE" ? "girl" : submission.gender === "MALE" ? "boy" : "member";
+
+    const recommended = placement?.suggestedUnits ?? [];
+    const recommendedIds = new Set(recommended.map(u => u.id));
+
+    // Units this applicant *could* join (gender matches the branch), minus the
+    // recommended ones and minus GROUP, which is the leadership team.
+    const otherSameGender = allUnits.filter(u =>
+        !recommendedIds.has(u.id)
+        && u.unitType !== "GROUP"
+        && unitAcceptsGender(u.unitType, submission.gender)
+    );
+
+    const wrongGender = allUnits.filter(u =>
+        !recommendedIds.has(u.id)
+        && u.unitType !== "GROUP"
+        && !unitAcceptsGender(u.unitType, submission.gender)
+    );
+
+    const units = allUnits;   // kept for the "no units at all" message
+
+    const recommendedLabel = placement?.suggestion
+        ? `Recommended — ${placement.suggestion.unitTypeLabel} (turns ${placement.suggestion.ageReached})`
+        : "Recommended";
+
+    // Warn when the chosen unit is not the age-appropriate branch.
+    const chosen = allUnits.find(u => u.id === unitId);
+    const offBranchWarning =
+        chosen && placement?.suggestion && chosen.unitType !== placement.suggestion.unitType
+            ? `${chosen.name} is ${unitTypeLabel(chosen.unitType)}, not the ${placement.suggestion.unitTypeLabel} `
+              + `branch their age suggests. Enroll them there only if you mean to.`
+            : null;
+
     const unitSubgroups = (placement?.subgroups ?? []).filter(sg => sg.unitId === unitId);
 
     async function submit() {
@@ -443,13 +502,13 @@ function EnrollPanel({ submission, onCancel, onDone }: {
             <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                     <label className="text-xs font-medium">Unit</label>
-                    {placement && placement.suggestedUnits.length > 0 && (
+                    {recommended.length > 0 && otherSameGender.length > 0 && (
                         <button
                             type="button"
                             onClick={() => setShowAllUnits(v => !v)}
                             className="text-[11px] text-primary underline underline-offset-2"
                         >
-                            {showAllUnits ? "Show suggested only" : "Show all units"}
+                            {showAllUnits ? "Show recommended only" : "Show other units"}
                         </button>
                     )}
                 </div>
@@ -459,15 +518,57 @@ function EnrollPanel({ submission, onCancel, onDone }: {
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
                     <option value="">Select a unit…</option>
-                    {units.map(u => (
-                        <option key={u.id} value={u.id}>
-                            {u.name} ({unitTypeLabel(u.unitType)}) — {u._count.members} members
-                        </option>
-                    ))}
+
+                    {recommended.length > 0 && (
+                        <optgroup label={recommendedLabel}>
+                            {recommended.map(u => (
+                                <option key={u.id} value={u.id}>
+                                    {u.name} — {u._count.members} members
+                                </option>
+                            ))}
+                        </optgroup>
+                    )}
+
+                    {/* Right gender, wrong age band — allowed, but flagged below. */}
+                    {showAllUnits && otherSameGender.length > 0 && (
+                        <optgroup label="Other units (different age group)">
+                            {otherSameGender.map(u => (
+                                <option key={u.id} value={u.id}>
+                                    {u.name} ({unitTypeLabel(u.unitType)}) — {u._count.members} members
+                                </option>
+                            ))}
+                        </optgroup>
+                    )}
+
+                    {/* Wrong branch for this applicant's gender: shown so the list
+                        is not mysteriously short, but disabled — the server would
+                        reject them anyway. */}
+                    {showAllUnits && wrongGender.length > 0 && (
+                        <optgroup label={`Not possible for a ${genderWord}`}>
+                            {wrongGender.map(u => (
+                                <option key={u.id} value={u.id} disabled>
+                                    {u.name} ({unitTypeLabel(u.unitType)})
+                                </option>
+                            ))}
+                        </optgroup>
+                    )}
                 </select>
+
                 {units.length === 0 && (
                     <p className="text-xs text-destructive">
                         No units available. Create one in Units first.
+                    </p>
+                )}
+                {recommended.length === 0 && placement?.suggestion && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                        No {placement.suggestion.unitTypeLabel} unit exists yet — pick another unit
+                        or create one first.
+                    </p>
+                )}
+                {offBranchWarning && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        {offBranchWarning}
                     </p>
                 )}
             </div>

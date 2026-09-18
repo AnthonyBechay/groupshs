@@ -23,6 +23,7 @@ type User = {
     canViewSubmissions: boolean;
     canManageSettings: boolean;
     canManageHistory: boolean;
+    canManageTransitions: boolean;
     allowedUnitIds: string[];
 };
 
@@ -37,6 +38,7 @@ const PERMISSIONS = [
     { key: "canViewSubmissions", label: "View Submissions" },
     { key: "canManageSettings", label: "Site Settings" },
     { key: "canManageHistory", label: "History" },
+    { key: "canManageTransitions", label: "Transitions (Move Up / Maîtrise / Leaving)" },
 ] as const;
 
 type PermissionKey = typeof PERMISSIONS[number]["key"];
@@ -81,6 +83,7 @@ const ROLE_PRESETS: RolePreset[] = [
             canViewSubmissions: true,
             canManageSettings: true,
             canManageHistory: true,
+            canManageTransitions: true,
         },
     },
     {
@@ -120,7 +123,7 @@ export default function AdminUsersPage() {
         canManageUnits: false, canManageMembers: false, canManageActivities: false,
         canManageGallery: false, canManagePartners: false, canManageSocialLinks: false,
         canManageNews: false, canViewSubmissions: false, canManageSettings: false,
-        canManageHistory: false,
+        canManageHistory: false, canManageTransitions: false,
     });
     const [allowedUnitIds, setAllowedUnitIds] = useState<string[]>([]);
     const [restrictUnits, setRestrictUnits] = useState(false);
@@ -130,7 +133,7 @@ export default function AdminUsersPage() {
             canManageUnits: false, canManageMembers: false, canManageActivities: false,
             canManageGallery: false, canManagePartners: false, canManageSocialLinks: false,
             canManageNews: false, canViewSubmissions: false, canManageSettings: false,
-            canManageHistory: false,
+            canManageHistory: false, canManageTransitions: false,
         };
         for (const k of Object.keys(preset.permissions) as PermissionKey[]) {
             newPerms[k] = preset.permissions[k] === true;
@@ -161,7 +164,7 @@ export default function AdminUsersPage() {
             canManageUnits: false, canManageMembers: false, canManageActivities: false,
             canManageGallery: false, canManagePartners: false, canManageSocialLinks: false,
             canManageNews: false, canViewSubmissions: false, canManageSettings: false,
-            canManageHistory: false,
+            canManageHistory: false, canManageTransitions: false,
         });
         setAllowedUnitIds([]);
         setRestrictUnits(false);
@@ -182,6 +185,7 @@ export default function AdminUsersPage() {
             canViewSubmissions: u.canViewSubmissions,
             canManageSettings: u.canManageSettings,
             canManageHistory: u.canManageHistory,
+            canManageTransitions: u.canManageTransitions,
         });
         setAllowedUnitIds(u.allowedUnitIds || []);
         setRestrictUnits((u.allowedUnitIds || []).length > 0);

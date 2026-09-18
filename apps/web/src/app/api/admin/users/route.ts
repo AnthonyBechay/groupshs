@@ -1,6 +1,9 @@
 import { prisma } from "@/db";
-import { getSession, hashPassword, type SessionUser } from "@/lib/auth";
+import { getSession, hashPassword, type SessionUser, PERMISSION_KEYS } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+
+/** Every permission column, for a Prisma `select`. */
+const permissionSelect = Object.fromEntries(PERMISSION_KEYS.map(k => [k, true]));
 
 function requireSuperAdmin(session: SessionUser | null) {
     return session?.isSuperAdmin === true;
@@ -20,15 +23,7 @@ export async function GET() {
                 email: true,
                 role: true,
                 createdAt: true,
-                canManageUnits: true,
-                canManageMembers: true,
-                canManageActivities: true,
-                canManageGallery: true,
-                canManagePartners: true,
-                canManageSocialLinks: true,
-                canManageNews: true,
-                canViewSubmissions: true,
-                canManageSettings: true,
+                ...permissionSelect,
                 allowedUnitIds: true,
             },
             orderBy: { createdAt: "desc" },
@@ -50,11 +45,7 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         const {
-            name, email, password, role,
-            canManageUnits, canManageMembers, canManageActivities,
-            canManageGallery, canManagePartners, canManageSocialLinks,
-            canManageNews, canViewSubmissions, canManageSettings,
-            allowedUnitIds,
+            name, email, password, role, allowedUnitIds,
         } = body;
 
         if (!name || !email || !password) {
@@ -74,15 +65,9 @@ export async function POST(request: NextRequest) {
                 email,
                 password: hashedPassword,
                 role: role || "admin",
-                canManageUnits: !!canManageUnits,
-                canManageMembers: !!canManageMembers,
-                canManageActivities: !!canManageActivities,
-                canManageGallery: !!canManageGallery,
-                canManagePartners: !!canManagePartners,
-                canManageSocialLinks: !!canManageSocialLinks,
-                canManageNews: !!canManageNews,
-                canViewSubmissions: !!canViewSubmissions,
-                canManageSettings: !!canManageSettings,
+                // Driven by PERMISSION_KEYS so a new permission cannot be
+                // forgotten here the way canManageHistory was.
+                ...Object.fromEntries(PERMISSION_KEYS.map(k => [k, body[k] === true])),
                 allowedUnitIds: Array.isArray(allowedUnitIds) ? allowedUnitIds : [],
             },
             select: { id: true, name: true, email: true, role: true },

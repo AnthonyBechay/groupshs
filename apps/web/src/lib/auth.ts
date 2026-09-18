@@ -53,7 +53,30 @@ export type Permission =
     | "canManageNews"
     | "canViewSubmissions"
     | "canManageSettings"
-    | "canManageHistory";
+    | "canManageHistory"
+    | "canManageTransitions";
+
+/**
+ * Every permission, in one place.
+ *
+ * The users API used to name each permission by hand in three separate spots
+ * (GET select, POST body, PUT body). `canManageHistory` was missed in all
+ * three, so that checkbox silently did nothing — it could be ticked in the UI
+ * and never saved. Iterate this list instead of retyping the names.
+ */
+export const PERMISSION_KEYS = [
+    "canManageUnits",
+    "canManageMembers",
+    "canManageActivities",
+    "canManageGallery",
+    "canManagePartners",
+    "canManageSocialLinks",
+    "canManageNews",
+    "canViewSubmissions",
+    "canManageSettings",
+    "canManageHistory",
+    "canManageTransitions",
+] as const satisfies readonly Permission[];
 
 export type SessionUser = {
     userId: string;
@@ -115,6 +138,7 @@ export async function getSession(): Promise<SessionUser | null> {
                 canViewSubmissions: true,
                 canManageSettings: true,
                 canManageHistory: true,
+                canManageTransitions: true,
                 allowedUnitIds: true,
             },
         });
@@ -140,6 +164,7 @@ export async function getSession(): Promise<SessionUser | null> {
                 canViewSubmissions: isSuperAdmin || user.canViewSubmissions,
                 canManageSettings: isSuperAdmin || user.canManageSettings,
                 canManageHistory: isSuperAdmin || user.canManageHistory,
+                canManageTransitions: isSuperAdmin || user.canManageTransitions,
             },
         };
     } catch {

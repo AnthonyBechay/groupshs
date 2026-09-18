@@ -1,6 +1,8 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
-import { resolveMemberGender, LEADERSHIP_ROLES } from "@/lib/scout-config";
+import {
+    resolveMemberGender, LEADERSHIP_ROLES, touchesCouncilRole, COUNCIL_ROLES,
+} from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 const STRING_FIELDS = [
@@ -120,6 +122,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             return NextResponse.json({ error: genderCheck.error }, { status: 400 });
         }
 
+        // Conseil roles (CG, ACG, EA, TR, SE, AU) are a group-level appointment:
+        // super admin only. Checked here too, not just in the maîtrise flow,
+        // because the member form can set a role directly.
+        if (!session?.isSuperAdmin) {
+            const currentUnit = await prisma.unit.findUnique({
+                where: { id: existing.unitId },
+                select: { unitType: true },
+            });
+            const nextExtras: string[] = "extraRoles" in body && Array.isArray(body.extraRoles)
+                ? body.extraRoles
+                : (existing.extraRoles ?? []);
+
+            if (touchesCouncilRole(
+                [existing.role, ...(existing.extraRoles ?? [])],
+                [nextRole, ...nextExtras],
+                currentUnit?.unitType ?? "",
+                nextUnit.unitType,
+            )) {
+                return NextResponse.json(
+                    {
+                        error: `Only a super admin can appoint or change conseil roles ` +
+                            `(${COUNCIL_ROLES.join(", ")}). Ask the Chef de Groupe.`,
+                    },
+                    { status: 403 }
+                );
+            }
+        }
+
         const data: Record<string, unknown> = {};
         if ("firstName" in body) data.firstName = body.firstName;
         if ("lastName" in body) data.lastName = body.lastName;
@@ -202,7 +232,16 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        await prisma.member.delete({ where: { id } });
+        await prisma.$transaction(async (tx) => {
+            // The foreign key nulls member_id on its own, but the application
+            // would otherwise still read "Enrolled" with nobody behind it. Put
+            // it back in the pipeline so it can be enrolled again.
+            await tx.recruitmentSubmission.updateMany({
+                where: { memberId: id },
+                data: { status: "CONTACTED", memberId: null, enrolledAt: null },
+            });
+            await tx.member.delete({ where: { id } });
+        });
 
         return NextResponse.json({ success: true });
     } catch (error) {

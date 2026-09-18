@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { getSession, hashPassword, type SessionUser } from "@/lib/auth";
+import { getSession, hashPassword, PERMISSION_KEYS, type SessionUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 function requireSuperAdmin(session: SessionUser | null) {
@@ -26,16 +26,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         if (typeof body.email === "string") data.email = body.email;
         if (typeof body.role === "string") data.role = body.role;
         if (body.password) data.password = await hashPassword(body.password);
-
-        if ("canManageUnits" in body) data.canManageUnits = !!body.canManageUnits;
-        if ("canManageMembers" in body) data.canManageMembers = !!body.canManageMembers;
-        if ("canManageActivities" in body) data.canManageActivities = !!body.canManageActivities;
-        if ("canManageGallery" in body) data.canManageGallery = !!body.canManageGallery;
-        if ("canManagePartners" in body) data.canManagePartners = !!body.canManagePartners;
-        if ("canManageSocialLinks" in body) data.canManageSocialLinks = !!body.canManageSocialLinks;
-        if ("canManageNews" in body) data.canManageNews = !!body.canManageNews;
-        if ("canViewSubmissions" in body) data.canViewSubmissions = !!body.canViewSubmissions;
-        if ("canManageSettings" in body) data.canManageSettings = !!body.canManageSettings;
+        // Driven by PERMISSION_KEYS so a new permission cannot be missed.
+        for (const key of PERMISSION_KEYS) {
+            if (key in body) data[key] = body[key] === true;
+        }
         if (Array.isArray(body.allowedUnitIds)) data.allowedUnitIds = body.allowedUnitIds;
 
         const updated = await prisma.user.update({

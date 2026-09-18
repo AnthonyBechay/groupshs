@@ -227,6 +227,34 @@ export function isUnitMaitriseRole(role: string | null | undefined, unitType: st
     return isLeadershipRoleIn(role, unitType) && !isCouncilRole(role);
 }
 
+/**
+ * A conseil role judged in context, so "SE" inside the Louveteaux is read as
+ * Second de Sizaine (a child) rather than Secrétaire de Groupe.
+ */
+export function isCouncilRoleIn(role: string | null | undefined, unitType: string): boolean {
+    return isLeadershipRoleIn(role, unitType) && isCouncilRole(role);
+}
+
+/**
+ * Does a role change add or remove a conseil role?
+ *
+ * Appointing or removing the CG, ACG, EA, TR, SE or AU is a group-level
+ * decision, so only a super admin may do it — otherwise an admin could promote
+ * themselves into the conseil, or quietly remove the Chef de Groupe.
+ */
+export function touchesCouncilRole(
+    before: (string | null | undefined)[],
+    after: (string | null | undefined)[],
+    unitTypeBefore: string,
+    unitTypeAfter: string
+): boolean {
+    const b = new Set(before.filter(r => isCouncilRoleIn(r, unitTypeBefore)) as string[]);
+    const a = new Set(after.filter(r => isCouncilRoleIn(r, unitTypeAfter)) as string[]);
+    if (b.size !== a.size) return true;
+    for (const r of a) if (!b.has(r)) return true;
+    return false;
+}
+
 export const ROLE_TIER_LABEL: Record<string, string> = {
     COUNCIL: "Conseil (group leadership)",
     UNIT_MAITRISE: "Unit maîtrise",

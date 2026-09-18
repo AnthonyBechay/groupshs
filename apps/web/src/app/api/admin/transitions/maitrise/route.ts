@@ -2,6 +2,7 @@ import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import {
     LEADERSHIP_ROLES, isLeadershipRole, isLeadershipRoleIn, isCouncilRole,
+    touchesCouncilRole, COUNCIL_ROLES,
 } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -21,7 +22,7 @@ import { revalidatePath } from "next/cache";
 export async function GET() {
     try {
         const session = await getSession();
-        if (!hasPermission(session, "canManageMembers")) {
+        if (!hasPermission(session, "canManageTransitions")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -76,7 +77,7 @@ type LeaderMove = { memberId: string; toUnitId: string; toRole: string };
 export async function POST(request: NextRequest) {
     try {
         const session = await getSession();
-        if (!hasPermission(session, "canManageMembers")) {
+        if (!hasPermission(session, "canManageTransitions")) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -102,7 +103,11 @@ export async function POST(request: NextRequest) {
         const memberIds = moves.map(m => m.memberId);
         const members = await prisma.member.findMany({
             where: { id: { in: memberIds }, status: "ACTIVE" },
-            select: { id: true, firstName: true, lastName: true, unitId: true, subgroupId: true, role: true, progressions: true },
+            select: {
+                id: true, firstName: true, lastName: true, unitId: true,
+                subgroupId: true, role: true, extraRoles: true, progressions: true,
+                unit: { select: { unitType: true } },
+            },
         });
         if (members.length !== memberIds.length) {
             return NextResponse.json({ error: "One or more members are unavailable" }, { status: 400 });
@@ -110,6 +115,34 @@ export async function POST(request: NextRequest) {
         for (const m of members) {
             if (!canAccessUnit(session, m.unitId)) {
                 return NextResponse.json({ error: "Forbidden: source unit" }, { status: 403 });
+            }
+        }
+
+        // Appointing or removing the conseil (CG, ACG, EA, TR, SE, AU) is a
+        // group-level decision reserved to super admins — otherwise an admin
+        // could promote themselves into it, or quietly unseat the Chef de Groupe.
+        if (!session?.isSuperAdmin) {
+            for (const mv of moves) {
+                const before = members.find(m => m.id === mv.memberId)!;
+                const targetUnitType =
+                    (await prisma.unit.findUnique({
+                        where: { id: mv.toUnitId }, select: { unitType: true },
+                    }))?.unitType ?? "";
+
+                if (touchesCouncilRole(
+                    [before.role, ...(before.extraRoles ?? [])],
+                    [mv.toRole],
+                    before.unit.unitType,
+                    targetUnitType,
+                )) {
+                    return NextResponse.json(
+                        {
+                            error: `Only a super admin can appoint or change conseil roles ` +
+                                `(${COUNCIL_ROLES.join(", ")}). Ask the Chef de Groupe.`,
+                        },
+                        { status: 403 }
+                    );
+                }
             }
         }
 

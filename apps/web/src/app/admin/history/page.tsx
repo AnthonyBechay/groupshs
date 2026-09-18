@@ -427,7 +427,7 @@ function MilestonesTab() {
                                 defaultValue={editing?.motivations ?? ""}
                                 rows={4}
                                 className="flex w-full rounded-md border border-emerald-200 dark:border-emerald-800/60 bg-background px-3 py-2 text-sm resize-y font-mono"
-                                placeholder={"Build a stronger sense of brotherhood among units\nGive members their first outdoor leadership experience\nEstablish a lasting annual tradition"}
+                                placeholder={"Build a stronger sense of belonging among units\nGive members their first outdoor leadership experience\nEstablish a lasting annual tradition"}
                             />
                         </div>
 
