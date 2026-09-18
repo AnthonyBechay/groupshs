@@ -3,7 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Pencil, Trash2, Users, Star, ChevronRight, List, Search, Network, UserPlus, FolderPlus, X, FileSpreadsheet, FileText, Globe, TreePine, Compass, Mountain, Phone, Calendar, MapPin, History, ArrowUpRight } from "lucide-react";
 import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, progressionLabel } from "@/lib/scout-config";
@@ -163,14 +164,64 @@ export default function AdminMembersPage() {
     const [loading, setLoading] = useState(true);
 
     const [view, setView] = useState<View>("visual");
-    const [activeUnitId, setActiveUnitId] = useState<string>("");
     const [search, setSearch] = useState("");
 
     const [showSubgroupForm, setShowSubgroupForm] = useState(false);
     const [editingSubgroup, setEditingSubgroup] = useState<Subgroup | null>(null);
 
-    // Member quick-preview modal
-    const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
+    // ── URL-backed navigation state ──────────────────────────────────────────
+    // The selected unit and the open member live in the query string, not in
+    // React state, so a refresh keeps you where you were and Back closes the
+    // preview instead of leaving the page.
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    const unitParam = searchParams.get("unit");
+    const previewMemberId = searchParams.get("member");
+
+    // Falls back to the first unit when the URL names one that no longer exists.
+    const activeUnitId = useMemo(() => {
+        if (unitParam === "ALL") return "ALL";
+        if (unitParam && units.some(u => u.id === unitParam)) return unitParam;
+        return units[0]?.id ?? "";
+    }, [unitParam, units]);
+
+    /** Did WE push the history entry for the open preview? */
+    const pushedPreview = useRef(false);
+
+    function urlWith(changes: { unit?: string | null; member?: string | null }) {
+        const p = new URLSearchParams(searchParams.toString());
+        for (const [key, value] of Object.entries(changes)) {
+            if (value === null) p.delete(key);
+            else if (value !== undefined) p.set(key, value);
+        }
+        const qs = p.toString();
+        return qs ? `${pathname}?${qs}` : pathname;
+    }
+
+    // Switching unit replaces rather than pushes, so Back does not walk through
+    // every tab the user clicked.
+    function selectUnit(id: string) {
+        router.replace(urlWith({ unit: id, member: null }), { scroll: false });
+    }
+
+    function openPreview(memberId: string) {
+        pushedPreview.current = true;
+        router.push(urlWith({ member: memberId }), { scroll: false });
+    }
+
+    function closePreview() {
+        if (pushedPreview.current) {
+            // We added the entry, so stepping back is exactly right.
+            pushedPreview.current = false;
+            router.back();
+        } else {
+            // Opened by a direct link or survived a refresh — there is no entry
+            // of ours to go back to, and back() would leave the page entirely.
+            router.replace(urlWith({ member: null }), { scroll: false });
+        }
+    }
 
     async function fetchData() {
         const [mRes, uRes, sgRes] = await Promise.all([
@@ -179,16 +230,29 @@ export default function AdminMembersPage() {
             fetch("/api/admin/subgroups"),
         ]);
         if (mRes.ok) setMembers(await mRes.json());
-        if (uRes.ok) {
-            const list: Unit[] = await uRes.json();
-            setUnits(list);
-            if (!activeUnitId && list.length > 0) setActiveUnitId(list[0].id);
-        }
+        if (uRes.ok) setUnits(await uRes.json());
         if (sgRes.ok) setSubgroups(await sgRes.json());
         setLoading(false);
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+    /** Assign an unassigned member to a sub-group from the roster. */
+    async function handleAssignSubgroup(memberId: string, subgroupId: string) {
+        const res = await fetch(`/api/admin/members/${memberId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subgroupId }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Could not assign this member");
+            return;
+        }
+        fetchData();
+    }
+
+    // Initial load only. fetchData no longer depends on the selected unit —
+    // that now comes from the URL — so it never needs to re-run on selection.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchData(); }, []);
 
     const activeUnit = useMemo(() => units.find(u => u.id === activeUnitId) || null, [units, activeUnitId]);
@@ -251,7 +315,7 @@ export default function AdminMembersPage() {
                         return (
                             <button
                                 key={u.id}
-                                onClick={() => setActiveUnitId(u.id)}
+                                onClick={() => selectUnit(u.id)}
                                 className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
                                     activeUnitId === u.id
                                         ? "bg-primary text-white shadow-md shadow-primary/20"
@@ -263,7 +327,7 @@ export default function AdminMembersPage() {
                         );
                     })}
                     <button
-                        onClick={() => setActiveUnitId("ALL")}
+                        onClick={() => selectUnit("ALL")}
                         className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
                             activeUnitId === "ALL"
                                 ? "bg-foreground text-background shadow-md"
@@ -286,7 +350,7 @@ export default function AdminMembersPage() {
             )}
 
             {activeUnitId === "ALL" ? (
-                <AllUnitsView units={units} subgroups={subgroups} members={members} onPreview={setPreviewMemberId} />
+                <AllUnitsView units={units} subgroups={subgroups} members={members} onPreview={openPreview} />
             ) : !activeUnit ? (
                 <div className="text-center py-20 bg-muted/20 rounded-2xl border border-dashed">
                     <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -301,8 +365,9 @@ export default function AdminMembersPage() {
                     containerName={containerName}
                     onEditSubgroup={(s) => { setEditingSubgroup(s); setShowSubgroupForm(true); }}
                     onDeleteSubgroup={handleDeleteSubgroup}
-                    onPreview={setPreviewMemberId}
+                    onPreview={openPreview}
                     allUnits={units}
+                    onAssignSubgroup={handleAssignSubgroup}
                 />
             ) : (
                 <ListView
@@ -311,14 +376,14 @@ export default function AdminMembersPage() {
                     subgroups={unitSubgroups}
                     search={search}
                     setSearch={setSearch}
-                    onPreview={setPreviewMemberId}
+                    onPreview={openPreview}
                 />
             )}
 
             {previewMemberId && (
                 <MemberPreviewModal
                     memberId={previewMemberId}
-                    onClose={() => setPreviewMemberId(null)}
+                    onClose={closePreview}
                 />
             )}
         </div>
@@ -331,7 +396,7 @@ export default function AdminMembersPage() {
 
 function VisualView({
     unit, subgroups, members, labels, containerName,
-    onEditSubgroup, onDeleteSubgroup, onPreview, allUnits,
+    onEditSubgroup, onDeleteSubgroup, onPreview, allUnits, onAssignSubgroup,
 }: {
     unit: Unit;
     subgroups: Subgroup[];
@@ -343,6 +408,7 @@ function VisualView({
     onPreview: (id: string) => void;
     // Needed to turn a move's fromUnitId into a readable unit name.
     allUnits: Unit[];
+    onAssignSubgroup: (memberId: string, subgroupId: string) => void;
 }) {
     const theme = UNIT_THEME[unit.unitType] || UNIT_THEME.GROUP;
     const unassigned = members.filter(m => !m.subgroupId).sort(sortMembers(labels));
@@ -409,9 +475,33 @@ function VisualView({
             {unassigned.length > 0 && (
                 <div className={`border rounded-2xl p-5 bg-muted/20`}>
                     <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">Unassigned to a {labels.singular}</h3>
+                    {subgroups.length === 0 && (
+                        <p className="text-xs text-muted-foreground mb-3">
+                            Create a {labels.singular.toLowerCase()} above before you can assign anyone to one.
+                        </p>
+                    )}
                     <div className="space-y-2">
                         {unassigned.map(m => (
-                            <MemberRow key={m.id} member={m} unitType={unit.unitType} onPreview={onPreview} allUnits={allUnits} />
+                            <div key={m.id} className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <MemberRow member={m} unitType={unit.unitType} onPreview={onPreview} allUnits={allUnits} />
+                                </div>
+                                {/* Assign straight from the roster — a newly enrolled
+                                    member arrives here with no sub-group. */}
+                                {subgroups.length > 0 && (
+                                    <select
+                                        value=""
+                                        aria-label={`Assign ${m.firstName} ${m.lastName} to a ${labels.singular}`}
+                                        onChange={e => e.target.value && onAssignSubgroup(m.id, e.target.value)}
+                                        className="h-8 shrink-0 rounded-md border border-input bg-background px-2 text-xs"
+                                    >
+                                        <option value="">Assign to…</option>
+                                        {subgroups.map(sg => (
+                                            <option key={sg.id} value={sg.id}>{sg.name}</option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
                         ))}
                     </div>
                 </div>

@@ -221,8 +221,10 @@ export default async function Home() {
                   <div className="mx-auto w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-card border flex items-center justify-center mb-3 md:mb-4 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 shadow-sm group-hover:shadow-xl group-hover:shadow-primary/30 group-hover:scale-110 group-hover:rotate-3 active:bg-primary active:text-white active:border-primary active:scale-105">
                     <unit.icon className="w-6 h-6 sm:w-9 sm:h-9 text-primary group-hover:text-white transition-colors" />
                   </div>
+                  {/* Both branch names get identical weight, size and color —
+                      neither track is secondary to the other. */}
                   <h3 className="font-bold text-sm sm:text-lg mb-0.5 leading-tight">{unit.name}</h3>
-                  <h4 className="font-semibold text-xs sm:text-base text-muted-foreground mb-0.5 leading-tight">{unit.girls}</h4>
+                  <p className="font-bold text-sm sm:text-lg mb-0.5 leading-tight">{unit.girls}</p>
                   <p className="text-xs sm:text-sm text-primary font-semibold mb-0.5 sm:mb-1">{unit.age}</p>
                   <p className="text-xs text-muted-foreground hidden sm:block">{unit.desc}</p>
                 </div>
