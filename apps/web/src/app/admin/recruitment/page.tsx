@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
     Download, Trash2, ChevronDown, Search, UserPlus, CheckCircle2, ArrowRight,
-    Loader2, AlertTriangle, Info, Undo2, ExternalLink,
+    Loader2, AlertTriangle, Info, Undo2, ExternalLink, Users,
 } from "lucide-react";
 import { unitTypeLabel, unitAcceptsGender } from "@/lib/scout-config";
 
@@ -70,6 +70,8 @@ export default function AdminRecruitmentPage() {
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("ALL");
+    // "ALL" | "UNPLACED" | a unit id
+    const [unitFilter, setUnitFilter] = useState("ALL");
     const [search, setSearch] = useState("");
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [enrollingId, setEnrollingId] = useState<string | null>(null);
@@ -126,19 +128,37 @@ export default function AdminRecruitmentPage() {
     const filtered = useMemo(() => submissions
         .filter(s => filter === "ALL" || s.status === filter)
         .filter(s => {
+            if (unitFilter === "ALL") return true;
+            if (unitFilter === "UNPLACED") return !s.member && s.status !== "REJECTED";
+            return s.member?.unit?.id === unitFilter;
+        })
+        .filter(s => {
             const q = search.trim().toLowerCase();
             if (!q) return true;
             return s.fullName.toLowerCase().includes(q)
                 || (s.parentName || s.parentContactInfo || "").toLowerCase().includes(q);
-        }), [submissions, filter, search]);
+        }), [submissions, filter, unitFilter, search]);
+
+    /**
+     * Picking a unit also clears the status filter. Otherwise a stale status
+     * (say "New") combined with a unit would show nothing, since everyone in a
+     * unit is necessarily enrolled.
+     */
+    function selectUnitFilter(next: string) {
+        setUnitFilter(prev => (prev === next ? "ALL" : next));
+        setFilter("ALL");
+    }
 
     function exportCSV() {
-        const headers = ["Full Name", "Gender", "Date of Birth", "School Level", "Member Phone", "Parent Name", "Parent Phone", "Parent Were Scouts", "Parent Scout Group", "Siblings in Group", "Sibling Names", "Comments", "Status", "Enrolled", "Submitted"];
+        const headers = ["Full Name", "Gender", "Date of Birth", "School Level", "Member Phone", "Parent Name", "Parent Phone", "Parent Were Scouts", "Parent Scout Group", "Siblings in Group", "Sibling Names", "Comments", "Status", "Unit", "Branch", "Sub-group", "Enrolled", "Submitted"];
         const rows = filtered.map(s => [
             s.fullName, genderLabel(s.gender), s.dateOfBirth, s.schoolLevel, s.memberPhone || "",
             s.parentName || "", s.parentPhone || "",
             s.parentWereScouts ? "Yes" : "No", s.parentScoutGroup || "", s.siblingsInGroup ? "Yes" : "No",
             s.siblingNames || "", s.otherComments || "", s.status,
+            s.member?.unit?.name || "",
+            s.member?.unit ? unitTypeLabel(s.member.unit.unitType) : "",
+            s.member?.subgroup?.name || "",
             s.enrolledAt ? new Date(s.enrolledAt).toLocaleDateString() : "",
             new Date(s.createdAt).toLocaleDateString(),
         ]);
@@ -156,6 +176,35 @@ export default function AdminRecruitmentPage() {
         acc[s.status] = (acc[s.status] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
+
+    // ── Where recruits actually ended up ─────────────────────────────────────
+    // Grouped from the enrolled applications themselves, so it always agrees
+    // with the list below rather than being a second source of truth.
+    const unitStats = useMemo(() => {
+        const byUnit = new Map<string, {
+            unitId: string; unitName: string; unitType: string;
+            boys: number; girls: number; total: number;
+        }>();
+
+        for (const s of submissions) {
+            const unit = s.member?.unit;
+            if (!unit) continue;
+            const row = byUnit.get(unit.id) ?? {
+                unitId: unit.id, unitName: unit.name, unitType: unit.unitType,
+                boys: 0, girls: 0, total: 0,
+            };
+            row.total += 1;
+            if (s.gender === "FEMALE") row.girls += 1;
+            else if (s.gender === "MALE") row.boys += 1;
+            byUnit.set(unit.id, row);
+        }
+
+        return [...byUnit.values()].sort((a, b) =>
+            b.total - a.total || a.unitName.localeCompare(b.unitName)
+        );
+    }, [submissions]);
+
+    const enrolledTotal = unitStats.reduce((n, r) => n + r.total, 0);
 
     // Applications marked recruited but never actually placed in a unit.
     const awaitingEnrollment = submissions.filter(s => !s.member && s.status !== "REJECTED").length;
@@ -186,6 +235,101 @@ export default function AdminRecruitmentPage() {
                     record — the branch is suggested automatically from their age and gender.
                 </p>
             </div>
+
+            {/* ── Where recruits ended up — doubles as a filter ── */}
+            {(enrolledTotal > 0 || awaitingEnrollment > 0) && (
+                <div className="rounded-2xl border bg-card overflow-hidden mb-6">
+                    <div className="px-4 py-3 border-b bg-muted/30 flex flex-wrap items-center justify-between gap-2">
+                        <h2 className="text-sm font-bold flex items-center gap-2">
+                            <Users className="w-4 h-4 text-primary" />
+                            Enrolled by unit
+                            <span className="font-normal text-muted-foreground">
+                                ({enrolledTotal} placed{awaitingEnrollment > 0 && `, ${awaitingEnrollment} pending`})
+                            </span>
+                        </h2>
+                        {unitFilter !== "ALL" && (
+                            <button
+                                onClick={() => setUnitFilter("ALL")}
+                                className="text-xs text-primary underline underline-offset-4"
+                            >
+                                Clear filter
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left text-[11px] uppercase tracking-widest text-muted-foreground">
+                                    <th className="px-4 py-2 font-semibold">Unit</th>
+                                    <th className="px-4 py-2 font-semibold">Branch</th>
+                                    <th className="px-4 py-2 font-semibold text-right">Boys</th>
+                                    <th className="px-4 py-2 font-semibold text-right">Girls</th>
+                                    <th className="px-4 py-2 font-semibold text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {unitStats.map(row => {
+                                    const active = unitFilter === row.unitId;
+                                    return (
+                                        <tr
+                                            key={row.unitId}
+                                            onClick={() => selectUnitFilter(row.unitId)}
+                                            className={`cursor-pointer transition-colors ${
+                                                active ? "bg-primary/10" : "hover:bg-muted/40"
+                                            }`}
+                                        >
+                                            <td className="px-4 py-2 font-medium">{row.unitName}</td>
+                                            <td className="px-4 py-2 text-muted-foreground">{unitTypeLabel(row.unitType)}</td>
+                                            <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{row.boys || "—"}</td>
+                                            <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{row.girls || "—"}</td>
+                                            <td className="px-4 py-2 text-right tabular-nums font-bold">{row.total}</td>
+                                        </tr>
+                                    );
+                                })}
+
+                                {/* Applications still waiting to be placed. */}
+                                {awaitingEnrollment > 0 && (
+                                    <tr
+                                        onClick={() => selectUnitFilter("UNPLACED")}
+                                        className={`cursor-pointer transition-colors ${
+                                            unitFilter === "UNPLACED" ? "bg-amber-100 dark:bg-amber-900/30" : "hover:bg-muted/40"
+                                        }`}
+                                    >
+                                        <td className="px-4 py-2 font-medium text-amber-700 dark:text-amber-400" colSpan={4}>
+                                            Not yet placed in a unit
+                                        </td>
+                                        <td className="px-4 py-2 text-right tabular-nums font-bold text-amber-700 dark:text-amber-400">
+                                            {awaitingEnrollment}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+
+                            {unitStats.length > 1 && (
+                                <tfoot className="border-t-2">
+                                    <tr className="text-muted-foreground">
+                                        <td className="px-4 py-2 font-semibold" colSpan={2}>All units</td>
+                                        <td className="px-4 py-2 text-right tabular-nums">
+                                            {unitStats.reduce((n, r) => n + r.boys, 0) || "—"}
+                                        </td>
+                                        <td className="px-4 py-2 text-right tabular-nums">
+                                            {unitStats.reduce((n, r) => n + r.girls, 0) || "—"}
+                                        </td>
+                                        <td className="px-4 py-2 text-right tabular-nums font-bold text-foreground">{enrolledTotal}</td>
+                                    </tr>
+                                </tfoot>
+                            )}
+                        </table>
+                    </div>
+
+                    {unitStats.length === 0 && (
+                        <p className="px-4 py-3 text-xs text-muted-foreground">
+                            Nobody has been placed in a unit yet.
+                        </p>
+                    )}
+                </div>
+            )}
 
             {/* Status filter pills */}
             <div className="flex flex-wrap gap-2 mb-4">
