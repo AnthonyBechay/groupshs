@@ -383,7 +383,7 @@ export default function CircularEditorPage() {
                                             </div>
                                         )}
                                         <div className="text-[11px] mt-1 text-muted-foreground">
-                                            From <Link href="/admin/units" className="text-primary font-medium hover:underline">Unit → Contact persons</Link>.
+                                            From <Link href={`/admin/units?edit=${ctx.unit.id}&return=1`} className="text-primary font-medium hover:underline">Unit → Contact persons</Link>.
                                             To list other people on this circular, switch its contacts block to &quot;Typed here&quot;.
                                         </div>
                                     </div>
@@ -523,7 +523,7 @@ export default function CircularEditorPage() {
                                                     Print the group stamp underneath
                                                     {block.stamp && !ctx.group.stampUrl && (
                                                         <span className="text-muted-foreground">
-                                                            — none uploaded yet (<Link href="/admin/settings" className="text-primary hover:underline">Settings</Link>)
+                                                            — none uploaded yet (<Link href="/admin/settings?return=1#circulars" className="text-primary hover:underline">Settings</Link>)
                                                         </span>
                                                     )}
                                                 </label>

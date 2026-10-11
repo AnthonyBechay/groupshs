@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { useUrlState } from "@/hooks/use-url-state";
 import { Calendar, MapPin, Clock, Tent, Sparkles, History, Backpack, ExternalLink, ChevronDown, TreePine, Compass, Mountain, Phone, X } from "lucide-react";
 import Image from "next/image";
+import { ACTIVITY_TYPE_LABELS } from "@/lib/scout-config";
+import { ActivityCoverFallback } from "@/components/activity-cover-fallback";
 
-const TYPE_LABELS: Record<string, string> = {
-    CAMP: "Camp", JOURNEE: "Day out", TEMPS: "Meeting", MARCHE: "Hike", OTHER: "Other",
-};
+const TYPE_LABELS = ACTIVITY_TYPE_LABELS;
 
 type Contact = {
     firstName: string;
@@ -125,7 +125,9 @@ const UNIT_THEME: Record<string, {
     },
 };
 
-export function UnitTabs({ units, activities }: { units: Unit[]; activities: Activity[] }) {
+export function UnitTabs({ units, activities, siteLogoUrl }: { units: Unit[]; activities: Activity[]; siteLogoUrl?: string | null }) {
+    // An activity without a picture borrows its unit's, then the group logo.
+    const unitImage = useMemo(() => new Map(units.map(u => [u.id, u.imageUrl])), [units]);
     // The chosen unit and the upcoming/past toggle live in the URL. A visitor who
     // picks their child's unit, follows a link and presses Back used to be sent
     // back to "all units, upcoming" — and the filtered view could not be shared.
@@ -256,7 +258,7 @@ export function UnitTabs({ units, activities }: { units: Unit[]; activities: Act
                         const unit = units.find(u => u.id === act.unitId);
                         const theme = UNIT_THEME[unit?.unitType || "GROUP"] || UNIT_THEME.GROUP;
                         return (
-                            <ActivityCard key={act.id} act={act} isUpcoming={view === "upcoming"} chipClass={theme.chip} />
+                            <ActivityCard key={act.id} act={act} isUpcoming={view === "upcoming"} chipClass={theme.chip} fallbackLogoUrl={unitImage.get(act.unitId) || siteLogoUrl} />
                         );
                     })}
                 </div>
@@ -328,7 +330,7 @@ function UnitDetails({ unit, onClear }: { unit: Unit; onClear: () => void }) {
     );
 }
 
-function ActivityCard({ act, isUpcoming, chipClass }: { act: Activity; isUpcoming: boolean; chipClass?: string }) {
+function ActivityCard({ act, isUpcoming, chipClass, fallbackLogoUrl }: { act: Activity; isUpcoming: boolean; chipClass?: string; fallbackLogoUrl?: string | null }) {
     const [expanded, setExpanded] = useState(false);
     const hasDetails = !!(act.whatToBring || act.pickupLocation || act.dropoffLocation || act.locationUrl || act.pickupLocationUrl || act.dropoffLocationUrl);
     const bringList = act.whatToBring?.split("\n").map(l => l.trim()).filter(Boolean) ?? [];
@@ -345,9 +347,7 @@ function ActivityCard({ act, isUpcoming, chipClass }: { act: Activity; isUpcomin
                         className="object-cover group-hover:scale-110 transition-transform duration-700"
                     />
                 ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                        <Tent className="h-16 w-16 text-primary/20" />
-                    </div>
+                    <ActivityCoverFallback logoUrl={fallbackLogoUrl} />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="absolute top-3 left-3 flex gap-2 flex-wrap">

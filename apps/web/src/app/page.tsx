@@ -8,7 +8,8 @@ import Image from "next/image";
 import { prisma } from "@/db";
 import { SocialIcon } from "@/components/social-icons";
 import { getCachedGallery, getCachedPartners, getCachedSocialLinks, getCachedSettings } from "@/lib/query-cache";
-import { NON_MEMBER_UNIT_TYPES } from "@/lib/scout-config";
+import { ACTIVITY_TYPE_LABELS, NON_MEMBER_UNIT_TYPES } from "@/lib/scout-config";
+import { ActivityCoverFallback } from "@/components/activity-cover-fallback";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,6 @@ function formatDate(d: Date | string) {
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-const ACTIVITY_TYPE_LABELS: Record<string, string> = {
-  CAMP: "Camp", JOURNEE: "Day out", TEMPS: "Meeting", MARCHE: "Hike", OTHER: "Other",
-};
 
 export default async function Home() {
   const currentYear = new Date().getFullYear();
@@ -35,7 +33,7 @@ export default async function Home() {
           { endDate: null, startDate: { gte: now } },
         ],
       },
-      include: { unit: { select: { name: true } } },
+      include: { unit: { select: { name: true, imageUrl: true } } },
       orderBy: { startDate: "asc" },
       take: 3,
     }),
@@ -55,7 +53,7 @@ export default async function Home() {
           },
         ],
       },
-      include: { unit: { select: { name: true } } },
+      include: { unit: { select: { name: true, imageUrl: true } } },
       orderBy: { startDate: "desc" },
     }),
     prisma.member.count({ where: { status: "ACTIVE" } }),
@@ -267,9 +265,7 @@ export default async function Home() {
                           className="object-cover group-hover:scale-110 transition-transform duration-700"
                         />
                       ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                          <Tent className="w-16 h-16 text-primary/20" />
-                        </div>
+                        <ActivityCoverFallback logoUrl={act.unit.imageUrl || siteLogoUrl} />
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                       <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
@@ -330,9 +326,7 @@ export default async function Home() {
                           className="object-cover group-hover:scale-110 transition-transform duration-700"
                         />
                       ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                          <Tent className="w-16 h-16 text-primary/20" />
-                        </div>
+                        <ActivityCoverFallback logoUrl={act.unit.imageUrl || siteLogoUrl} />
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                       <div className="absolute top-3 left-3">

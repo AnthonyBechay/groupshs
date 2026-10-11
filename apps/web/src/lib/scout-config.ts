@@ -76,8 +76,12 @@ export const ACTIVITY_TYPES = [
     { value: "JOURNEE", label: "Day out" },
     { value: "TEMPS", label: "Meeting" },
     { value: "MARCHE", label: "Hike" },
+    { value: "CEREMONY", label: "Ceremony" },
     { value: "OTHER", label: "Other" },
 ] as const;
+
+/** Label for an activity type code; unknown codes are shown as they are. */
+export const ACTIVITY_TYPE_LABELS: Record<string, string> = Object.fromEntries(ACTIVITY_TYPES.map(t => [t.value, t.label]));
 
 export const ROLES_BY_UNIT_TYPE: Record<string, { value: string; label: string }[]> = {
     LOUVETEAUX: [

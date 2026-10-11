@@ -52,7 +52,7 @@ export default function AdminSettingsPage() {
     const [dirty, setDirty] = useState(false);
 
     // Warn before navigating away with unsaved edits.
-    useUnsavedChanges(dirty, "You have unsaved settings. Leave and discard them?");
+    const { leaveBack } = useUnsavedChanges(dirty, "You have unsaved settings. Leave and discard them?");
 
     useEffect(() => {
         fetch("/api/admin/settings").then(r => r.json()).then(data => {
@@ -61,6 +61,10 @@ export default function AdminSettingsPage() {
             setAssociationLogoUrl(data.associationLogoUrl ?? null);
             setStampUrl(data.circularStampUrl ?? null);
             setLoading(false);
+            // The form only exists once the settings have loaded, so the
+            // browser's own jump to "#circulars" found nothing to scroll to.
+            const anchor = window.location.hash.slice(1);
+            if (anchor) requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({ block: "start" }));
         });
     }, []);
 
@@ -127,6 +131,8 @@ export default function AdminSettingsPage() {
             const updated = await res.json();
             setSettings(updated);
             setDirty(false);
+            // Sent here from a circular to fill something in: go back to it.
+            if (new URLSearchParams(window.location.search).get("return") === "1") { leaveBack(); return; }
             setSuccess("Settings saved");
             setTimeout(() => setSuccess(""), 3000);
         } else {
@@ -185,7 +191,7 @@ export default function AdminSettingsPage() {
                 </Card>
 
                 {/* Circulars */}
-                <Card title="Circulars">
+                <Card title="Circulars" id="circulars">
                     <p className="text-xs text-muted-foreground">
                         The letterhead of every circular: the association logo on the left, the group logo above in the middle,
                         and the unit&apos;s own picture on the right. Circulars are created from an activity.
@@ -429,9 +435,9 @@ function ImageField({ label, hint, url, onChange }: { label: string; hint: strin
     );
 }
 
-function Card({ title, children, extra }: { title: string; children: React.ReactNode; extra?: React.ReactNode }) {
+function Card({ title, children, extra, id }: { title: string; children: React.ReactNode; extra?: React.ReactNode; id?: string }) {
     return (
-        <div className="border rounded-2xl bg-card p-6 space-y-4">
+        <div id={id} className="border rounded-2xl bg-card p-6 space-y-4 scroll-mt-20">
             <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{title}</h2>
                 {extra}

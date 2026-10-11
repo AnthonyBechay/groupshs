@@ -21,6 +21,7 @@ function createGuard(router: Router, message: string) {
         confirm: (text) => window.confirm(text),
         replace: (href) => router.replace(href),
         push: (href) => router.push(href),
+        go: (delta) => window.history.go(delta),
     }, message);
     return { guard, sentinel };
 }
@@ -40,7 +41,8 @@ function createGuard(router: Router, message: string) {
  * @param message  text shown in the in-app confirm (the native tab-close prompt
  *                 always uses the browser's own wording)
  * @returns `leaveTo(href)` — navigate away deliberately (after a save, a delete)
- *          without tripping the guard and without leaving stale history behind
+ *          without tripping the guard and without leaving stale history behind;
+ *          `leaveBack()` — the same, but back to the page the user came from
  */
 export function useUnsavedChanges(
     isDirty: boolean,
@@ -127,7 +129,9 @@ export function useUnsavedChanges(
         [guard]
     );
 
-    return { leaveTo };
+    const leaveBack = useCallback(() => guard.leaveBack(), [guard]);
+
+    return { leaveTo, leaveBack };
 }
 
 /**

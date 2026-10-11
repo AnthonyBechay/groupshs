@@ -210,6 +210,7 @@ export function isTemplateKey(key: unknown): key is TemplateKey {
 
 /** The template an activity most likely wants, to pre-select in the picker. */
 export function recommendTemplate(activity: CircularContext["activity"]): TemplateKey {
+    if (activity.activityType === "CEREMONY") return "ceremony";
     if (activity.activityType !== "CAMP") return "activity";
     const start = new Date(activity.startDate);
     const end = activity.endDate ? new Date(activity.endDate) : start;

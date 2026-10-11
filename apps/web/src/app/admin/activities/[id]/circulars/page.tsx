@@ -8,6 +8,7 @@ import { ArrowLeft, Check, AlertTriangle, FileText, FileDown, Pencil, Trash2, Sp
 import type { CircularContext, CircularContent } from "@/lib/circular/types";
 import { TEMPLATES, TEMPLATE_BY_KEY, type TemplateKey } from "@/lib/circular/templates";
 import { formatDate, formatDateRange, formatTime } from "@/lib/circular/format";
+import { activitiesListHref } from "@/lib/activities-list";
 
 type CircularRow = {
     id: string;
@@ -83,7 +84,11 @@ export default function ActivityCircularsPage() {
 
     // What a circular prints, and where each piece is filled in. Shown up front
     // so nobody discovers a missing fee from a "[fee]" in the finished letter.
-    const editActivity = "/admin/activities";
+    // Each link opens the exact form where the value lives; saving there comes
+    // straight back here.
+    const editActivity = `/admin/activities?edit=${a.id}&return=1`;
+    const editUnit = `/admin/units?edit=${ctx.unit.id}&return=1`;
+    const editSettings = "/admin/settings?return=1#circulars";
     const checks: { label: string; value: string; fix: string; href: string; optional?: boolean }[] = [
         { label: "Dates", value: formatDateRange(a.startDate, a.endDate), fix: "Activity", href: editActivity },
         { label: "Location", value: a.location ?? "", fix: "Activity", href: editActivity },
@@ -91,11 +96,11 @@ export default function ActivityCircularsPage() {
         { label: "Pick-up", value: [formatTime(a.endTime), a.endPlace ?? a.startPlace].filter(Boolean).join(" · "), fix: "Activity", href: editActivity },
         { label: "Theme", value: a.theme ?? "", fix: "Activity", href: editActivity, optional: true },
         { label: "Fee", value: a.fee ?? "", fix: "Activity", href: editActivity },
-        { label: "Contact persons", value: ctx.unit.contacts.map(c => [c.role, c.name].filter(Boolean).join(" ")).join(", "), fix: "Unit", href: "/admin/units" },
-        { label: "Unit logo (right)", value: ctx.unit.logoUrl ? "Uploaded" : "", fix: "Unit", href: "/admin/units" },
-        { label: "Association logo (left)", value: ctx.group.associationLogoUrl ? "Uploaded" : "", fix: "Settings", href: "/admin/settings" },
-        { label: "Year motto", value: ctx.group.motto, fix: "Settings", href: "/admin/settings", optional: true },
-        { label: "Stamp", value: ctx.group.stampUrl ? "Uploaded" : "", fix: "Settings", href: "/admin/settings", optional: true },
+        { label: "Contact persons", value: ctx.unit.contacts.map(c => [c.role, c.name].filter(Boolean).join(" ")).join(", "), fix: "Unit", href: editUnit },
+        { label: "Unit logo (right)", value: ctx.unit.logoUrl ? "Uploaded" : "", fix: "Unit", href: editUnit },
+        { label: "Association logo (left)", value: ctx.group.associationLogoUrl ? "Uploaded" : "", fix: "Settings", href: editSettings },
+        { label: "Year motto", value: ctx.group.motto, fix: "Settings", href: editSettings, optional: true },
+        { label: "Stamp", value: ctx.group.stampUrl ? "Uploaded" : "", fix: "Settings", href: editSettings, optional: true },
     ];
 
     return (
@@ -207,11 +212,9 @@ export default function ActivityCircularsPage() {
                             <span className={`flex-1 min-w-0 truncate ${c.value ? "text-muted-foreground" : c.optional ? "text-muted-foreground/60" : "text-amber-700"}`}>
                                 {c.value || (c.optional ? "Not set (optional)" : "Not set")}
                             </span>
-                            {!c.value && (
-                                <Link href={c.href} className="text-xs font-bold text-primary hover:underline shrink-0">
-                                    Set in {c.fix}
-                                </Link>
-                            )}
+                            <Link href={c.href} className={`text-xs font-bold hover:underline shrink-0 ${c.value ? "text-muted-foreground" : "text-primary"}`}>
+                                {c.value ? "Change" : `Set in ${c.fix}`}
+                            </Link>
                         </div>
                     ))}
                 </div>
@@ -221,8 +224,13 @@ export default function ActivityCircularsPage() {
 }
 
 function BackLink() {
+    // Back to the list as it was filtered. Read after mount: sessionStorage
+    // does not exist while the page is rendered on the server.
+    const [href, setHref] = useState("/admin/activities");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    useEffect(() => { setHref(activitiesListHref()); }, []);
     return (
-        <Link href="/admin/activities" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary">
+        <Link href={href} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary">
             <ArrowLeft className="w-4 h-4" /> Activities
         </Link>
     );

@@ -6,6 +6,8 @@ import { Calendar, MapPin, Clock, Tent, Phone, User, ArrowRight, Compass, TreePi
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { ACTIVITY_TYPE_LABELS } from "@/lib/scout-config";
+import { ActivityCoverFallback } from "@/components/activity-cover-fallback";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +23,7 @@ const UNIT_META: Record<string, { icon: typeof Tent; ageRange: string; color: st
     GROUP: { icon: Shield, ageRange: "Leadership", color: "text-primary", gradient: "from-primary via-primary to-emerald-800" },
 };
 
-const TYPE_LABELS: Record<string, string> = {
-    CAMP: "Camp", JOURNEE: "Journee", TEMPS: "Temps", MARCHE: "Marche", OTHER: "Autre",
-};
+const TYPE_LABELS = ACTIVITY_TYPE_LABELS;
 
 function formatDate(d: Date | string) {
     return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -144,7 +144,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
                     ) : (
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {upcoming.map(act => (
-                                <ActivityCard key={act.id} act={act} />
+                                <ActivityCard key={act.id} act={act} fallbackLogoUrl={unit.imageUrl || siteLogoUrl} />
                             ))}
                         </div>
                     )}
@@ -159,7 +159,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
                             </h2>
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {past.map(act => (
-                                    <ActivityCard key={act.id} act={act} />
+                                    <ActivityCard key={act.id} act={act} fallbackLogoUrl={unit.imageUrl || siteLogoUrl} />
                                 ))}
                             </div>
                         </div>
@@ -192,7 +192,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
     );
 }
 
-function ActivityCard({ act }: { act: { id: string; title: string; description: string; activityType: string; startDate: Date; endDate: Date | null; pickupTime: string | null; dropoffTime: string | null; location: string | null; imageUrl: string | null; isUpcoming: boolean } }) {
+function ActivityCard({ act, fallbackLogoUrl }: { fallbackLogoUrl?: string | null; act: { id: string; title: string; description: string; activityType: string; startDate: Date; endDate: Date | null; pickupTime: string | null; dropoffTime: string | null; location: string | null; imageUrl: string | null; isUpcoming: boolean } }) {
     return (
         <div className="group flex flex-col bg-card border rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 hover:-translate-y-1.5">
             <div className="aspect-[16/10] bg-muted relative overflow-hidden">
@@ -206,9 +206,7 @@ function ActivityCard({ act }: { act: { id: string; title: string; description: 
                         className="object-cover group-hover:scale-110 transition-transform duration-700"
                     />
                 ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                        <Tent className="h-12 w-12 text-primary/20" />
-                    </div>
+                    <ActivityCoverFallback logoUrl={fallbackLogoUrl} />
                 )}
                 <div className="absolute top-3 left-3">
                     <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/90 text-foreground shadow-lg backdrop-blur-sm">{TYPE_LABELS[act.activityType] || act.activityType}</span>

@@ -29,6 +29,8 @@ export type LeaveGuardEnv = {
     replace(href: string): void;
     /** Navigate, adding a history entry. */
     push(href: string): void;
+    /** history.go(delta) — like back(), asynchronous. */
+    go(delta: number): void;
 };
 
 export class LeaveGuard {
@@ -126,6 +128,26 @@ export class LeaveGuard {
             this.env.replace(href);
         } else {
             this.env.push(href);
+        }
+    }
+
+    /**
+     * Leave on purpose by going BACK to wherever the user came from — for a
+     * form reached through a "set it there" link, where saving should return
+     * to the page that sent them. Never prompts.
+     *
+     * Going back, rather than navigating to that page, leaves no trace: with
+     * leaveTo() the history would read  origin → form → origin  and Back from
+     * the origin would reopen the form just saved.
+     */
+    leaveBack() {
+        this.dirty = false;
+        if (this.sentinel) {
+            // Step over our duplicate entry and the page itself in one move.
+            this.sentinel = false;
+            this.env.go(-2);
+        } else {
+            this.env.go(-1);
         }
     }
 

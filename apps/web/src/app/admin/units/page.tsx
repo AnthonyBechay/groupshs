@@ -52,7 +52,24 @@ export default function AdminUnitsPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Only guard while the unit form is actually open with edits in it.
-    useUnsavedChanges(showForm && formDirty, "This unit has unsaved changes. Leave and discard them?");
+    const { leaveBack } = useUnsavedChanges(showForm && formDirty, "This unit has unsaved changes. Leave and discard them?");
+
+    // `?edit=<id>` opens that unit's form directly (the circulars page links
+    // here to set a unit's logo or contact persons); with `return=1`, saving
+    // or cancelling goes back to the page that sent the user.
+    const linkHandled = useRef(false);
+    const [returning, setReturning] = useState(false);
+    useEffect(() => {
+        if (linkHandled.current || units.length === 0) return;
+        linkHandled.current = true;
+        const query = new URLSearchParams(window.location.search);
+        const target = units.find(u => u.id === query.get("edit"));
+        if (!target) return;
+         
+        setReturning(query.get("return") === "1");
+        startEdit(target);
+         
+    }, [units]);
 
     async function fetchAll() {
         const [uRes, mRes] = await Promise.all([
@@ -100,6 +117,7 @@ export default function AdminUnitsPage() {
             await fetch("/api/admin/units", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         }
 
+        if (returning) { leaveBack(); return; }
         setShowForm(false);
         setEditing(null);
         setImageUrl(null);
@@ -306,6 +324,7 @@ export default function AdminUnitsPage() {
                             variant="outline"
                             onClick={() => {
                                 if (formDirty && !confirm("Discard your changes to this unit?")) return;
+                                if (returning) { leaveBack(); return; }
                                 setShowForm(false); setEditing(null); setImageUrl(null);
                                 setContactMemberIds([]); setFormDirty(false);
                             }}

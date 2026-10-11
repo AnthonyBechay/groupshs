@@ -64,6 +64,7 @@ export default async function ActivitiesPage() {
                 {/* Activities + Unit filter */}
                 <section className="py-12 md:py-16 container mx-auto px-4">
                     <UnitTabs
+                        siteLogoUrl={siteLogoUrl}
                         units={units.map(u => ({
                             id: u.id,
                             name: u.name,
