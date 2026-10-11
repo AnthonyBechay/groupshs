@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Pencil, Trash2, Users, Star, ChevronRight, List, Search, Network, UserPlus, FolderPlus, X, FileSpreadsheet, FileText, Globe, TreePine, Compass, Mountain, Phone, Calendar, MapPin, History, ArrowUpRight } from "lucide-react";
-import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, UNIT_TYPES, progressionLabel, unitHoldsMembers } from "@/lib/scout-config";
+import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, UNIT_GENDER, UNIT_TYPES, progressionLabel, unitHoldsMembers } from "@/lib/scout-config";
 import { useUrlState } from "@/hooks/use-url-state";
 import { exportMembersToExcel, exportMembersToPDF } from "@/lib/export-members";
 
@@ -23,6 +23,8 @@ type Member = {
     role: string | null;
     progressions: string[];
     unitId: string;
+    // The unit a leader runs, when it is not the one they belong to.
+    servesUnitId?: string | null;
     subgroupId: string | null;
     unit: { name: string; unitType: string };
     subgroup: { id: string; name: string } | null;
@@ -780,6 +782,17 @@ function SubgroupCard({
     const assistant = members.find(m => m.role === labels.assistant);
     const others = members.filter(m => m.role !== labels.lead && m.role !== labels.assistant);
 
+    // A maîtrise group such as "Troupe" holds the leaders of BOTH troupes, the
+    // boys' and the girls'. When its members serve more than one unit, list
+    // them under the unit each one serves instead of as one flat list.
+    const servedIds = [...new Set(members.map(m => m.servesUnitId).filter((id): id is string => !!id))];
+    const servedUnits = servedIds
+        .map(id => allUnits.find(u => u.id === id))
+        .filter((u): u is Unit => !!u)
+        .sort(byBranch);
+    const splitByServedUnit = servedUnits.length >= 2;
+    const servingNowhere = members.filter(m => !m.servesUnitId || !servedUnits.some(u => u.id === m.servesUnitId));
+
     return (
         <div className="bg-card border rounded-2xl overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all group">
             <div className={`p-5 ${theme.headerBg}`}>
@@ -797,6 +810,37 @@ function SubgroupCard({
                     {members.length} member{members.length !== 1 ? "s" : ""}
                 </div>
             </div>
+            {splitByServedUnit ? (
+                <div className="p-4 space-y-3">
+                    {servedUnits.map(u => {
+                        const serving = members.filter(m => m.servesUnitId === u.id);
+                        const gender = UNIT_GENDER[u.unitType];
+                        return (
+                            <div key={u.id}>
+                                <div className="flex items-center gap-2 px-2 mb-1">
+                                    <span className={`w-2 h-2 rounded-full ${(UNIT_THEME[u.unitType] || UNIT_THEME.GROUP).dot}`} />
+                                    <span className="text-xs font-bold uppercase tracking-wider">{u.name}</span>
+                                    {gender !== "MIXED" && (
+                                        <span className="text-[10px] font-medium text-muted-foreground">{gender === "BOYS" ? "Boys" : "Girls"}</span>
+                                    )}
+                                    <span className="text-[10px] text-muted-foreground ml-auto">{serving.length}</span>
+                                </div>
+                                <div className="space-y-1 border-l-2 border-muted ml-[11px] pl-1">
+                                    {serving.map(m => <MemberRow key={m.id} member={m} unitType={unitType} onPreview={onPreview} allUnits={allUnits} />)}
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {servingNowhere.length > 0 && (
+                        <div>
+                            <div className="px-2 mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Unit not set</div>
+                            <div className="space-y-1 border-l-2 border-dashed border-muted ml-[11px] pl-1">
+                                {servingNowhere.map(m => <MemberRow key={m.id} member={m} unitType={unitType} onPreview={onPreview} allUnits={allUnits} />)}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : (
             <div className="p-4 space-y-2">
                 {lead && <MemberRow member={lead} unitType={unitType} accentRole={labels.lead} onPreview={onPreview} allUnits={allUnits} />}
                 {assistant && <MemberRow member={assistant} unitType={unitType} accentRole={labels.assistant} onPreview={onPreview} allUnits={allUnits} />}
@@ -807,6 +851,7 @@ function SubgroupCard({
                     others.map(m => <MemberRow key={m.id} member={m} unitType={unitType} onPreview={onPreview} allUnits={allUnits} />)
                 )}
             </div>
+            )}
         </div>
     );
 }

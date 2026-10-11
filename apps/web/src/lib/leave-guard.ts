@@ -39,6 +39,8 @@ export class LeaveGuard {
     private sentinel = false;
     /** A back() of ours is in flight — the next popstate is not the user's. */
     private silentPop = false;
+    /** Where to go, replacing the page, once that back() has landed. */
+    private replaceAfterPop: string | null = null;
 
     constructor(
         private env: LeaveGuardEnv,
@@ -72,6 +74,13 @@ export class LeaveGuard {
     onPopState() {
         if (this.silentPop) {
             this.silentPop = false;
+            if (this.replaceAfterPop !== null) {
+                // Our sentinel is gone; now replace the page itself.
+                const href = this.replaceAfterPop;
+                this.replaceAfterPop = null;
+                this.env.replace(href);
+                return;
+            }
             // If the form went dirty again before our pop landed, the pop
             // consumed the NEW sentinel — put one back.
             if (this.sentinel) {
@@ -122,6 +131,17 @@ export class LeaveGuard {
      */
     leaveTo(href: string, options: { replace?: boolean } = {}) {
         this.dirty = false;
+        if (this.sentinel && options.replace) {
+            // The page must not stay in history at all. Replacing only the
+            // sentinel would leave the page itself one Back press away — a
+            // deleted record, or a "new" form that was just submitted. Pop the
+            // sentinel first, then replace the page (in onPopState).
+            this.sentinel = false;
+            this.silentPop = true;
+            this.replaceAfterPop = href;
+            this.env.back();
+            return;
+        }
         if (this.sentinel || options.replace) {
             // Replacing our sentinel leaves exactly one entry for this page.
             this.sentinel = false;

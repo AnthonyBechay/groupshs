@@ -19,7 +19,9 @@ export async function GET() {
         select: { id: true, name: true, email: true, role: true },
     });
 
-    return NextResponse.json({ user }, {
+    // isSuperAdmin lets the UI hide what only the super admin may do (the
+    // API enforces it regardless).
+    return NextResponse.json({ user: user && { ...user, isSuperAdmin: session.isSuperAdmin } }, {
         headers: { "Cache-Control": AUTH_CACHE },
     });
 }

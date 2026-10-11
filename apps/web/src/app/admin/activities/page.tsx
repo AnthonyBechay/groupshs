@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Trash2, Plus, Pencil, Upload, X, Eye, EyeOff, MapPin, Filter, Search, ClipboardCheck, FileText, ChevronDown } from "lucide-react";
+import { Trash2, Plus, Pencil, Upload, X, Eye, EyeOff, Filter, Search, ClipboardCheck, FileText, ChevronDown, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { ACTIVITY_TYPES } from "@/lib/scout-config";
 import { useUrlState } from "@/hooks/use-url-state";
@@ -46,8 +46,7 @@ export default function AdminActivitiesPage() {
     const [activities, setActivities] = useState<Activity[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [loading, setLoading] = useState(true);
-    // The form opened from this page: "new", or the activity being edited.
-    const [opened, setOpened] = useState<Activity | "new" | null>(null);
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
     // Filters live in the URL: this page links out to Attendance and Circulars,
     // and coming Back used to reset them to their defaults.
@@ -67,13 +66,25 @@ export default function AdminActivitiesPage() {
     const showHidden = params.get("hidden") === "1";
     const [search, setSearch] = useState("");
 
-    // `?edit=<id>` opens that activity's form directly — the circulars page
-    // links here so a missing fee can be fixed where it belongs. `return=1`
-    // means "go back where you came from when done".
+    // The form takes over the page, so it is part of history: `?new=1` or
+    // `?edit=<id>`. Back closes it like any other page, and other screens can
+    // link straight to an activity's form (the circulars page does, with
+    // `return=1`, to have a missing fee fixed where it belongs).
     const editParam = params.get("edit");
     const linked = editParam ? activities.find(a => a.id === editParam) ?? null : null;
-    const returning = opened === null && linked !== null && params.get("return") === "1";
-    const formTarget: Activity | "new" | null = opened ?? linked;
+    const formTarget: Activity | "new" | null = linked ?? (params.get("new") === "1" ? "new" : null);
+    const formOpen = formTarget !== null;
+
+    /** Did WE push the form's history entry? Then closing it is one step back. */
+    // (No reset needed: within one visit the form only ever opens through
+    // openForm, or through the browser's Forward — where back is right too.)
+    const [pushedForm, setPushedForm] = useState(false);
+    const closeByBack = pushedForm || params.get("return") === "1";
+    function openForm(target: Activity | "new") {
+        setPushedForm(true);
+        setParams(target === "new" ? { new: "1", edit: null } : { edit: target.id, new: null }, "push");
+        window.scrollTo({ top: 0 });
+    }
 
     const fetchData = useCallback(async () => {
         const [actRes, unitRes] = await Promise.all([
@@ -85,13 +96,26 @@ export default function AdminActivitiesPage() {
         setLoading(false);
     }, []);
 
+    // On arrival, and again each time the form closes — however it was closed
+    // (saved, cancelled, or the browser's Back button).
+    useEffect(() => {
+        if (formOpen) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchData();
+    }, [formOpen, fetchData]);
+    // A form opened by a direct link needs the list too, to find its activity.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => { if (formOpen) fetchData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Deleting is for the super admin only; everyone else hides instead.
+    useEffect(() => {
+        fetch("/api/auth/me").then(r => r.json()).then(d => setIsSuperAdmin(!!d.user?.isSuperAdmin)).catch(() => {});
+    }, []);
 
     // Remember the list as filtered, without the one-off form parameters.
     const listQuery = useMemo(() => {
         const q = new URLSearchParams(params.toString());
-        q.delete("edit"); q.delete("return");
+        q.delete("edit"); q.delete("return"); q.delete("new");
         return q.toString();
     }, [params]);
     useEffect(() => {
@@ -129,11 +153,9 @@ export default function AdminActivitiesPage() {
         });
     }, [activities, unitFilter, search, dateFilter, currentYear, showHidden]);
 
-    /** Close a form that is staying on this page (saved or cancelled). */
+    /** Close a form reached by a direct link: there is no entry of ours to go back to. */
     function closeForm() {
-        setOpened(null);
-        if (editParam) setParams({ edit: null, return: null });
-        fetchData();
+        setParams({ edit: null, new: null, return: null });
     }
 
     async function handleDelete(id: string) {
@@ -162,6 +184,21 @@ export default function AdminActivitiesPage() {
 
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
 
+    // The form replaces the list while it is open: two screens' worth of
+    // filters and rows underneath made it hard to see what was being asked.
+    if (formTarget) {
+        return (
+            <ActivityForm
+                // A fresh form (and fresh unsaved-changes state) per activity.
+                key={formTarget === "new" ? "new" : formTarget.id}
+                editing={formTarget === "new" ? null : formTarget}
+                units={units}
+                closeByBack={closeByBack}
+                onDone={closeForm}
+            />
+        );
+    }
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
@@ -169,7 +206,7 @@ export default function AdminActivitiesPage() {
                     <h1 className="text-3xl font-bold">Activities</h1>
                     <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} of {activities.length} activities</p>
                 </div>
-                <Button onClick={() => (formTarget ? closeForm() : setOpened("new"))} className="gap-2">
+                <Button onClick={() => openForm("new")} className="gap-2">
                     <Plus className="w-4 h-4" /> Add Activity
                 </Button>
             </div>
@@ -244,17 +281,6 @@ export default function AdminActivitiesPage() {
                 </div>
             </div>
 
-            {formTarget && (
-                <ActivityForm
-                    // A fresh form (and fresh unsaved-changes state) per activity.
-                    key={formTarget === "new" ? "new" : formTarget.id}
-                    editing={formTarget === "new" ? null : formTarget}
-                    units={units}
-                    returning={returning}
-                    onDone={closeForm}
-                />
-            )}
-
             <div className="border rounded-xl overflow-hidden overflow-x-auto bg-card">
                 <table className="w-full">
                     <thead className="bg-muted/50">
@@ -317,8 +343,10 @@ export default function AdminActivitiesPage() {
                                     <Button variant="ghost" size="sm" onClick={() => toggleHidden(a)} title={a.hidden ? "Show on site" : "Hide from site"}>
                                         {a.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                                     </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => { setOpened(a); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Pencil className="w-4 h-4" /></Button>
-                                    <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                                    <Button variant="ghost" size="sm" onClick={() => openForm(a)} title="Edit"><Pencil className="w-4 h-4" /></Button>
+                                    {isSuperAdmin && (
+                                        <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)} className="text-destructive hover:text-destructive" title="Delete"><Trash2 className="w-4 h-4" /></Button>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -331,18 +359,22 @@ export default function AdminActivitiesPage() {
 
 const SELECT_CLASS = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
 
+/** Most activities start in the morning and end in the afternoon. */
+const DEFAULT_DROPOFF_TIME = "08:00";
+const DEFAULT_PICKUP_TIME = "17:00";
+
 /**
- * The add / edit form.
+ * The add / edit form, shown on its own.
  *
- * Only what every activity needs is on show; map links, the poster and the
- * rarely-touched settings sit behind "More options", because the full list of
- * fields at once made a simple day out look like a tax return.
+ * The three numbered steps are exactly what a circular reads — fill them and
+ * the letter writes itself. Everything that only concerns the website sits
+ * behind "Website and other options".
  */
-function ActivityForm({ editing, units, returning, onDone }: {
+function ActivityForm({ editing, units, closeByBack, onDone }: {
     editing: Activity | null;
     units: Unit[];
-    /** Opened from another page that expects the user back when done. */
-    returning: boolean;
+    /** The form has its own history entry (or the user was sent here): close by going back. */
+    closeByBack: boolean;
     onDone: () => void;
 }) {
     const [imageUrl, setImageUrl] = useState<string | null>(editing?.imageUrl ?? null);
@@ -352,7 +384,9 @@ function ActivityForm({ editing, units, returning, onDone }: {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { leaveTo, leaveBack } = useUnsavedChanges(dirty, "This activity has unsaved changes. Leave and discard them?");
 
-    const hasExtras = !!(editing && (editing.imageUrl || editing.hidden || editing.totalDays
+    const close = () => (closeByBack ? leaveBack() : onDone());
+
+    const hasExtras = !!(editing && (editing.description || editing.imageUrl || editing.hidden || editing.totalDays
         || editing.locationUrl || editing.dropoffLocationUrl || editing.pickupLocationUrl));
 
     async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -384,7 +418,7 @@ function ActivityForm({ editing, units, returning, onDone }: {
 
         const body = {
             title: fd.get("title"),
-            description: fd.get("description"),
+            description: fd.get("description") || "",
             unitId: fd.get("unitId"),
             activityType: fd.get("activityType"),
             startDate,
@@ -418,9 +452,10 @@ function ActivityForm({ editing, units, returning, onDone }: {
         setSaving(false);
         if (!res.ok) { alert(saved.error || "Could not save the activity"); return; }
 
-        if (returning) leaveBack();
-        else if (toCircular) leaveTo(`/admin/activities/${saved.id}/circulars`);
-        else onDone();
+        // Replacing: the form just submitted must not be one Back press away
+        // from the circulars page, ready to create the activity a second time.
+        if (toCircular) leaveTo(`/admin/activities/${saved.id}/circulars`, { replace: true });
+        else close();
     }
 
     return (
@@ -428,162 +463,155 @@ function ActivityForm({ editing, units, returning, onDone }: {
             onSubmit={handleSubmit}
             onInput={() => setDirty(true)}
             onChange={() => setDirty(true)}
-            className="border rounded-xl p-6 mb-8 space-y-6 bg-card"
+            className="max-w-3xl mx-auto"
         >
-            <h2 className="text-lg font-semibold">{editing ? `Edit: ${editing.title}` : "New Activity"}</h2>
+            <button type="button" onClick={close} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary mb-3">
+                <ArrowLeft className="w-4 h-4" /> Back
+            </button>
+            <h1 className="text-3xl font-bold mb-6">{editing ? editing.title : "New activity"}</h1>
 
-            <FormGroup title="The activity">
-                <div className="grid md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="title">Title *</Label>
-                        <Input id="title" name="title" defaultValue={editing?.title} required />
+            <div className="border rounded-2xl bg-card divide-y">
+                <Step n="1" title="What">
+                    <div className="grid sm:grid-cols-[1fr_11rem_9rem] gap-3">
+                        <Field label="Title" htmlFor="title">
+                            <Input id="title" name="title" defaultValue={editing?.title} required autoFocus={!editing} placeholder="e.g. Summer Camp" />
+                        </Field>
+                        <Field label="Unit" htmlFor="unitId">
+                            <select id="unitId" name="unitId" defaultValue={editing?.unitId || ""} required className={SELECT_CLASS}>
+                                <option value="">Select...</option>
+                                {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="Type" htmlFor="activityType">
+                            <select id="activityType" name="activityType" defaultValue={editing?.activityType || "OTHER"} required className={SELECT_CLASS}>
+                                {ACTIVITY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </select>
+                        </Field>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="unitId">Unit *</Label>
-                        <select id="unitId" name="unitId" defaultValue={editing?.unitId || ""} required className={SELECT_CLASS}>
-                            <option value="">Select unit...</option>
-                            {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                        </select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="activityType">Type *</Label>
-                        <select id="activityType" name="activityType" defaultValue={editing?.activityType || "OTHER"} required className={SELECT_CLASS}>
-                            {ACTIVITY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="description">Description *</Label>
-                    <textarea id="description" name="description" defaultValue={editing?.description} required rows={2} className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="A sentence or two, shown on the website." />
-                </div>
-            </FormGroup>
+                </Step>
 
-            <FormGroup title="When and where" icon={<MapPin className="w-4 h-4" />}>
-                <div className="grid md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="startDate">Start date *</Label>
-                        <Input id="startDate" name="startDate" type="date" defaultValue={editing ? new Date(editing.startDate).toISOString().slice(0, 10) : ""} required />
+                <Step n="2" title="When and where">
+                    <div className="grid sm:grid-cols-[10rem_10rem_1fr] gap-3">
+                        <Field label="From" htmlFor="startDate">
+                            <Input id="startDate" name="startDate" type="date" defaultValue={editing ? new Date(editing.startDate).toISOString().slice(0, 10) : ""} required />
+                        </Field>
+                        <Field label="To" htmlFor="endDate" hint="Empty = one day">
+                            <Input id="endDate" name="endDate" type="date" defaultValue={editing?.endDate ? new Date(editing.endDate).toISOString().slice(0, 10) : ""} />
+                        </Field>
+                        <Field label="Location" htmlFor="location">
+                            <Input id="location" name="location" defaultValue={editing?.location || ""} placeholder="Where it takes place" />
+                        </Field>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="endDate">End date</Label>
-                        <Input id="endDate" name="endDate" type="date" defaultValue={editing?.endDate ? new Date(editing.endDate).toISOString().slice(0, 10) : ""} />
-                        <p className="text-xs text-muted-foreground">Leave empty for a single day.</p>
+                    <div className="grid sm:grid-cols-[10rem_1fr] gap-3">
+                        <Field label="Drop-off at" htmlFor="dropoffTime">
+                            <Input id="dropoffTime" name="dropoffTime" type="time" defaultValue={editing ? editing.dropoffTime || "" : DEFAULT_DROPOFF_TIME} />
+                        </Field>
+                        <Field label="Drop-off place" htmlFor="dropoffLocation">
+                            <Input id="dropoffLocation" name="dropoffLocation" defaultValue={editing?.dropoffLocation || ""} placeholder="Where families bring the children" />
+                        </Field>
+                        <Field label="Pick-up at" htmlFor="pickupTime">
+                            <Input id="pickupTime" name="pickupTime" type="time" defaultValue={editing ? editing.pickupTime || "" : DEFAULT_PICKUP_TIME} />
+                        </Field>
+                        <Field label="Pick-up place" htmlFor="pickupLocation">
+                            <Input id="pickupLocation" name="pickupLocation" defaultValue={editing?.pickupLocation || ""} placeholder="Leave empty if it is the same place" />
+                        </Field>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="location">Location</Label>
-                        <Input id="location" name="location" defaultValue={editing?.location || ""} placeholder="Where it takes place" />
+                </Step>
+
+                <Step n="3" title="Theme and fee" note="optional">
+                    <div className="grid sm:grid-cols-[1fr_10rem] gap-3">
+                        <Field label="Theme" htmlFor="theme">
+                            <Input id="theme" name="theme" defaultValue={editing?.theme || ""} placeholder="e.g. Voyager vers la Flamme" />
+                        </Field>
+                        <Field label="Fee" htmlFor="fee">
+                            <Input id="fee" name="fee" defaultValue={editing?.fee || ""} placeholder="e.g. $25" />
+                        </Field>
                     </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="rounded-lg border p-3 space-y-3">
-                        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Drop-off (start)</div>
-                        <div className="grid grid-cols-[7.5rem_1fr] gap-3">
-                            <Input id="dropoffTime" name="dropoffTime" type="time" defaultValue={editing?.dropoffTime || ""} aria-label="Drop-off time" />
-                            <Input id="dropoffLocation" name="dropoffLocation" defaultValue={editing?.dropoffLocation || ""} placeholder="Where families drop off" aria-label="Drop-off place" />
+                </Step>
+
+                <details className="group" open={hasExtras}>
+                    <summary className="cursor-pointer list-none flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-muted-foreground hover:text-foreground">
+                        <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                        Website and other options
+                    </summary>
+                    <div className="px-5 pb-5 space-y-4">
+                        <Field label="Description on the website" htmlFor="description">
+                            <textarea id="description" name="description" defaultValue={editing?.description} rows={2} className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                        </Field>
+
+                        <Field label="Poster or graphic" hint="A fun visual, if you made one. Without it the unit's logo is shown.">
+                            <div className="flex items-center gap-3">
+                                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="gap-2">
+                                    <Upload className="w-4 h-4" /> {uploading ? "Uploading..." : imageUrl ? "Replace" : "Upload"}
+                                </Button>
+                                {imageUrl && (
+                                    <>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={imageUrl} alt="Poster" className="w-24 h-14 object-cover rounded-md border" />
+                                        <Button type="button" variant="ghost" size="sm" onClick={() => { setImageUrl(null); setDirty(true); }} className="text-destructive">
+                                            <X className="w-4 h-4" />
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        </Field>
+
+                        <div className="grid sm:grid-cols-3 gap-3">
+                            <Field label="Location map link" htmlFor="locationUrl">
+                                <Input id="locationUrl" name="locationUrl" type="url" defaultValue={editing?.locationUrl || ""} placeholder="https://maps..." />
+                            </Field>
+                            <Field label="Drop-off map link" htmlFor="dropoffLocationUrl">
+                                <Input id="dropoffLocationUrl" name="dropoffLocationUrl" type="url" defaultValue={editing?.dropoffLocationUrl || ""} placeholder="https://maps..." />
+                            </Field>
+                            <Field label="Pick-up map link" htmlFor="pickupLocationUrl">
+                                <Input id="pickupLocationUrl" name="pickupLocationUrl" type="url" defaultValue={editing?.pickupLocationUrl || ""} placeholder="https://maps..." />
+                            </Field>
+                        </div>
+
+                        <div className="grid sm:grid-cols-[10rem_1fr] gap-3 items-end">
+                            <Field label="Attendance days" htmlFor="totalDays">
+                                <Input id="totalDays" name="totalDays" type="number" min="1" defaultValue={editing?.totalDays || ""} placeholder="e.g. 3" />
+                            </Field>
+                            <label className="flex items-center gap-2 h-10 rounded-md border px-3 text-sm cursor-pointer">
+                                <input type="checkbox" id="hidden" name="hidden" defaultChecked={editing?.hidden ?? false} className="accent-primary" />
+                                Hide from the public site
+                            </label>
                         </div>
                     </div>
-                    <div className="rounded-lg border p-3 space-y-3">
-                        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pick-up (end)</div>
-                        <div className="grid grid-cols-[7.5rem_1fr] gap-3">
-                            <Input id="pickupTime" name="pickupTime" type="time" defaultValue={editing?.pickupTime || ""} aria-label="Pick-up time" />
-                            <Input id="pickupLocation" name="pickupLocation" defaultValue={editing?.pickupLocation || ""} placeholder="Same place if left empty" aria-label="Pick-up place" />
-                        </div>
-                    </div>
-                </div>
-            </FormGroup>
+                </details>
+            </div>
 
-            <FormGroup title="For the circular" icon={<FileText className="w-4 h-4" />}>
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="theme">Theme</Label>
-                        <Input id="theme" name="theme" defaultValue={editing?.theme || ""} placeholder="e.g. Voyager vers la Flamme" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="fee">Fee</Label>
-                        <Input id="fee" name="fee" defaultValue={editing?.fee || ""} placeholder="e.g. $25" />
-                    </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    Both optional. What to bring, and the rest of the letter, are written on the circular itself.
-                </p>
-            </FormGroup>
-
-            <details className="group border-t pt-4" open={hasExtras}>
-                <summary className="cursor-pointer list-none flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
-                    <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
-                    More options
-                    <span className="font-normal text-xs">— poster, map links, visibility</span>
-                </summary>
-                <div className="mt-4 space-y-5">
-                    <div className="space-y-2">
-                        <Label>Poster or graphic (optional)</Label>
-                        <p className="text-xs text-muted-foreground">
-                            A fun visual for the activity, if you made one. It is the picture shown on the website; without it the unit&apos;s logo is used.
-                        </p>
-                        <div className="flex items-center gap-3">
-                            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="gap-2">
-                                <Upload className="w-4 h-4" /> {uploading ? "Uploading..." : imageUrl ? "Replace" : "Upload"}
-                            </Button>
-                            {imageUrl && (
-                                <>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={imageUrl} alt="Poster" className="w-24 h-14 object-cover rounded-md border" />
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => { setImageUrl(null); setDirty(true); }} className="text-destructive">
-                                        <X className="w-4 h-4" />
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="locationUrl">Location map link</Label>
-                            <Input id="locationUrl" name="locationUrl" type="url" defaultValue={editing?.locationUrl || ""} placeholder="https://maps.google.com/..." />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="dropoffLocationUrl">Drop-off map link</Label>
-                            <Input id="dropoffLocationUrl" name="dropoffLocationUrl" type="url" defaultValue={editing?.dropoffLocationUrl || ""} placeholder="https://maps.google.com/..." />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="pickupLocationUrl">Pick-up map link</Label>
-                            <Input id="pickupLocationUrl" name="pickupLocationUrl" type="url" defaultValue={editing?.pickupLocationUrl || ""} placeholder="https://maps.google.com/..." />
-                        </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-3 gap-4 items-end">
-                        <div className="space-y-2">
-                            <Label htmlFor="totalDays">Days counted for attendance</Label>
-                            <Input id="totalDays" name="totalDays" type="number" min="1" defaultValue={editing?.totalDays || ""} placeholder="e.g. 3" />
-                        </div>
-                        <label className="md:col-span-2 flex items-center gap-2 rounded-lg bg-muted/30 border p-3 text-sm cursor-pointer">
-                            <input type="checkbox" id="hidden" name="hidden" defaultChecked={editing?.hidden ?? false} className="accent-primary" />
-                            Hide from the public site
-                            <span className="text-xs text-muted-foreground">(for a draft, or an internal activity)</span>
-                        </label>
-                    </div>
-                </div>
-            </details>
-
-            <div className="flex flex-wrap gap-2 border-t pt-4">
-                <Button type="submit" value="save" disabled={saving}>{saving ? "Saving..." : editing ? "Update" : "Create"}</Button>
-                {!returning && (
-                    <Button type="submit" value="circular" variant="outline" disabled={saving} className="gap-2">
-                        <FileText className="w-4 h-4" /> {editing ? "Update & open circulars" : "Create & generate circular"}
-                    </Button>
-                )}
-                <Button type="button" variant="ghost" onClick={() => (returning ? leaveBack() : onDone())}>Cancel</Button>
+            <div className="sticky bottom-4 z-10 mt-5 flex flex-wrap items-center gap-2 bg-card border rounded-xl px-3 py-2 shadow-lg">
+                <Button type="submit" value="circular" disabled={saving} className="gap-2">
+                    <FileText className="w-4 h-4" /> {saving ? "Saving..." : editing ? "Save & open circulars" : "Create & generate circular"}
+                </Button>
+                <Button type="submit" value="save" variant="outline" disabled={saving}>{editing ? "Save" : "Create only"}</Button>
+                <Button type="button" variant="ghost" onClick={close} className="ml-auto">Cancel</Button>
             </div>
         </form>
     );
 }
 
-function FormGroup({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+function Step({ n, title, note, children }: { n: string; title: string; note?: string; children: React.ReactNode }) {
     return (
-        <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">{icon}{title}</h3>
+        <div className="p-5 space-y-3">
+            <div className="flex items-center gap-2.5">
+                <span className="w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">{n}</span>
+                <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{title}</h2>
+                {note && <span className="text-xs text-muted-foreground/70">— {note}</span>}
+            </div>
             {children}
+        </div>
+    );
+}
+
+function Field({ label, htmlFor, hint, children }: { label: string; htmlFor?: string; hint?: string; children: React.ReactNode }) {
+    return (
+        <div className="space-y-1.5 min-w-0">
+            <Label htmlFor={htmlFor} className="text-xs">{label}</Label>
+            {children}
+            {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
         </div>
     );
 }

@@ -50,6 +50,11 @@ export default function AdminUnitsPage() {
     const [contactMemberIds, setContactMemberIds] = useState<string[]>([]);
     const [formDirty, setFormDirty] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Only the super admin may delete a unit (the API enforces it too).
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    useEffect(() => {
+        fetch("/api/auth/me").then(r => r.json()).then(d => setIsSuperAdmin(!!d.user?.isSuperAdmin)).catch(() => {});
+    }, []);
 
     // Only guard while the unit form is actually open with edits in it.
     const { leaveBack } = useUnsavedChanges(showForm && formDirty, "This unit has unsaved changes. Leave and discard them?");
@@ -371,7 +376,9 @@ export default function AdminUnitsPage() {
                                 <td className="p-3 text-sm text-muted-foreground">{u._count.activities}</td>
                                 <td className="p-3 text-right">
                                     <Button variant="ghost" size="sm" onClick={() => startEdit(u)}><Pencil className="w-4 h-4" /></Button>
-                                    <Button variant="ghost" size="sm" onClick={() => handleDelete(u.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                                    {isSuperAdmin && (
+                                        <Button variant="ghost" size="sm" onClick={() => handleDelete(u.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

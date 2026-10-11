@@ -59,15 +59,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession();
-        if (!hasPermission(session, "canManageActivities")) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        // Deleting takes the attendance records and circulars with it, so it is
+        // reserved for the super admin. Everyone else hides an activity instead.
+        if (!session?.isSuperAdmin) {
+            return NextResponse.json({ error: "Only the super admin can delete an activity. Hide it instead." }, { status: 403 });
         }
         const { id } = await params;
         const existing = await prisma.activity.findUnique({ where: { id } });
         if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-        if (!canAccessUnit(session, existing.unitId)) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
         await prisma.activity.delete({ where: { id } });
         revalidatePath("/activities");
         revalidatePath("/");

@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
             imageUrl, hidden, year, totalDays, theme, fee,
         } = body;
 
-        if (!title || !description || !unitId || !startDate || !year) {
+        // The description is website copy and may be left for later.
+        if (!title || !unitId || !startDate || !year) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
         const newActivity = await prisma.activity.create({
             data: {
                 title,
-                description,
+                description: typeof description === "string" ? description : "",
                 whatToBring: whatToBring || null,
                 unitId,
                 activityType: activityType || "OTHER",
