@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Plus, Pencil, Upload, X } from "lucide-react";
 import Image from "next/image";
+import { UnsavedFormGuard } from "@/components/unsaved-form-guard";
 
 type NewsArticle = {
     id: string;
@@ -99,6 +100,7 @@ export default function AdminNewsPage() {
 
             {showForm && (
                 <form onSubmit={handleSubmit} className="border rounded-lg p-6 mb-8 space-y-4 bg-card">
+                    <UnsavedFormGuard />
                     <h2 className="text-lg font-semibold">{editing ? "Edit Article" : "New Article"}</h2>
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, History } from "lucide-react";
+import { UnsavedFormGuard } from "@/components/unsaved-form-guard";
 
 type Section = {
     id: string;
@@ -126,6 +127,7 @@ export default function AdminAboutPage() {
 
             {showForm && (
                 <form onSubmit={handleSubmit} className="border rounded-2xl p-6 mb-8 space-y-4 bg-card">
+                    <UnsavedFormGuard />
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-semibold">{editing ? "Edit entry" : "New timeline entry"}</h2>
                         <button type="button" onClick={() => { setShowForm(false); setEditing(null); setImageUrl(null); }} className="text-muted-foreground hover:text-foreground">

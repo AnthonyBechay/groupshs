@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, isAdmin, hasPermission } from "@/lib/auth";
-import { UNIT_TYPES } from "@/lib/scout-config";
+import { ASSIGNABLE_UNIT_TYPES, VISIBLE_UNITS_WHERE } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
@@ -10,9 +10,11 @@ export async function GET() {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        // The archive unit is bookkeeping for former members, never a unit an
+        // admin picks, edits or sees — so it is filtered at the source.
         const where = session && !session.isSuperAdmin && session.allowedUnitIds.length > 0
-            ? { id: { in: session.allowedUnitIds } }
-            : {};
+            ? { ...VISIBLE_UNITS_WHERE, id: { in: session.allowedUnitIds } }
+            : { ...VISIBLE_UNITS_WHERE };
 
         const units = await prisma.unit.findMany({
             where,
@@ -58,7 +60,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Name and unit type are required" }, { status: 400 });
         }
 
-        if (!(UNIT_TYPES as readonly string[]).includes(unitType)) {
+        // ARCHIVE is system-managed and deliberately not creatable here.
+        if (!ASSIGNABLE_UNIT_TYPES.includes(unitType)) {
             return NextResponse.json({ error: "Invalid unit type" }, { status: 400 });
         }
 

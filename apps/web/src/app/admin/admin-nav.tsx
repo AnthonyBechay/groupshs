@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Menu, X, Shield } from "lucide-react";
 import { AdminLogout } from "./admin-logout";
 
@@ -31,8 +31,10 @@ type MenuGroup = { label: string; items: LinkItem[] };
 
 export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) {
     const pathname = usePathname();
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
+    // The page a click is heading to, for the progress bar. Cleared when the
+    // route actually changes.
+    const [pendingHref, setPendingHref] = useState<string | null>(null);
+    const isPending = pendingHref !== null && pendingHref !== pathname;
     const [openGroup, setOpenGroup] = useState<string | null>(null);
     const [mobileOpen, setMobileOpen] = useState(false);
     const navRef = useRef<HTMLDivElement>(null);
@@ -53,6 +55,7 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setOpenGroup(null);
         setMobileOpen(false);
+        setPendingHref(null);
     }, [pathname]);
 
     const groups: MenuGroup[] = [
@@ -85,10 +88,18 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
     ].map(g => ({ ...g, items: g.items.filter(i => i.show) }))
      .filter(g => g.items.length > 0);
 
-    function go(href: string) {
+    /**
+     * Menu items are real <Link>s, not buttons calling router.push().
+     *
+     * As buttons they bypassed the unsaved-changes guard entirely (it watches
+     * link clicks), so leaving a half-edited form through the menu discarded the
+     * edits without a word. Real links are guarded, and can be opened in a new
+     * tab. If the guard cancels the click this handler never runs.
+     */
+    function onNavigate(href: string) {
         setOpenGroup(null);
         setMobileOpen(false);
-        startTransition(() => router.push(href));
+        if (href !== pathname) setPendingHref(href);
     }
 
     const isActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
@@ -141,17 +152,18 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
                                             className="absolute left-0 top-full mt-1 w-52 rounded-xl border bg-card shadow-lg shadow-black/5 p-1.5 z-50"
                                         >
                                             {group.items.map(item => (
-                                                <button
+                                                <Link
                                                     key={item.href}
-                                                    onClick={() => go(item.href)}
-                                                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                                    href={item.href}
+                                                    onClick={() => onNavigate(item.href)}
+                                                    className={`block w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                                                         isActive(item.href)
                                                             ? "bg-primary/10 text-primary"
                                                             : "hover:bg-muted text-foreground"
                                                     }`}
                                                 >
                                                     {item.label}
-                                                </button>
+                                                </Link>
                                             ))}
                                         </div>
                                     )}
@@ -160,8 +172,9 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
                         })}
 
                         {isSuperAdmin && (
-                            <button
-                                onClick={() => go("/admin/users")}
+                            <Link
+                                href="/admin/users"
+                                onClick={() => onNavigate("/admin/users")}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                     isActive("/admin/users")
                                         ? "text-primary bg-primary/10"
@@ -169,7 +182,7 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
                                 }`}
                             >
                                 Users
-                            </button>
+                            </Link>
                         )}
                     </div>
 
@@ -210,17 +223,18 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
                                 </div>
                                 <div className="space-y-0.5">
                                     {group.items.map(item => (
-                                        <button
+                                        <Link
                                             key={item.href}
-                                            onClick={() => go(item.href)}
-                                            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium ${
+                                            href={item.href}
+                                            onClick={() => onNavigate(item.href)}
+                                            className={`block w-full text-left px-3 py-2 rounded-md text-sm font-medium ${
                                                 isActive(item.href)
                                                     ? "bg-primary/10 text-primary"
                                                     : "hover:bg-muted text-foreground"
                                             }`}
                                         >
                                             {item.label}
-                                        </button>
+                                        </Link>
                                     ))}
                                 </div>
                             </div>
@@ -230,16 +244,17 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
                                 <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1.5 px-2">
                                     Admin
                                 </div>
-                                <button
-                                    onClick={() => go("/admin/users")}
-                                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium ${
+                                <Link
+                                    href="/admin/users"
+                                    onClick={() => onNavigate("/admin/users")}
+                                    className={`block w-full text-left px-3 py-2 rounded-md text-sm font-medium ${
                                         isActive("/admin/users")
                                             ? "bg-primary/10 text-primary"
                                             : "hover:bg-muted text-foreground"
                                     }`}
                                 >
                                     Users
-                                </button>
+                                </Link>
                             </div>
                         )}
                     </div>

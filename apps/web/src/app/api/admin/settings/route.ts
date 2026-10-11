@@ -42,6 +42,10 @@ export async function PUT(request: NextRequest) {
         if (body.manualMemberCount === null || typeof body.manualMemberCount === "number") data.manualMemberCount = body.manualMemberCount;
         if (body.manualActivityCount === null || typeof body.manualActivityCount === "number") data.manualActivityCount = body.manualActivityCount;
         if ("logoUrl" in body) data.logoUrl = body.logoUrl || null;
+        // Circular letterhead
+        for (const key of ["associationLogoUrl", "circularStampUrl", "circularGroupName", "circularCity", "circularMotto"] as const) {
+            if (key in body) data[key] = typeof body[key] === "string" && body[key].trim() ? body[key].trim() : null;
+        }
         if ("footerDescription" in body) data.footerDescription = body.footerDescription || null;
         if ("footerAddress" in body) data.footerAddress = body.footerAddress || null;
         if ("footerPhone" in body) data.footerPhone = body.footerPhone || null;

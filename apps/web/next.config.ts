@@ -21,6 +21,11 @@ const nextConfig: NextConfig = {
   // "failed to load chunk" when navigating, their old JS pointing at chunks that
   // no longer exist. With it set, Next detects the version skew and reloads.
   deploymentId: process.env.DEPLOYMENT_ID,
+  // Circulars are generated on the server. Left to the bundler, jsPDF can be
+  // resolved to its browser build, which expects `window`; loaded by Node
+  // itself it uses its Node build. Both are still traced into the standalone
+  // output.
+  serverExternalPackages: ["jspdf", "docx"],
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

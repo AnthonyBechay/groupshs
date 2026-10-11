@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useUrlState } from "@/hooks/use-url-state";
 import { ArrowUpRight, Shuffle, LogOut } from "lucide-react";
 import { MoveUpTab } from "./move-up-tab";
 import { MaitriseTab } from "./maitrise-tab";
@@ -15,7 +15,12 @@ const TABS: { key: Tab; label: string; hint: string; icon: typeof ArrowUpRight }
 ];
 
 export default function AdminTransitionsPage() {
-    const [tab, setTab] = useState<Tab>("moveup");
+    // The tab lives in the URL so a refresh (or a shared link) lands on the same
+    // flow instead of always snapping back to Move Up.
+    const { params, setParams } = useUrlState();
+    const tabParam = params.get("tab");
+    const tab: Tab = TABS.some(t => t.key === tabParam) ? (tabParam as Tab) : "moveup";
+    const setTab = (next: Tab) => setParams({ tab: next === "moveup" ? null : next, unit: null });
 
     return (
         <div className="space-y-6">

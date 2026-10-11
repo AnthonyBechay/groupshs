@@ -4,14 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
+import { useUrlState } from "@/hooks/use-url-state";
 import {
     Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload,
     Users, Trophy, Clock, Zap, Target, ImageIcon,
     FileText, AlignLeft, Star, Phone, Mail, Briefcase, Shield,
 } from "lucide-react";
 import {
-    ANCIEN_SCOUT_ROLES, ANCIEN_PROGRESSION_OPTIONS, ancienRoleLabel, progressionLabel,
+    ANCIEN_SCOUT_ROLES, ANCIEN_PROGRESSION_OPTIONS, ancienRoleLabel, progressionLabel, unitHoldsMembers,
 } from "@/lib/scout-config";
+import { UnsavedFormGuard } from "@/components/unsaved-form-guard";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -96,7 +98,11 @@ function SectionLabel({ icon, label, sublabel }: { icon: React.ReactNode; label:
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminHistoryPage() {
-    const [tab, setTab] = useState<"milestones" | "anciens">("milestones");
+    // Tab in the URL: the Anciens tab is linked to from elsewhere ("Milestones →
+    // Anciens"), and a refresh should not throw you back to Milestones.
+    const { params, setParams } = useUrlState();
+    const tab: "milestones" | "anciens" = params.get("tab") === "anciens" ? "anciens" : "milestones";
+    const setTab = (next: "milestones" | "anciens") => setParams({ tab: next === "anciens" ? "anciens" : null });
 
     return (
         <div className="max-w-4xl">
@@ -156,7 +162,7 @@ function MilestonesTab() {
         setLoading(false);
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     useEffect(() => { fetchMilestones(); }, []);
 
     async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -283,6 +289,7 @@ function MilestonesTab() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        <UnsavedFormGuard />
                         {/* Type toggle */}
                         <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-muted">
                             <button
@@ -627,7 +634,7 @@ function AnciensTab() {
         if (res.ok) setAnciens(await res.json());
         setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     useEffect(() => { fetchAnciens(); }, []);
 
     async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -776,6 +783,7 @@ function AnciensTab() {
             {showForm && (
                 <form id="ancien-form" ref={formRef} onSubmit={handleSubmit}
                     className="border rounded-2xl p-6 mb-8 space-y-6 bg-card">
+                    <UnsavedFormGuard />
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-semibold">{editing ? "Edit ancien" : "New ancien"}</h2>
                         <button type="button" onClick={closeForm} className="text-muted-foreground hover:text-foreground">
@@ -1003,7 +1011,7 @@ function AnciensTab() {
                                         <Clock className="w-3 h-3" />
                                         {yearOf(a.joinedAt) || "?"} → {yearOf(a.leftAt) || "present"}
                                     </span>
-                                    {a.unit && <span>· was {a.unit.name}</span>}
+                                    {a.unit && unitHoldsMembers(a.unit.unitType) && <span>· was {a.unit.name}</span>}
                                     {a.hiddenFromAnciens && (
                                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                                             HIDDEN

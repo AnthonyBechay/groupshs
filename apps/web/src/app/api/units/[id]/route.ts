@@ -1,4 +1,5 @@
 import { prisma } from "@/db";
+import { ARCHIVE_UNIT_TYPE } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -19,7 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             },
         });
 
-        if (!unit) {
+        // A system unit is "not found" as far as the public is concerned.
+        if (!unit || unit.unitType === ARCHIVE_UNIT_TYPE) {
             return NextResponse.json({ error: "Unit not found" }, { status: 404 });
         }
 

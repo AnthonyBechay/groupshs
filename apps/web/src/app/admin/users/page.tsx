@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { Trash2, Plus, Pencil, Shield, ShieldCheck, X } from "lucide-react";
+import { UnsavedFormGuard } from "@/components/unsaved-form-guard";
 
 type Unit = { id: string; name: string };
 type User = {
@@ -263,6 +264,7 @@ export default function AdminUsersPage() {
 
             {showForm && (
                 <form onSubmit={handleSubmit} className="border rounded-2xl p-6 mb-8 space-y-6 bg-card">
+                    <UnsavedFormGuard />
                     <div className="flex justify-between items-start">
                         <h2 className="text-xl font-semibold">{editing ? `Edit ${editing.name}` : "New User"}</h2>
                         <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="text-muted-foreground hover:text-foreground">

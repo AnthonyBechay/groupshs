@@ -1,6 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useCallback, useState } from "react";
+import { LeaveGuard } from "@/lib/leave-guard";
+
+type Router = ReturnType<typeof useRouter>;
+
+/**
+ * Wire a {@link LeaveGuard} to the real window and router. Also records the
+ * URL a sentinel was pushed for, which the hook needs when it unmounts.
+ */
+function createGuard(router: Router, message: string) {
+    const sentinel = { url: null as string | null };
+    const guard = new LeaveGuard({
+        pushSentinel: () => {
+            sentinel.url = window.location.href;
+            window.history.pushState(null, "", window.location.href);
+        },
+        back: () => window.history.back(),
+        confirm: (text) => window.confirm(text),
+        replace: (href) => router.replace(href),
+        push: (href) => router.push(href),
+    }, message);
+    return { guard, sentinel };
+}
 
 /**
  * Warns before losing unsaved form edits.
@@ -8,43 +31,42 @@ import { useEffect, useRef, useCallback, useState } from "react";
  * Covers the three ways a user can leave a page in the App Router:
  *   1. Closing / reloading the tab        → native `beforeunload` prompt
  *   2. Clicking an internal link          → intercepted, routed through `confirm`
- *   3. Browser Back / Forward             → intercepted via a history guard
+ *   3. Browser Back / Forward             → intercepted via a history sentinel
  *
- * The App Router has no `routeChangeStart` event, so 2 and 3 are handled with a
- * capture-phase click listener and a pushState sentinel respectively.
+ * The decisions live in {@link LeaveGuard} (pure, tested against a simulated
+ * history stack); this hook only connects it to the window and the router.
  *
  * @param isDirty  whether there are unsaved edits right now
  * @param message  text shown in the in-app confirm (the native tab-close prompt
  *                 always uses the browser's own wording)
+ * @returns `leaveTo(href)` — navigate away deliberately (after a save, a delete)
+ *          without tripping the guard and without leaving stale history behind
  */
 export function useUnsavedChanges(
     isDirty: boolean,
     message = "You have unsaved changes. Leave this page and discard them?"
 ) {
-    // Keep the latest value in a ref so the listeners never go stale.
-    const dirtyRef = useRef(isDirty);
-    useEffect(() => { dirtyRef.current = isDirty; }, [isDirty]);
+    // `useRouter()` returns a stable instance in the App Router, so the guard
+    // can hold it directly. Built once, in a lazy initializer.
+    const router = useRouter();
+    const [{ guard, sentinel }] = useState(() => createGuard(router, message));
 
-    const messageRef = useRef(message);
-    useEffect(() => { messageRef.current = message; }, [message]);
+    useEffect(() => { guard.setMessage(message); }, [guard, message]);
+    useEffect(() => { guard.setDirty(isDirty); }, [guard, isDirty]);
 
-    // ── 1. Tab close / reload ────────────────────────────────────────────────
     useEffect(() => {
+        // ── 1. Tab close / reload ────────────────────────────────────────────
         function onBeforeUnload(e: BeforeUnloadEvent) {
-            if (!dirtyRef.current) return;
+            if (!guard.shouldBlockUnload()) return;
             e.preventDefault();
             // Legacy browsers need returnValue set to show the prompt.
             e.returnValue = "";
             return "";
         }
-        window.addEventListener("beforeunload", onBeforeUnload);
-        return () => window.removeEventListener("beforeunload", onBeforeUnload);
-    }, []);
 
-    // ── 2. Internal link clicks ──────────────────────────────────────────────
-    useEffect(() => {
+        // ── 2. Internal link clicks ──────────────────────────────────────────
         function onClick(e: MouseEvent) {
-            if (!dirtyRef.current) return;
+            if (!guard.isDirty) return;
             // Let modified clicks (new tab/window) through untouched.
             if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
@@ -64,53 +86,59 @@ export function useUnsavedChanges(
             if (dest.origin !== window.location.origin) return;
             if (dest.pathname === window.location.pathname && dest.search === window.location.search) return;
 
-            if (!window.confirm(messageRef.current)) {
+            const outcome = guard.onLinkClick(dest.pathname + dest.search + dest.hash);
+            if (outcome !== "proceed") {
+                // "stay": cancelled. "takeover": the guard navigated itself.
                 e.preventDefault();
                 e.stopPropagation();
-            } else {
-                // Allowing the navigation: drop the guard so the native
-                // beforeunload prompt doesn't fire a second time.
-                dirtyRef.current = false;
             }
         }
+
+        // ── 3. Browser back / forward ────────────────────────────────────────
+        const onPopState = () => guard.onPopState();
+
+        window.addEventListener("beforeunload", onBeforeUnload);
         // Capture phase so we run before Next's Link handler.
         document.addEventListener("click", onClick, true);
-        return () => document.removeEventListener("click", onClick, true);
-    }, []);
-
-    // ── 3. Browser back / forward ────────────────────────────────────────────
-    useEffect(() => {
-        if (!isDirty) return;
-
-        // Push a sentinel entry so the first Back press lands here instead of
-        // actually leaving; we then ask, and either stay or go back for real.
-        window.history.pushState(null, "", window.location.href);
-
-        function onPopState() {
-            if (!dirtyRef.current) return;
-            if (window.confirm(messageRef.current)) {
-                dirtyRef.current = false;
-                window.history.back();
-            } else {
-                // Re-arm the sentinel so the next Back press prompts again.
-                window.history.pushState(null, "", window.location.href);
-            }
-        }
-
         window.addEventListener("popstate", onPopState);
-        return () => window.removeEventListener("popstate", onPopState);
-    }, [isDirty]);
+        return () => {
+            window.removeEventListener("beforeunload", onBeforeUnload);
+            document.removeEventListener("click", onClick, true);
+            window.removeEventListener("popstate", onPopState);
+        };
+    }, [guard]);
+
+    // Unmounting with the sentinel still on the stack means the form went away
+    // while the user stayed put (an inline form was cancelled or closed after a
+    // save) — every deliberate way of LEAVING the page clears it first. Pop it,
+    // or Back would have a dead copy of this page to step through.
+    //
+    // Only when the URL is still the one the sentinel was pushed for: if some
+    // other code navigated without telling the guard, popping here would yank
+    // the user back off the page they just went to, which is far worse than
+    // one spare Back press.
+    useEffect(() => () => {
+        const stillHere = window.location.href === sentinel.url;
+        if (guard.dispose() && stillHere) window.history.back();
+    }, [guard, sentinel]);
+
+    const leaveTo = useCallback(
+        (href: string, options: { replace?: boolean } = {}) => guard.leaveTo(href, options),
+        [guard]
+    );
+
+    return { leaveTo };
 }
 
 /**
  * Tracks whether a form's current values differ from the values it loaded with.
  *
- * Returns a `dirty` flag wired into {@link useUnsavedChanges}, plus helpers to
- * re-baseline after a successful save and to clear the guard entirely.
+ * Returns a `dirty` flag to feed {@link useUnsavedChanges}, plus helpers to
+ * re-baseline after a successful save and to switch the guard off entirely.
  *
  * ```tsx
  * const form = useDirtyTracker({ name, email });
- * form.guard();                 // arm the navigation warnings
+ * const { leaveTo } = useUnsavedChanges(form.dirty);
  * await save(); form.markClean({ name, email });
  * ```
  */

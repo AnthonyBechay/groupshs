@@ -8,6 +8,7 @@ import Image from "next/image";
 import { prisma } from "@/db";
 import { SocialIcon } from "@/components/social-icons";
 import { getCachedGallery, getCachedPartners, getCachedSocialLinks, getCachedSettings } from "@/lib/query-cache";
+import { NON_MEMBER_UNIT_TYPES } from "@/lib/scout-config";
 
 export const dynamic = "force-dynamic";
 
@@ -58,8 +59,9 @@ export default async function Home() {
       orderBy: { startDate: "desc" },
     }),
     prisma.member.count({ where: { status: "ACTIVE" } }),
-    // The holding unit for imported anciens is bookkeeping, not a real unit.
-    prisma.unit.count({ where: { name: { not: "Anciens (unit unknown)" } } }),
+    // "Units" means real scouting units: not the leadership team, not the
+    // group-wide activities audience, not the archive of former members.
+    prisma.unit.count({ where: { unitType: { notIn: ["GROUP", ...NON_MEMBER_UNIT_TYPES] } } }),
     prisma.activity.count({ where: { hidden: false } }),
     getCachedSettings(),
   ]);

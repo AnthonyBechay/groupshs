@@ -32,6 +32,11 @@ type Settings = {
     ageEclaireursToRoutiers: number;
     ageLouvettesToEclaireuses: number;
     ageEclaireusesToPionnieres: number;
+    associationLogoUrl: string | null;
+    circularStampUrl: string | null;
+    circularGroupName: string | null;
+    circularCity: string | null;
+    circularMotto: string | null;
 };
 
 export default function AdminSettingsPage() {
@@ -42,6 +47,8 @@ export default function AdminSettingsPage() {
     const [logoUploading, setLogoUploading] = useState(false);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const logoInputRef = useRef<HTMLInputElement>(null);
+    const [associationLogoUrl, setAssociationLogoUrl] = useState<string | null>(null);
+    const [stampUrl, setStampUrl] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
 
     // Warn before navigating away with unsaved edits.
@@ -51,6 +58,8 @@ export default function AdminSettingsPage() {
         fetch("/api/admin/settings").then(r => r.json()).then(data => {
             setSettings(data);
             setLogoUrl(data.logoUrl ?? null);
+            setAssociationLogoUrl(data.associationLogoUrl ?? null);
+            setStampUrl(data.circularStampUrl ?? null);
             setLoading(false);
         });
     }, []);
@@ -88,6 +97,11 @@ export default function AdminSettingsPage() {
             manualMemberCount: num(fd.get("manualMemberCount") as string),
             manualActivityCount: num(fd.get("manualActivityCount") as string),
             logoUrl,
+            associationLogoUrl,
+            circularStampUrl: stampUrl,
+            circularGroupName: (fd.get("circularGroupName") as string) || null,
+            circularCity: (fd.get("circularCity") as string) || null,
+            circularMotto: (fd.get("circularMotto") as string) || null,
             footerDescription: (fd.get("footerDescription") as string) || null,
             footerAddress: (fd.get("footerAddress") as string) || null,
             footerPhone: (fd.get("footerPhone") as string) || null,
@@ -167,6 +181,46 @@ export default function AdminSettingsPage() {
                             </div>
                         </div>
                         <p className="text-xs text-muted-foreground">Use a PNG or SVG with a transparent background. Transparency is preserved (no white box).</p>
+                    </div>
+                </Card>
+
+                {/* Circulars */}
+                <Card title="Circulars">
+                    <p className="text-xs text-muted-foreground">
+                        The letterhead of every circular: the association logo on the left, the group logo above in the middle,
+                        and the unit&apos;s own picture on the right. Circulars are created from an activity.
+                    </p>
+                    <div className="grid sm:grid-cols-2 gap-5">
+                        <ImageField
+                            label="Association logo (left)"
+                            hint="Les Scouts du Liban"
+                            url={associationLogoUrl}
+                            onChange={(url) => { setAssociationLogoUrl(url); setDirty(true); }}
+                        />
+                        <ImageField
+                            label="Group stamp (optional)"
+                            hint="Printed under the signature"
+                            url={stampUrl}
+                            onChange={(url) => { setStampUrl(url); setDirty(true); }}
+                        />
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="circularGroupName">Group name under the logo</Label>
+                            <Input id="circularGroupName" name="circularGroupName" defaultValue={settings.circularGroupName ?? ""} placeholder="Groupe Sagesse High School" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="circularCity">City on the date line</Label>
+                            <Input id="circularCity" name="circularCity" defaultValue={settings.circularCity ?? ""} placeholder="Ain Saadeh" />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor="circularMotto">This year&apos;s motto</Label>
+                            <Input id="circularMotto" name="circularMotto" defaultValue={settings.circularMotto ?? ""} placeholder="Le Promets-Tu?" />
+                            <p className="text-xs text-muted-foreground">
+                                Printed at the bottom left of every page, next to the scout year. Change it when the new year starts;
+                                leave it empty to print nothing.
+                            </p>
+                        </div>
                     </div>
                 </Card>
 
@@ -316,6 +370,61 @@ export default function AdminSettingsPage() {
                     </div>
                 </div>
             </form>
+        </div>
+    );
+}
+
+/** An image setting with its own upload button. Transparency is kept. */
+function ImageField({ label, hint, url, onChange }: { label: string; hint: string; url: string | null; onChange: (url: string | null) => void }) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+
+    async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("preserveAlpha", "true");
+        fd.append("folder", "branding");
+        try {
+            const res = await fetch("/api/upload", { method: "POST", body: fd });
+            const json = await res.json();
+            if (res.ok) onChange(json.url);
+            else alert(json.error || "Upload failed");
+        } catch {
+            alert("Upload failed");
+        } finally {
+            setUploading(false);
+            if (inputRef.current) inputRef.current.value = "";
+        }
+    }
+
+    return (
+        <div className="space-y-2">
+            <Label>{label}</Label>
+            <div className="flex items-center gap-3">
+                <div className="w-20 h-20 rounded-xl border flex items-center justify-center overflow-hidden shrink-0">
+                    {url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={url} alt={label} className="w-full h-full object-contain p-1" />
+                    ) : (
+                        <span className="text-xs text-muted-foreground text-center px-2">None</span>
+                    )}
+                </div>
+                <div className="flex gap-2">
+                    <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={upload} className="hidden" />
+                    <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading} className="gap-2">
+                        <Upload className="w-4 h-4" /> {uploading ? "Uploading..." : url ? "Change" : "Upload"}
+                    </Button>
+                    {url && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)} className="text-destructive">
+                            <X className="w-4 h-4" />
+                        </Button>
+                    )}
+                </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{hint}</p>
         </div>
     );
 }

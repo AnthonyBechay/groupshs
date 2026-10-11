@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
-import { resolveMemberGender } from "@/lib/scout-config";
+import { resolveMemberGender, unitHoldsMembers } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -64,6 +64,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             select: { id: true, name: true, unitType: true },
         });
         if (!unit) return NextResponse.json({ error: "Unit not found" }, { status: 400 });
+        if (!unitHoldsMembers(unit.unitType)) {
+            return NextResponse.json({ error: "That unit cannot hold members. Pick a real unit." }, { status: 400 });
+        }
 
         // Same gender↔branch rule as everywhere else: a girl cannot be enrolled
         // as a youth Eclaireur. Blank gender is derived from the branch.

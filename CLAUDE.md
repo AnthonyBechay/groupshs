@@ -172,6 +172,63 @@ state, so a whole promotion can be rolled back. The revert **skips** anyone
 moved again since the batch rather than silently undoing that newer move, and
 supports `{ dryRun: true }` to preview.
 
+### Unit types that are not branches
+
+Two `unitType` values are not real units and hold no members:
+
+- `ALL` — the audience of a group-wide activity ("All Units"). Selectable for
+  activities; never a roster.
+- `ARCHIVE` — one hidden system unit that holds anciens whose original unit is
+  unknown (`unitId` is NOT NULL, so they need somewhere to point).
+
+Every query that lists units for a person or the public spreads
+`VISIBLE_UNITS_WHERE`; every write that puts a member in a unit checks
+`unitHoldsMembers()`. Both live in `scout-config.ts`. The archive unit once
+leaked onto the public activities page because one list query did not filter.
+
+### Circulars (`src/lib/circular/`)
+
+Letters to parents, generated from an activity as PDF or Word.
+
+```
+template  →  CircularContent (blocks + {{tokens}}, stored as JSON on `circular`)
+          →  resolveCircular()   tokens filled, markup parsed
+          →  render-pdf.ts / render-docx.ts
+```
+
+- **Tokens stay live.** Stored text keeps `{{dates}}`, `{{fee}}`…; they are
+  filled from the activity, the unit and Settings at render time, so fixing the
+  activity fixes the letter. `content.values` overrides a token for one
+  circular. A token with no value prints as `[name]` and is reported — never
+  silently dropped. Token list: `tokens.ts`.
+- **Templates are starting points** (`templates.ts`): a function returning
+  blocks. Editing a template never changes an existing circular.
+- **Reference numbers** (`06/24-25/MeuteHathi`) are shared by the whole group
+  per scout year: `@@unique([scoutYear, seq])`, allocated with a retry on
+  collision. The scout year follows the letter date and
+  `fiscalYearStartMonth`.
+- **Both renderers read the same resolved document.** Change what a circular
+  says in `resolve.ts`; change how it looks in the renderers.
+- The PDF does its own line breaking (jsPDF has no rich text). Measure widths
+  with kerning OFF — jsPDF measures kerned but writes unkerned, which glued
+  words together. Built-in fonts are Latin-only: Arabic needs the Word export.
+- Logos are fetched and converted to PNG on the server (`images.ts`): uploads
+  are WebP, which neither jsPDF nor Word embeds. Only our own R2 host is
+  fetched.
+- `jspdf` and `docx` are in `serverExternalPackages`; do not remove them.
+- The activity form's **dropoff = start, pickup = end** (the family's point of
+  view). The circular calls them `startTime/startPlace`, `endTime/endPlace`.
+
+### Navigation state and unsaved changes
+
+- Tabs, filters and open panels that a user would expect Back to restore live
+  in the URL through `useUrlState` (`src/hooks/`), not in `useState`.
+- `useUnsavedChanges` / `<UnsavedFormGuard />` wrap the pure `LeaveGuard`
+  (`src/lib/leave-guard.ts`). After a save, navigate with the `leaveTo()` the
+  hook returns, not `router.push`, or a stale history entry is left behind.
+- Navigation must be real `<Link>`s: the guard watches link clicks, and a
+  `<button onClick={router.push}>` slips past it.
+
 ### Images
 
 All uploads go through `compressImage()` in `src/lib/image.ts`. Two routes call
@@ -220,3 +277,12 @@ test catches an off-by-one that reading will not.
 
 Do **not** start a dev server to check a database change — write a script, or
 reason it through.
+
+Migrations can be replayed against a real Postgres without Docker using PGlite
+(Postgres compiled to WASM): apply every migration in order to an empty
+database, then seed production-shaped rows and assert on the result. Worth the
+ten minutes for any migration that rewrites data, since a failing one takes the
+site down.
+
+Generated documents (circular PDFs) are checked by rendering one from a script
+and looking at it — layout bugs do not show up in a typecheck.

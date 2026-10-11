@@ -16,6 +16,7 @@
  */
 
 import { prisma } from "@/db";
+import { VISIBLE_UNITS_WHERE } from "@/lib/scout-config";
 
 // ─── Site-wide ────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,8 @@ export function getCachedNewsArticles() {
 /** All units + their public activities + leader contacts (for Activities page). */
 export function getCachedUnitsWithActivities() {
     return prisma.unit.findMany({
+        // Public: never list the archive unit (it once showed up here as a tab).
+        where: VISIBLE_UNITS_WHERE,
         include: {
             activities: { where: { hidden: false } },
             contacts: {
@@ -76,10 +79,10 @@ export function getCachedAllActivities() {
     });
 }
 
-/** Single unit detail page. */
+/** Single unit detail page. The archive unit is treated as non-existent. */
 export function getCachedUnit(id: string) {
-    return prisma.unit.findUnique({
-        where: { id },
+    return prisma.unit.findFirst({
+        where: { id, ...VISIBLE_UNITS_WHERE },
         include: {
             activities: {
                 where: { hidden: false },

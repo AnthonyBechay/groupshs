@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Pencil, Trash2, Users, Star, ChevronRight, List, Search, Network, UserPlus, FolderPlus, X, FileSpreadsheet, FileText, Globe, TreePine, Compass, Mountain, Phone, Calendar, MapPin, History, ArrowUpRight } from "lucide-react";
-import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, progressionLabel } from "@/lib/scout-config";
+import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, UNIT_TYPES, progressionLabel, unitHoldsMembers } from "@/lib/scout-config";
+import { useUrlState } from "@/hooks/use-url-state";
 import { exportMembersToExcel, exportMembersToPDF } from "@/lib/export-members";
 
 type Unit = { id: string; name: string; unitType: string };
@@ -81,6 +81,7 @@ const UNIT_THEME: Record<string, {
     icon: typeof Users;
     leadChip: string;
     assistantChip: string;
+    dot: string;            // solid swatch for the unit tabs
 }> = {
     LOUVETEAUX: {
         headerBg: "bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-50 border-b border-amber-200",
@@ -90,6 +91,7 @@ const UNIT_THEME: Record<string, {
         icon: TreePine,
         leadChip: "bg-amber-500 text-white",
         assistantChip: "bg-amber-100 text-amber-700",
+        dot: "bg-amber-500",
     },
     ECLAIREURS: {
         headerBg: "bg-gradient-to-br from-emerald-100 via-green-50 to-emerald-50 border-b border-emerald-200",
@@ -99,6 +101,7 @@ const UNIT_THEME: Record<string, {
         icon: Compass,
         leadChip: "bg-emerald-600 text-white",
         assistantChip: "bg-emerald-100 text-emerald-700",
+        dot: "bg-emerald-600",
     },
     ROUTIERS: {
         headerBg: "bg-gradient-to-br from-rose-100 via-red-50 to-rose-50 border-b border-rose-200",
@@ -108,6 +111,7 @@ const UNIT_THEME: Record<string, {
         icon: Mountain,
         leadChip: "bg-rose-600 text-white",
         assistantChip: "bg-rose-100 text-rose-700",
+        dot: "bg-rose-600",
     },
     // ─── Girls track ─────────────────────────────────────────────────────────
     LOUVETTES: {
@@ -118,6 +122,7 @@ const UNIT_THEME: Record<string, {
         icon: TreePine,
         leadChip: "bg-teal-500 text-white",
         assistantChip: "bg-teal-100 text-teal-700",
+        dot: "bg-teal-500",
     },
     ECLAIREUSES: {
         headerBg: "bg-gradient-to-br from-violet-100 via-purple-50 to-violet-50 border-b border-violet-200",
@@ -127,6 +132,7 @@ const UNIT_THEME: Record<string, {
         icon: Compass,
         leadChip: "bg-violet-600 text-white",
         assistantChip: "bg-violet-100 text-violet-700",
+        dot: "bg-violet-600",
     },
     PIONNIERES: {
         headerBg: "bg-gradient-to-br from-pink-100 via-fuchsia-50 to-pink-50 border-b border-pink-200",
@@ -136,6 +142,7 @@ const UNIT_THEME: Record<string, {
         icon: Mountain,
         leadChip: "bg-pink-600 text-white",
         assistantChip: "bg-pink-100 text-pink-700",
+        dot: "bg-pink-600",
     },
     GROUP: {
         headerBg: "bg-gradient-to-br from-primary/5 to-transparent border-b border-border",
@@ -145,8 +152,23 @@ const UNIT_THEME: Record<string, {
         icon: Users,
         leadChip: "bg-primary text-white",
         assistantChip: "bg-primary/10 text-primary",
+        dot: "bg-primary",
     },
 };
+
+/**
+ * Units in scouting order — youngest branch first, leadership last — rather
+ * than alphabetically, which scattered a Meute, a Troupe and a Clan at random.
+ */
+function byBranch(a: Unit, b: Unit): number {
+    const order = (t: string) => {
+        const i = (UNIT_TYPES as readonly string[]).indexOf(t);
+        return i === -1 ? 99 : i;
+    };
+    // Pair each boys' branch with its girls' equivalent: 0,3 → 0 · 1,4 → 1 · 2,5 → 2.
+    const band = (t: string) => { const i = order(t); return i < 6 ? i % 3 : i; };
+    return band(a.unitType) - band(b.unitType) || order(a.unitType) - order(b.unitType) || a.name.localeCompare(b.name);
+}
 
 // Sort priority for roles in a subgroup
 function roleSortIndex(role: string | null, labels: { lead: string; assistant: string }): number {
@@ -163,63 +185,79 @@ export default function AdminMembersPage() {
     const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const [view, setView] = useState<View>("visual");
-    const [search, setSearch] = useState("");
-
     const [showSubgroupForm, setShowSubgroupForm] = useState(false);
     const [editingSubgroup, setEditingSubgroup] = useState<Subgroup | null>(null);
 
     // ── URL-backed navigation state ──────────────────────────────────────────
-    // The selected unit and the open member live in the query string, not in
-    // React state, so a refresh keeps you where you were and Back closes the
-    // preview instead of leaving the page.
-    const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
+    // The selected unit, the view and the open member live in the query string,
+    // not in React state, so a refresh keeps you where you were and Back closes
+    // the preview instead of leaving the page.
+    const { params, setParams } = useUrlState();
+    const unitParam = params.get("unit");
+    const previewMemberId = params.get("member");
+    const view: View = params.get("view") === "list" ? "list" : "visual";
 
-    const unitParam = searchParams.get("unit");
-    const previewMemberId = searchParams.get("member");
+    // Typed into local state so it is instant, then mirrored to the URL shortly
+    // after — a refresh keeps the search without rewriting history per keystroke.
+    const [search, setSearch] = useState(() => params.get("q") ?? "");
+    useEffect(() => {
+        const t = setTimeout(() => setParams({ q: search.trim() || null }), 350);
+        return () => clearTimeout(t);
+    }, [search, setParams]);
+
+    // Only units that have a roster. "All Units" exists so group-wide activities
+    // have something to belong to, and the anciens archive is bookkeeping —
+    // neither holds members, so neither belongs on this page.
+    const rosterUnits = useMemo(
+        () => units.filter(u => unitHoldsMembers(u.unitType)).sort(byBranch),
+        [units]
+    );
+    const rosterUnitIds = useMemo(() => new Set(rosterUnits.map(u => u.id)), [rosterUnits]);
+    const rosterMembers = useMemo(
+        () => members.filter(m => rosterUnitIds.has(m.unitId)),
+        [members, rosterUnitIds]
+    );
 
     // Falls back to the first unit when the URL names one that no longer exists.
     const activeUnitId = useMemo(() => {
         if (unitParam === "ALL") return "ALL";
-        if (unitParam && units.some(u => u.id === unitParam)) return unitParam;
-        return units[0]?.id ?? "";
-    }, [unitParam, units]);
+        if (unitParam && rosterUnitIds.has(unitParam)) return unitParam;
+        return rosterUnits[0]?.id ?? "";
+    }, [unitParam, rosterUnits, rosterUnitIds]);
 
     /** Did WE push the history entry for the open preview? */
     const pushedPreview = useRef(false);
+    useEffect(() => {
+        // Closed by the browser's Back button rather than ours: forget the entry.
+        if (!previewMemberId) pushedPreview.current = false;
+    }, [previewMemberId]);
 
-    function urlWith(changes: { unit?: string | null; member?: string | null }) {
-        const p = new URLSearchParams(searchParams.toString());
-        for (const [key, value] of Object.entries(changes)) {
-            if (value === null) p.delete(key);
-            else if (value !== undefined) p.set(key, value);
-        }
-        const qs = p.toString();
-        return qs ? `${pathname}?${qs}` : pathname;
+    // Switching unit or view replaces rather than pushes, so Back does not walk
+    // through every tab the user clicked.
+    function selectUnit(id: string) {
+        setShowSubgroupForm(false);
+        setEditingSubgroup(null);
+        setParams({ unit: id, member: null });
     }
 
-    // Switching unit replaces rather than pushes, so Back does not walk through
-    // every tab the user clicked.
-    function selectUnit(id: string) {
-        router.replace(urlWith({ unit: id, member: null }), { scroll: false });
+    function setView(next: View) {
+        setParams({ view: next === "list" ? "list" : null });
     }
 
     function openPreview(memberId: string) {
         pushedPreview.current = true;
-        router.push(urlWith({ member: memberId }), { scroll: false });
+        setParams({ member: memberId }, "push");
     }
 
     function closePreview() {
         if (pushedPreview.current) {
             // We added the entry, so stepping back is exactly right.
             pushedPreview.current = false;
-            router.back();
+            window.history.back();
         } else {
             // Opened by a direct link or survived a refresh — there is no entry
             // of ours to go back to, and back() would leave the page entirely.
-            router.replace(urlWith({ member: null }), { scroll: false });
+            setParams({ member: null });
         }
     }
 
@@ -255,12 +293,25 @@ export default function AdminMembersPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchData(); }, []);
 
-    const activeUnit = useMemo(() => units.find(u => u.id === activeUnitId) || null, [units, activeUnitId]);
+    const activeUnit = useMemo(() => rosterUnits.find(u => u.id === activeUnitId) || null, [rosterUnits, activeUnitId]);
     const unitMembers = useMemo(() => members.filter(m => m.unitId === activeUnitId), [members, activeUnitId]);
     const unitSubgroups = useMemo(() => subgroups.filter(s => s.unitId === activeUnitId), [subgroups, activeUnitId]);
 
     const labels = activeUnit ? SUBGROUP_LABEL_BY_UNIT_TYPE[activeUnit.unitType] || SUBGROUP_LABEL_BY_UNIT_TYPE.GROUP : null;
     const containerName = activeUnit ? UNIT_CONTAINER_NAME[activeUnit.unitType] || "Unit" : "";
+
+    // Search runs across every unit: the question is usually "where is X?".
+    const query = search.trim().toLowerCase();
+    const searchResults = useMemo(() => {
+        if (!query) return [];
+        const digits = query.replace(/\s+/g, "");
+        return rosterMembers
+            .filter(m =>
+                `${m.firstName} ${m.lastName}`.toLowerCase().includes(query)
+                || `${m.lastName} ${m.firstName}`.toLowerCase().includes(query)
+                || (!!m.phone && /\d/.test(digits) && m.phone.replace(/\s+/g, "").includes(digits)))
+            .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
+    }, [query, rosterMembers]);
 
     async function handleDeleteSubgroup(id: string) {
         if (!confirm("Delete this group? Members in it will become unassigned.")) return;
@@ -270,114 +321,163 @@ export default function AdminMembersPage() {
 
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
 
+    // Adding from a unit's tab pre-selects that unit in the form.
+    const addMemberHref = activeUnit ? `/admin/members/new?unit=${activeUnit.id}` : "/admin/members/new";
+
     return (
         <div>
-            <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+            {/* ── Page header: only what acts on the whole page ── */}
+            <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
                 <div>
                     <h1 className="text-3xl font-bold">Members</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">{members.length} total across {units.length} units</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        {rosterMembers.length} active member{rosterMembers.length !== 1 ? "s" : ""}
+                        {" · "}{rosterUnits.length} unit{rosterUnits.length !== 1 ? "s" : ""}
+                    </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="inline-flex items-center bg-muted/60 rounded-full p-1 border">
-                        <button
-                            onClick={() => setView("visual")}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all ${
-                                view === "visual" ? "bg-primary text-white shadow-sm" : "text-muted-foreground"
-                            }`}
-                        >
-                            <Network className="w-4 h-4" /> Visual
-                        </button>
-                        <button
-                            onClick={() => setView("list")}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all ${
-                                view === "list" ? "bg-primary text-white shadow-sm" : "text-muted-foreground"
-                            }`}
-                        >
-                            <List className="w-4 h-4" /> List
-                        </button>
-                    </div>
-                    <Button onClick={() => { setEditingSubgroup(null); setShowSubgroupForm(true); }} variant="outline" className="gap-2">
-                        <FolderPlus className="w-4 h-4" /> Add {labels?.singular || "Group"}
+                <Link href={addMemberHref}>
+                    <Button className="gap-2">
+                        <UserPlus className="w-4 h-4" /> Add member
                     </Button>
-                    <Link href="/admin/members/new">
-                        <Button className="gap-2">
-                            <UserPlus className="w-4 h-4" /> Add Member
-                        </Button>
-                    </Link>
-                </div>
+                </Link>
             </div>
 
-            {/* Unit selector */}
-            <div className="border-b mb-6 -mx-4 px-4 overflow-x-auto">
-                <div className="flex gap-2 pb-3">
-                    {units.map(u => {
-                        const count = members.filter(m => m.unitId === u.id).length;
-                        return (
+            {/* ── Search, across every unit ── */}
+            <div className="relative mb-5">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <Input
+                    placeholder="Search all members by name or phone…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-10 pr-10 h-11"
+                    aria-label="Search all members"
+                />
+                {search && (
+                    <button
+                        type="button"
+                        onClick={() => setSearch("")}
+                        aria-label="Clear search"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
+
+            {query ? (
+                <SearchResults
+                    results={searchResults}
+                    units={rosterUnits}
+                    query={search.trim()}
+                    onPreview={openPreview}
+                />
+            ) : (
+                <>
+                    {/* ── Unit tabs: young → old, each in its branch color ── */}
+                    <div className="-mx-4 px-4 mb-6 overflow-x-auto">
+                        <div className="flex items-center gap-2 pb-2 min-w-max">
                             <button
-                                key={u.id}
-                                onClick={() => selectUnit(u.id)}
-                                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
-                                    activeUnitId === u.id
-                                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                                onClick={() => selectUnit("ALL")}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
+                                    activeUnitId === "ALL"
+                                        ? "bg-foreground text-background shadow-md"
                                         : "bg-muted text-muted-foreground hover:bg-muted/70"
                                 }`}
                             >
-                                {u.name} ({count})
+                                <Globe className="w-3.5 h-3.5" /> All
+                                <span className="text-[11px] font-semibold opacity-70 tabular-nums">{rosterMembers.length}</span>
                             </button>
-                        );
-                    })}
-                    <button
-                        onClick={() => selectUnit("ALL")}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
-                            activeUnitId === "ALL"
-                                ? "bg-foreground text-background shadow-md"
-                                : "bg-muted text-muted-foreground hover:bg-muted/70"
-                        }`}
-                    >
-                        <Globe className="w-3.5 h-3.5" /> All ({members.length})
-                    </button>
-                </div>
-            </div>
 
-            {showSubgroupForm && activeUnit && labels && (
-                <SubgroupForm
-                    unit={activeUnit}
-                    labels={labels}
-                    editing={editingSubgroup}
-                    onCancel={() => { setShowSubgroupForm(false); setEditingSubgroup(null); }}
-                    onSaved={() => { setShowSubgroupForm(false); setEditingSubgroup(null); fetchData(); }}
-                />
-            )}
+                            {rosterUnits.length > 0 && <span className="h-6 w-px bg-border mx-1" aria-hidden />}
 
-            {activeUnitId === "ALL" ? (
-                <AllUnitsView units={units} subgroups={subgroups} members={members} onPreview={openPreview} />
-            ) : !activeUnit ? (
-                <div className="text-center py-20 bg-muted/20 rounded-2xl border border-dashed">
-                    <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                    <p className="text-muted-foreground">Create a unit first</p>
-                </div>
-            ) : view === "visual" ? (
-                <VisualView
-                    unit={activeUnit}
-                    subgroups={unitSubgroups}
-                    members={unitMembers}
-                    labels={labels!}
-                    containerName={containerName}
-                    onEditSubgroup={(s) => { setEditingSubgroup(s); setShowSubgroupForm(true); }}
-                    onDeleteSubgroup={handleDeleteSubgroup}
-                    onPreview={openPreview}
-                    allUnits={units}
-                    onAssignSubgroup={handleAssignSubgroup}
-                />
-            ) : (
-                <ListView
-                    unit={activeUnit}
-                    members={unitMembers}
-                    subgroups={unitSubgroups}
-                    search={search}
-                    setSearch={setSearch}
-                    onPreview={openPreview}
-                />
+                            {rosterUnits.map(u => {
+                                const theme = UNIT_THEME[u.unitType] || UNIT_THEME.GROUP;
+                                const count = members.filter(m => m.unitId === u.id).length;
+                                const active = activeUnitId === u.id;
+                                return (
+                                    <button
+                                        key={u.id}
+                                        onClick={() => selectUnit(u.id)}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
+                                            active
+                                                ? `${theme.leadChip} shadow-md`
+                                                : "bg-muted text-muted-foreground hover:bg-muted/70"
+                                        }`}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${active ? "bg-white/80" : theme.dot}`} aria-hidden />
+                                        {u.name}
+                                        <span className="text-[11px] font-semibold opacity-70 tabular-nums">{count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {activeUnitId === "ALL" ? (
+                        <AllUnitsView
+                            units={rosterUnits}
+                            subgroups={subgroups}
+                            members={rosterMembers}
+                            onPreview={openPreview}
+                            onSelectUnit={selectUnit}
+                        />
+                    ) : !activeUnit || !labels ? (
+                        <div className="text-center py-20 bg-muted/20 rounded-2xl border border-dashed">
+                            <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                            <p className="text-muted-foreground mb-1">No units to show yet.</p>
+                            <Link href="/admin/units" className="text-sm text-primary underline underline-offset-4">
+                                Create a unit first
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {/* Everything that acts on THIS unit lives in its header. */}
+                            <UnitHeader
+                                unit={activeUnit}
+                                members={unitMembers}
+                                subgroups={unitSubgroups}
+                                labels={labels}
+                                containerName={containerName}
+                                view={view}
+                                onViewChange={setView}
+                                onAddSubgroup={() => { setEditingSubgroup(null); setShowSubgroupForm(true); }}
+                            />
+
+                            {showSubgroupForm && (
+                                <SubgroupForm
+                                    unit={activeUnit}
+                                    labels={labels}
+                                    editing={editingSubgroup}
+                                    onCancel={() => { setShowSubgroupForm(false); setEditingSubgroup(null); }}
+                                    onSaved={() => { setShowSubgroupForm(false); setEditingSubgroup(null); fetchData(); }}
+                                />
+                            )}
+
+                            {view === "visual" ? (
+                                <VisualView
+                                    unit={activeUnit}
+                                    subgroups={unitSubgroups}
+                                    members={unitMembers}
+                                    labels={labels}
+                                    onEditSubgroup={(sg) => { setEditingSubgroup(sg); setShowSubgroupForm(true); }}
+                                    onDeleteSubgroup={handleDeleteSubgroup}
+                                    onPreview={openPreview}
+                                    allUnits={units}
+                                    onAssignSubgroup={handleAssignSubgroup}
+                                />
+                            ) : (
+                                <ListView
+                                    unit={activeUnit}
+                                    members={unitMembers}
+                                    subgroups={unitSubgroups}
+                                    allUnits={units}
+                                    onPreview={openPreview}
+                                    onChanged={fetchData}
+                                />
+                            )}
+                        </div>
+                    )}
+                </>
             )}
 
             {previewMemberId && (
@@ -391,18 +491,195 @@ export default function AdminMembersPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Search results (across all units)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SEARCH_LIMIT = 60;
+
+function SearchResults({ results, units, query, onPreview }: {
+    results: Member[];
+    units: Unit[];
+    query: string;
+    onPreview: (id: string) => void;
+}) {
+    if (results.length === 0) {
+        return (
+            <div className="text-center py-16 bg-muted/20 rounded-2xl border border-dashed">
+                <Search className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">
+                    No active member matches &quot;{query}&quot;.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                    Former members are under Milestones → Anciens.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="border rounded-2xl overflow-hidden bg-card">
+            <div className="px-4 py-2.5 border-b bg-muted/30 text-xs font-semibold text-muted-foreground">
+                {results.length} match{results.length !== 1 ? "es" : ""}
+            </div>
+            <div className="divide-y">
+                {results.slice(0, SEARCH_LIMIT).map(m => {
+                    const theme = UNIT_THEME[m.unit.unitType] || UNIT_THEME.GROUP;
+                    return (
+                        <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => onPreview(m.id)}
+                            className="w-full text-left flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors"
+                        >
+                            <div className={`w-9 h-9 rounded-full ${theme.iconBg} flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden`}>
+                                {m.photoUrl ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img src={m.photoUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    `${m.firstName[0] ?? ""}${m.lastName[0] ?? ""}`.toUpperCase()
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-sm font-semibold truncate">{m.firstName} {m.lastName}</span>
+                                    <RecentTags member={m} units={units} />
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                    {m.subgroup?.name ? `${m.subgroup.name} · ` : ""}
+                                    {m.role ? `${m.role} · ` : ""}
+                                    {m.phone || "no phone"}
+                                </div>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${theme.chip}`}>
+                                {m.unit.name}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+            {results.length > SEARCH_LIMIT && (
+                <p className="px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-t">
+                    Showing the first {SEARCH_LIMIT} — keep typing to narrow it down.
+                </p>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unit header: identity, numbers, and every action that applies to the unit
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ON_COLOR_BUTTON =
+    "inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-sm font-semibold " +
+    "bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur text-white " +
+    "transition-colors disabled:opacity-40 disabled:pointer-events-none";
+
+function UnitHeader({
+    unit, members, subgroups, labels, containerName, view, onViewChange, onAddSubgroup,
+}: {
+    unit: Unit;
+    members: Member[];
+    subgroups: Subgroup[];
+    labels: { singular: string; plural: string; lead: string; assistant: string };
+    containerName: string;
+    view: View;
+    onViewChange: (v: View) => void;
+    onAddSubgroup: () => void;
+}) {
+    const theme = UNIT_THEME[unit.unitType] || UNIT_THEME.GROUP;
+    const unassigned = members.filter(m => !m.subgroupId).length;
+
+    return (
+        <div className={`rounded-3xl ${theme.pageAccent} text-white p-5 md:p-7`}>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
+                        <theme.icon className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-xs font-bold uppercase tracking-widest text-white/70">{containerName}</span>
+                        <h2 className="text-2xl md:text-3xl font-black truncate">{unit.name}</h2>
+                    </div>
+                </div>
+                <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                    <span><strong>{members.length}</strong> <span className="text-white/70">member{members.length !== 1 ? "s" : ""}</span></span>
+                    <span><strong>{subgroups.length}</strong> <span className="text-white/70">{subgroups.length === 1 ? labels.singular : labels.plural}</span></span>
+                    {unassigned > 0 && (
+                        <span><strong>{unassigned}</strong> <span className="text-white/70">unassigned</span></span>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 mt-5">
+                <div className="inline-flex items-center rounded-full bg-black/15 p-1" role="group" aria-label="View">
+                    <button
+                        type="button"
+                        onClick={() => onViewChange("visual")}
+                        aria-pressed={view === "visual"}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all ${
+                            view === "visual" ? "bg-white text-foreground shadow-sm" : "text-white/80 hover:text-white"
+                        }`}
+                    >
+                        <Network className="w-4 h-4" /> Visual
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onViewChange("list")}
+                        aria-pressed={view === "list"}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all ${
+                            view === "list" ? "bg-white text-foreground shadow-sm" : "text-white/80 hover:text-white"
+                        }`}
+                    >
+                        <List className="w-4 h-4" /> List
+                    </button>
+                </div>
+
+                <button type="button" onClick={onAddSubgroup} className={ON_COLOR_BUTTON}>
+                    <FolderPlus className="w-4 h-4" /> Add {labels.singular}
+                </button>
+
+                <div className="flex-1" />
+
+                <button
+                    type="button"
+                    disabled={members.length === 0}
+                    onClick={() => {
+                        exportMembersToPDF(unit, subgroups, members)
+                            .catch(() => alert("Could not generate the PDF."));
+                    }}
+                    className={ON_COLOR_BUTTON}
+                >
+                    <FileText className="w-4 h-4" /> PDF
+                </button>
+                <button
+                    type="button"
+                    disabled={members.length === 0}
+                    onClick={() => {
+                        exportMembersToExcel(unit, members)
+                            .catch(() => alert("Could not generate the Excel file."));
+                    }}
+                    className={ON_COLOR_BUTTON}
+                >
+                    <FileSpreadsheet className="w-4 h-4" /> Excel
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Visual hierarchy view
 // ─────────────────────────────────────────────────────────────────────────────
 
 function VisualView({
-    unit, subgroups, members, labels, containerName,
+    unit, subgroups, members, labels,
     onEditSubgroup, onDeleteSubgroup, onPreview, allUnits, onAssignSubgroup,
 }: {
     unit: Unit;
     subgroups: Subgroup[];
     members: Member[];
     labels: { singular: string; plural: string; lead: string; assistant: string };
-    containerName: string;
     onEditSubgroup: (s: Subgroup) => void;
     onDeleteSubgroup: (id: string) => void;
     onPreview: (id: string) => void;
@@ -410,48 +687,15 @@ function VisualView({
     allUnits: Unit[];
     onAssignSubgroup: (memberId: string, subgroupId: string) => void;
 }) {
-    const theme = UNIT_THEME[unit.unitType] || UNIT_THEME.GROUP;
     const unassigned = members.filter(m => !m.subgroupId).sort(sortMembers(labels));
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className={`rounded-3xl ${theme.pageAccent} text-white p-6 md:p-8`}>
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
-                            <theme.icon className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <span className="text-xs font-bold uppercase tracking-widest text-white/70">{containerName}</span>
-                            <h2 className="text-2xl md:text-3xl font-black">{unit.name}</h2>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            type="button"
-                            onClick={() => {
-                                exportMembersToPDF(unit, subgroups, members)
-                                    .catch(() => alert("Could not generate the PDF."));
-                            }}
-                            disabled={members.length === 0}
-                            className="bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur text-white gap-2"
-                        >
-                            <FileText className="w-4 h-4" /> Export PDF
-                        </Button>
-                    </div>
-                </div>
-                <div className="flex flex-wrap gap-4 mt-3 text-sm">
-                    <span><strong className="text-white">{members.length}</strong> <span className="text-white/70">members</span></span>
-                    <span><strong className="text-white">{subgroups.length}</strong> <span className="text-white/70">{labels.plural}</span></span>
-                </div>
-            </div>
-
             {/* Subgroups */}
             {subgroups.length === 0 ? (
                 <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed">
                     <p className="text-sm text-muted-foreground mb-2">No {labels.plural.toLowerCase()} yet.</p>
-                    <p className="text-xs text-muted-foreground">Click &quot;Add {labels.singular}&quot; above to create one.</p>
+                    <p className="text-xs text-muted-foreground">Use &quot;Add {labels.singular}&quot; in the header above to create one.</p>
                 </div>
             ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -648,48 +892,37 @@ function MemberRow({ member, unitType, accentRole, onPreview, allUnits = [] }: {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ListView({
-    unit, members, subgroups, search, setSearch, onPreview,
+    unit, members, subgroups, allUnits, onPreview, onChanged,
 }: {
     unit: Unit;
     members: Member[];
     subgroups: Subgroup[];
-    search: string;
-    setSearch: (v: string) => void;
+    allUnits: Unit[];
     onPreview: (id: string) => void;
+    onChanged: () => void;
 }) {
     const labels = SUBGROUP_LABEL_BY_UNIT_TYPE[unit.unitType] || SUBGROUP_LABEL_BY_UNIT_TYPE.GROUP;
     const theme = UNIT_THEME[unit.unitType] || UNIT_THEME.GROUP;
-    const filtered = members.filter(m => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
-        return `${m.firstName} ${m.lastName}`.toLowerCase().includes(q);
-    }).sort(sortMembers(labels));
+    const filtered = [...members].sort(sortMembers(labels));
 
-    function handleDelete(id: string) {
-        if (!confirm("Delete this member?")) return;
-        fetch(`/api/admin/members/${id}`, { method: "DELETE" }).then(() => window.location.reload());
+    async function handleDelete(m: Member) {
+        if (!confirm(
+            `Delete ${m.firstName} ${m.lastName} permanently? This cannot be undone.\n\n` +
+            `If they are simply leaving the group, use Transitions → Leaving instead — ` +
+            `that keeps their record and adds them to the Anciens.`
+        )) return;
+        const res = await fetch(`/api/admin/members/${m.id}`, { method: "DELETE" });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Could not delete this member");
+            return;
+        }
+        // Refetch in place — a full reload would be slower and lose scroll.
+        onChanged();
     }
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3 justify-between">
-                <div className="relative max-w-sm flex-1">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input placeholder="Search members..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-                </div>
-                <Button
-                    type="button"
-                    onClick={() => {
-                        exportMembersToExcel(unit, members)
-                            .catch(() => alert("Could not generate the Excel file."));
-                    }}
-                    disabled={members.length === 0}
-                    variant="outline"
-                    className="gap-2"
-                >
-                    <FileSpreadsheet className="w-4 h-4" /> Export Excel
-                </Button>
-            </div>
             <div className="border rounded-xl overflow-hidden bg-card">
                 <table className="w-full">
                     <thead className="bg-muted/50">
@@ -708,7 +941,10 @@ function ListView({
                         ) : filtered.map(m => (
                             <tr key={m.id} className="border-t hover:bg-muted/20 cursor-pointer" onClick={() => onPreview(m.id)}>
                                 <td className="p-3 text-sm font-medium">
-                                    <span className="hover:text-primary">{m.firstName} {m.lastName}</span>
+                                    <span className="inline-flex items-center gap-1.5 flex-wrap">
+                                        <span className="hover:text-primary">{m.firstName} {m.lastName}</span>
+                                        <RecentTags member={m} units={allUnits} />
+                                    </span>
                                 </td>
                                 <td className="p-3 text-sm text-muted-foreground">
                                     {m.subgroup?.name || subgroups.find(s => s.id === m.subgroupId)?.name || "-"}
@@ -720,7 +956,7 @@ function ListView({
                                 <td className="p-3 text-sm text-muted-foreground">{m.phone || "-"}</td>
                                 <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                                     <Link href={`/admin/members/${m.id}`}><Button variant="ghost" size="sm" title="Edit full sheet"><Pencil className="w-4 h-4" /></Button></Link>
-                                    <Button variant="ghost" size="sm" onClick={() => handleDelete(m.id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                                    <Button variant="ghost" size="sm" onClick={() => handleDelete(m)} className="text-destructive" title="Delete permanently"><Trash2 className="w-4 h-4" /></Button>
                                 </td>
                             </tr>
                         ))}
@@ -735,7 +971,11 @@ function ListView({
 // All units compact tree view
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AllUnitsView({ units, subgroups, members, onPreview }: { units: Unit[]; subgroups: Subgroup[]; members: Member[]; onPreview: (id: string) => void }) {
+function AllUnitsView({ units, subgroups, members, onPreview, onSelectUnit }: {
+    units: Unit[]; subgroups: Subgroup[]; members: Member[];
+    onPreview: (id: string) => void;
+    onSelectUnit: (id: string) => void;
+}) {
     return (
         <div className="space-y-5">
             <div className="rounded-3xl bg-gradient-to-br from-primary via-primary to-emerald-700 text-white p-6">
@@ -759,7 +999,16 @@ function AllUnitsView({ units, subgroups, members, onPreview }: { units: Unit[];
                             <div className="flex items-start justify-between mb-3">
                                 <div>
                                     <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{container}</span>
-                                    <h3 className="font-extrabold">{u.name}</h3>
+                                    <h3 className="font-extrabold">
+                                        <button
+                                            type="button"
+                                            onClick={() => onSelectUnit(u.id)}
+                                            className="hover:underline underline-offset-4 text-left"
+                                            title={`Open ${u.name}`}
+                                        >
+                                            {u.name}
+                                        </button>
+                                    </h3>
                                 </div>
                                 <div className="text-xs text-muted-foreground text-right">
                                     <div><strong className="text-foreground">{um.length}</strong> members</div>

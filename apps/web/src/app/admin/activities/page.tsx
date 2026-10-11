@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Trash2, Plus, Pencil, Upload, X, Eye, EyeOff, MapPin, Filter, Search, ClipboardCheck } from "lucide-react";
+import { Trash2, Plus, Pencil, Upload, X, Eye, EyeOff, MapPin, Filter, Search, ClipboardCheck, FileText } from "lucide-react";
 import Link from "next/link";
 import { ACTIVITY_TYPES } from "@/lib/scout-config";
+import { useUrlState } from "@/hooks/use-url-state";
+import { UnsavedFormGuard } from "@/components/unsaved-form-guard";
 
 type Unit = { id: string; name: string; unitType: string };
 type Activity = {
@@ -32,6 +34,8 @@ type Activity = {
     hidden: boolean;
     year: number;
     totalDays: number | null;
+    theme: string | null;
+    fee: string | null;
 };
 
 type DateFilter = "this-year" | "all" | "upcoming" | "past" | number;
@@ -46,10 +50,19 @@ export default function AdminActivitiesPage() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Filters
+    // Filters. Date and unit live in the URL: this page links out to Attendance
+    // and Circulars, and coming Back used to reset both to their defaults.
     const currentYear = new Date().getFullYear();
-    const [dateFilter, setDateFilter] = useState<DateFilter>("this-year");
-    const [unitFilter, setUnitFilter] = useState<string>("ALL");
+    const { params, setParams } = useUrlState();
+    const whenParam = params.get("when");
+    const dateFilter: DateFilter =
+        whenParam === "all" || whenParam === "upcoming" || whenParam === "past" ? whenParam
+            : whenParam && /^\d{4}$/.test(whenParam) ? Number(whenParam)
+            : "this-year";
+    const setDateFilter = (next: DateFilter) =>
+        setParams({ when: next === "this-year" ? null : String(next) });
+    const unitFilter = params.get("unit") ?? "ALL";
+    const setUnitFilter = (next: string) => setParams({ unit: next === "ALL" ? null : next });
     const [search, setSearch] = useState("");
 
     async function fetchData() {
@@ -137,6 +150,8 @@ export default function AdminActivitiesPage() {
             hidden: fd.get("hidden") === "on",
             year: parseInt(fd.get("year") as string),
             totalDays: fd.get("totalDays") ? parseInt(fd.get("totalDays") as string) : null,
+            theme: fd.get("theme") || null,
+            fee: fd.get("fee") || null,
         };
 
         if (editing) {
@@ -256,6 +271,7 @@ export default function AdminActivitiesPage() {
 
             {showForm && (
                 <form onSubmit={handleSubmit} className="border rounded-xl p-6 mb-8 space-y-5 bg-card">
+                    <UnsavedFormGuard />
                     <h2 className="text-lg font-semibold">{editing ? "Edit Activity" : "New Activity"}</h2>
 
                     <div className="grid md:grid-cols-3 gap-4">
@@ -291,6 +307,15 @@ export default function AdminActivitiesPage() {
                         <div className="space-y-2">
                             <Label htmlFor="totalDays">Total days (for partial attendance)</Label>
                             <Input id="totalDays" name="totalDays" type="number" min="1" defaultValue={editing?.totalDays || ""} placeholder="e.g. 3" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="theme">Theme</Label>
+                            <Input id="theme" name="theme" defaultValue={editing?.theme || ""} placeholder="e.g. Voyager vers la Flamme" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="fee">Fee</Label>
+                            <Input id="fee" name="fee" defaultValue={editing?.fee || ""} placeholder="e.g. $25" />
+                            <p className="text-xs text-muted-foreground">Theme and fee are printed on the circular.</p>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="dropoffTime">Dropoff Time (Start)</Label>
@@ -430,6 +455,9 @@ export default function AdminActivitiesPage() {
                                     </div>
                                 </td>
                                 <td className="p-3 text-right whitespace-nowrap">
+                                    <Link href={`/admin/activities/${a.id}/circulars`} title="Circulars">
+                                        <Button variant="ghost" size="sm" className="text-primary hover:text-primary"><FileText className="w-4 h-4" /></Button>
+                                    </Link>
                                     <Link href={`/admin/activities/${a.id}/attendance`} title="Attendance">
                                         <Button variant="ghost" size="sm" className="text-primary hover:text-primary"><ClipboardCheck className="w-4 h-4" /></Button>
                                     </Link>

@@ -1,5 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission } from "@/lib/auth";
+import { ARCHIVE_UNIT_TYPE } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -11,7 +12,6 @@ import { revalidatePath } from "next/cache";
  * covers the other case: a historical ancien who was never in the system.
  */
 
-const HOLDING_UNIT_NAME = "Anciens (unit unknown)";
 
 export async function GET() {
     try {
@@ -42,19 +42,22 @@ export async function GET() {
 
 /** Find (or create) the unit used for anciens whose original unit is unknown. */
 async function holdingUnitId(): Promise<string> {
+    // Identified by type, so it can never be confused with a real unit that
+    // happens to share a name, and never duplicated by a rename.
     const existing = await prisma.unit.findFirst({
-        where: { name: HOLDING_UNIT_NAME },
+        where: { unitType: ARCHIVE_UNIT_TYPE },
+        orderBy: { createdAt: "asc" },
         select: { id: true },
     });
     if (existing) return existing.id;
 
     const created = await prisma.unit.create({
         data: {
-            name: HOLDING_UNIT_NAME,
-            unitType: "GROUP",
+            name: "Anciens",
+            unitType: ARCHIVE_UNIT_TYPE,
             description:
-                "Holding unit for former members whose original unit was not recorded. " +
-                "Reassign them from the member page.",
+                "System unit: holds former members whose original unit was not recorded. " +
+                "Hidden from every list.",
         },
         select: { id: true },
     });

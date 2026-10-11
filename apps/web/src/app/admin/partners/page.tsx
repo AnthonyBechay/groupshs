@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Plus, Pencil, Upload, ExternalLink, ArrowUp, ArrowDown } from "lucide-react";
+import { UnsavedFormGuard } from "@/components/unsaved-form-guard";
 
 type Partner = {
     id: string;
@@ -115,6 +116,7 @@ export default function AdminPartnersPage() {
 
             {showForm && (
                 <form onSubmit={handleSubmit} className="border rounded-lg p-6 mb-8 space-y-4 bg-card">
+                    <UnsavedFormGuard />
                     <h2 className="text-lg font-semibold">{editing ? "Edit Partner" : "New Partner"}</h2>
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">

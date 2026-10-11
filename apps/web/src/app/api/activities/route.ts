@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
             startDate, endDate, pickupTime, dropoffTime,
             pickupLocation, dropoffLocation, location,
             pickupLocationUrl, dropoffLocationUrl, locationUrl,
-            imageUrl, hidden, year, totalDays,
+            imageUrl, hidden, year, totalDays, theme, fee,
         } = body;
 
         if (!title || !description || !unitId || !startDate || !year) {
@@ -88,6 +88,8 @@ export async function POST(request: NextRequest) {
                 hidden: hidden ?? false,
                 year,
                 totalDays: typeof totalDays === "number" ? totalDays : null,
+                theme: typeof theme === "string" && theme.trim() ? theme.trim() : null,
+                fee: typeof fee === "string" && fee.trim() ? fee.trim() : null,
             },
         });
 

@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, Trash2, Plus, ChevronDown, History, Upload, X } from "lucide-react";
 import Link from "next/link";
 import {
     ROLES_BY_UNIT_TYPE, PROGRESSION_BY_UNIT_TYPE, progressionLabel,
     LEADERSHIP_ROLE_OPTIONS, LEADERSHIP_ROLE_GROUPS, isLeadershipRoleIn, isLeadershipRole,
     isCouncilRole, isUnitMaitriseRole, allRolesOf, leadershipWarnings,
-    unitAcceptsGender, genderForUnitType, unitTypeLabel,
+    unitAcceptsGender, genderForUnitType, unitTypeLabel, unitHoldsMembers,
 } from "@/lib/scout-config";
 import { useUnsavedChanges, useDirtyTracker } from "@/hooks/use-unsaved-changes";
 
@@ -85,7 +84,6 @@ export type MemberFormData = {
 };
 
 export function MemberForm({ initialData, units, subgroups }: { initialData: MemberFormData; units: Unit[]; subgroups: Subgroup[] }) {
-    const router = useRouter();
     const [data, setData] = useState<MemberFormData>(initialData);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
@@ -102,7 +100,12 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
     // medications) save immediately via their own endpoints, so only the main
     // record needs tracking.
     const { dirty, disableGuard } = useDirtyTracker(data as Record<string, unknown>);
-    useUnsavedChanges(dirty, "This member has unsaved changes. Leave and discard them?");
+    const { leaveTo } = useUnsavedChanges(dirty, "This member has unsaved changes. Leave and discard them?");
+
+    // Back to the roster of the unit this member belongs to — not just "the
+    // members page", which would drop the user on whichever unit happens to be
+    // first instead of the one they were working in.
+    const listHref = data.unitId ? `/admin/members?unit=${data.unitId}` : "/admin/members";
 
     const isEditing = !!initialData.id;
     const currentUnit = units.find(u => u.id === data.unitId);
@@ -201,8 +204,10 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
 
         // Saved — drop the guard before navigating away.
         disableGuard();
-        // Always go back to the members list after a successful save
-        router.push("/admin/members");
+        // leaveTo(), not router.push(): it swaps the guard's history sentinel
+        // for the destination, so Back does not have to step through a stale
+        // duplicate of this form.
+        leaveTo(listHref);
     }
 
     async function addSibling(form: { name: string; schoolClass: string; unitName: string }) {
@@ -253,7 +258,8 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
         const res = await fetch(`/api/admin/members/${data.id}`, { method: "DELETE" });
         if (res.ok) {
             disableGuard();
-            router.push("/admin/members");
+            // replace: the page for a deleted member must not stay in history.
+            leaveTo(listHref, { replace: true });
         }
     }
 
@@ -261,7 +267,7 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
         <div>
             <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
                 <div className="flex items-center gap-3">
-                    <Link href="/admin/members" className="text-muted-foreground hover:text-foreground">
+                    <Link href={listHref} className="text-muted-foreground hover:text-foreground" aria-label="Back to members">
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
                     <div>
@@ -360,7 +366,12 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Select...</option>
-                                {units.map(u => {
+                                {units
+                                    // Activities-only units have no roster. Keep the
+                                    // member's current unit listed even so, or the
+                                    // select would silently show a different one.
+                                    .filter(u => unitHoldsMembers(u.unitType) || u.id === data.unitId)
+                                    .map(u => {
                                     // A youth member can only join a branch matching their
                                     // gender; leaders may serve in any unit.
                                     const blocked = !leaderRole && !unitAcceptsGender(u.unitType, data.gender);
@@ -436,7 +447,7 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
                                         className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                                     >
                                         <option value="">Not set</option>
-                                        {units.filter(u => u.id !== data.unitId).map(u => (
+                                        {units.filter(u => u.id !== data.unitId && unitHoldsMembers(u.unitType)).map(u => (
                                             <option key={u.id} value={u.id}>
                                                 {u.name} ({unitTypeLabel(u.unitType)})
                                             </option>

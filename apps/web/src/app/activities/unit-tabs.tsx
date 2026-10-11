@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useUrlState } from "@/hooks/use-url-state";
 import { Calendar, MapPin, Clock, Tent, Sparkles, History, Backpack, ExternalLink, ChevronDown, TreePine, Compass, Mountain, Phone, X } from "lucide-react";
 import Image from "next/image";
 
@@ -125,8 +126,14 @@ const UNIT_THEME: Record<string, {
 };
 
 export function UnitTabs({ units, activities }: { units: Unit[]; activities: Activity[] }) {
-    const [selectedUnitId, setSelectedUnitId] = useState<string>("ALL");
-    const [view, setView] = useState<"upcoming" | "past">("upcoming");
+    // The chosen unit and the upcoming/past toggle live in the URL. A visitor who
+    // picks their child's unit, follows a link and presses Back used to be sent
+    // back to "all units, upcoming" — and the filtered view could not be shared.
+    const { params, setParams } = useUrlState();
+    const unitParam = params.get("unit");
+    const selectedUnitId = unitParam && units.some(u => u.id === unitParam) ? unitParam : "ALL";
+    const view: "upcoming" | "past" = params.get("when") === "past" ? "past" : "upcoming";
+    const setView = (next: "upcoming" | "past") => setParams({ when: next === "past" ? "past" : null });
 
     const now = useMemo(() => new Date(), []);
 
@@ -147,7 +154,7 @@ export function UnitTabs({ units, activities }: { units: Unit[]; activities: Act
     const selectedUnit = units.find(u => u.id === selectedUnitId) || null;
 
     function selectUnit(id: string) {
-        setSelectedUnitId(id);
+        setParams({ unit: id === "ALL" ? null : id });
     }
 
     return (

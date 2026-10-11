@@ -1,9 +1,12 @@
 import { prisma } from "@/db";
+import { VISIBLE_UNITS_WHERE } from "@/lib/scout-config";
 import { NextResponse } from "next/server";
 
 export async function GET() {
     try {
         const units = await prisma.unit.findMany({
+            // Public endpoint: system units must never be exposed here.
+            where: VISIBLE_UNITS_WHERE,
             include: {
                 _count: {
                     select: {

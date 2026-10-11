@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MemberForm } from "../member-form";
 
 type Unit = { id: string; name: string; unitType: string };
@@ -10,6 +11,8 @@ export default function NewMemberPage() {
     const [units, setUnits] = useState<Unit[]>([]);
     const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
     const [loading, setLoading] = useState(true);
+    // "Add member" on a unit's tab passes that unit along, so it is pre-selected.
+    const presetUnitId = useSearchParams().get("unit");
 
     useEffect(() => {
         Promise.all([
@@ -24,5 +27,6 @@ export default function NewMemberPage() {
 
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
 
-    return <MemberForm initialData={{}} units={units} subgroups={subgroups} />;
+    const unitId = presetUnitId && units.some(u => u.id === presetUnitId) ? presetUnitId : undefined;
+    return <MemberForm initialData={unitId ? { unitId } : {}} units={units} subgroups={subgroups} />;
 }

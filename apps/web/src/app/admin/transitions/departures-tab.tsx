@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
     LogOut, Loader2, AlertTriangle, CheckCircle2, Info, Search, Undo2, Users, X,
 } from "lucide-react";
-import { unitTypeLabel } from "@/lib/scout-config";
+import { unitTypeLabel, unitHoldsMembers } from "@/lib/scout-config";
 
 /** Cap rendered rows; the group can have several hundred members. */
 const RESULT_LIMIT = 50;
@@ -41,6 +41,8 @@ export function DeparturesTab() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [done, setDone] = useState<number | null>(null);
+    // Former member currently choosing a unit to return to (see undo()).
+    const [returningId, setReturningId] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         const [cRes, dRes] = await Promise.all([
@@ -120,15 +122,22 @@ export function DeparturesTab() {
         }
     }
 
-    async function undo(m: Departed) {
+    /**
+     * `unitId` is only passed for a former member whose original unit was never
+     * recorded: they have no roster to return to, so one must be chosen.
+     */
+    async function undo(m: Departed, unitId?: string) {
+        const destination = unitId ? units.find(u => u.id === unitId)?.name ?? "the chosen unit" : m.unit.name;
         if (!confirm(
-            `Bring ${m.firstName} ${m.lastName} back into ${m.unit.name}?\n\n` +
+            `Bring ${m.firstName} ${m.lastName} back into ${destination}?\n\n` +
             `They will come off the Anciens list and appear on the roster again. ` +
             `Their bio and professions are kept.`
         )) return;
-        const res = await fetch(`/api/admin/transitions/departures?memberId=${m.id}`, { method: "DELETE" });
+        const qs = new URLSearchParams({ memberId: m.id, ...(unitId ? { unitId } : {}) });
+        const res = await fetch(`/api/admin/transitions/departures?${qs}`, { method: "DELETE" });
         const data = await res.json();
         if (!res.ok) { alert(data.error || "Undo failed"); return; }
+        setReturningId(null);
         await load();
     }
 
@@ -339,16 +348,35 @@ export function DeparturesTab() {
                                 <div className="flex-1 min-w-[180px]">
                                     <p className="text-sm font-medium">{m.firstName} {m.lastName}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        was {m.unit.name}{m.role ? ` · ${m.role}` : ""}
+                                        {unitHoldsMembers(m.unit.unitType) ? `was ${m.unit.name}` : "unit not recorded"}
+                                        {m.role ? ` · ${m.role}` : ""}
                                         {m.leftAt && ` · left ${new Date(m.leftAt).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}`}
                                     </p>
                                 </div>
                                 {!m.hiddenFromAnciens && (
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">ON ANCIENS LIST</span>
                                 )}
-                                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => undo(m)}>
-                                    <Undo2 className="w-3.5 h-3.5" /> Bring back
-                                </Button>
+                                {unitHoldsMembers(m.unit.unitType) ? (
+                                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => undo(m)}>
+                                        <Undo2 className="w-3.5 h-3.5" /> Bring back
+                                    </Button>
+                                ) : returningId === m.id ? (
+                                    // No recorded unit to return to — ask which one.
+                                    <select
+                                        autoFocus
+                                        defaultValue=""
+                                        onChange={e => e.target.value && undo(m, e.target.value)}
+                                        onBlur={() => setReturningId(null)}
+                                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                                    >
+                                        <option value="">Bring back into…</option>
+                                        {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                    </select>
+                                ) : (
+                                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setReturningId(m.id)}>
+                                        <Undo2 className="w-3.5 h-3.5" /> Bring back
+                                    </Button>
+                                )}
                             </div>
                         ))}
                     </div>

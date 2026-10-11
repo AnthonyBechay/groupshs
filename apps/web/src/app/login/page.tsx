@@ -21,7 +21,10 @@ export default function LoginPage() {
             .then(r => r.ok ? r.json() : { user: null })
             .then(d => {
                 if (d.user && (d.user.role === "admin" || d.user.role === "super_admin")) {
-                    window.location.href = "/admin";
+                    // replace(), not href: assigning href PUSHES an entry, so
+                    // pressing Back from /admin landed here, which pushed the
+                    // user forward again — a trap they could never back out of.
+                    window.location.replace("/admin");
                 } else {
                     setChecking(false);
                 }
@@ -53,8 +56,11 @@ export default function LoginPage() {
                 return;
             }
 
-            // Hard navigation guarantees the new cookie is picked up by the next request
-            window.location.href = "/admin";
+            // Hard navigation guarantees the new cookie is picked up by the next
+            // request. replace() so the login form does not stay in history —
+            // Back from the admin area should return to where the user came
+            // from, not to a login page they have already passed.
+            window.location.replace("/admin");
         } catch {
             setError("Something went wrong");
             setLoading(false);

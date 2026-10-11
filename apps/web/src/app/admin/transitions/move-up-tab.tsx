@@ -6,8 +6,9 @@ import {
     ArrowRight, Users, AlertTriangle, CheckCircle2, Undo2, Calendar,
     Info, RefreshCw, History, ChevronRight, Loader2, ShieldCheck,
 } from "lucide-react";
-import { unitTypeLabel, UNIT_CONTAINER_NAME } from "@/lib/scout-config";
+import { unitTypeLabel, UNIT_CONTAINER_NAME, unitHoldsMembers } from "@/lib/scout-config";
 import { REASON_LABEL, type EligibilityReason } from "@/lib/age-transition";
+import { useUrlState } from "@/hooks/use-url-state";
 
 type Unit = { id: string; name: string; unitType: string };
 
@@ -40,7 +41,10 @@ type Batch = {
 
 export function MoveUpTab() {
     const [units, setUnits] = useState<Unit[]>([]);
-    const [unitId, setUnitId] = useState("");
+    // Which unit is being reviewed survives a refresh via the URL.
+    const { params, setParams } = useUrlState();
+    const unitId = params.get("unit") ?? "";
+    const setUnitId = (id: string) => setParams({ unit: id || null });
     const [preview, setPreview] = useState<Preview | null>(null);
     const [loading, setLoading] = useState(true);
     const [loadingPreview, setLoadingPreview] = useState(false);
@@ -234,7 +238,7 @@ export function MoveUpTab() {
             <div className="rounded-2xl border bg-card p-5 space-y-3">
                 <label className="text-sm font-semibold">Which unit are you moving up from?</label>
                 <div className="flex flex-wrap gap-2">
-                    {units.map(u => (
+                    {units.filter(u => unitHoldsMembers(u.unitType)).map(u => (
                         <button
                             key={u.id}
                             onClick={() => setUnitId(u.id)}

@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { getSession, hasPermission } from "@/lib/auth";
 import { getTransitionSettings } from "@/lib/transition-service";
 import { suggestBranchForAge } from "@/lib/age-transition";
-import { unitTypeLabel } from "@/lib/scout-config";
+import { unitTypeLabel, NON_MEMBER_UNIT_TYPES } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -31,6 +31,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
         const [allUnits, subgroups] = await Promise.all([
             prisma.unit.findMany({
+                // A recruit can only be placed where members can belong.
+                where: { unitType: { notIn: [...NON_MEMBER_UNIT_TYPES] } },
                 select: {
                     id: true, name: true, unitType: true,
                     _count: { select: { members: { where: { status: "ACTIVE" } } } },

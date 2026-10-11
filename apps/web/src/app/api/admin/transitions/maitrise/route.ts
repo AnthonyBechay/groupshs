@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import {
     LEADERSHIP_ROLES, isLeadershipRole, isLeadershipRoleIn, isCouncilRole,
-    touchesCouncilRole, COUNCIL_ROLES,
+    touchesCouncilRole, COUNCIL_ROLES, NON_MEMBER_UNIT_TYPES,
 } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -39,6 +39,7 @@ export async function GET() {
                 orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
             }),
             prisma.unit.findMany({
+                where: { unitType: { notIn: [...NON_MEMBER_UNIT_TYPES] } },
                 select: { id: true, name: true, unitType: true },
                 orderBy: { name: "asc" },
             }),
@@ -148,11 +149,11 @@ export async function POST(request: NextRequest) {
 
         const targetIds = [...new Set(moves.map(m => m.toUnitId))];
         const targetUnits = await prisma.unit.findMany({
-            where: { id: { in: targetIds } },
+            where: { id: { in: targetIds }, unitType: { notIn: [...NON_MEMBER_UNIT_TYPES] } },
             select: { id: true, name: true },
         });
         if (targetUnits.length !== targetIds.length) {
-            return NextResponse.json({ error: "One or more target units no longer exist" }, { status: 400 });
+            return NextResponse.json({ error: "One or more target units no longer exist or cannot hold members" }, { status: 400 });
         }
 
         const batchId = randomUUID();

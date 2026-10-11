@@ -2,15 +2,30 @@
 // Boys track:  LOUVETEAUX → ECLAIREURS → ROUTIERS
 // Girls track: LOUVETTES  → ECLAIREUSES → PIONNIERES
 // GROUP holds the leadership / administrative team (mixed).
+//
+// Two further types are not scouting units at all, but exist because other
+// records need a unit to point at:
+//
+//   ALL      "everyone" — the audience for group-wide activities. An activity
+//            must belong to a unit, so this is how one is addressed to the whole
+//            group. It never holds members.
+//
+//   ARCHIVE  the holding place for former members (anciens) whose original unit
+//            is unknown; a member must belong to a unit even after leaving. It
+//            is system-managed and must never be listed anywhere a person or the
+//            public can see — it is bookkeeping, not a unit.
 
 export const UNIT_TYPES = [
     "LOUVETEAUX", "ECLAIREURS", "ROUTIERS",
     "LOUVETTES", "ECLAIREUSES", "PIONNIERES",
     "GROUP",
+    "ALL",
+    "ARCHIVE",
 ] as const;
 
 export type UnitType = (typeof UNIT_TYPES)[number];
 
+/** Types an admin may pick when creating or editing a unit. ARCHIVE is system-only. */
 export const UNIT_TYPE_OPTIONS: { value: UnitType; label: string; gender: "BOYS" | "GIRLS" | "MIXED" }[] = [
     { value: "LOUVETEAUX", label: "Louveteaux",  gender: "BOYS" },
     { value: "ECLAIREURS", label: "Eclaireurs",  gender: "BOYS" },
@@ -19,16 +34,40 @@ export const UNIT_TYPE_OPTIONS: { value: UnitType; label: string; gender: "BOYS"
     { value: "ECLAIREUSES", label: "Eclaireuses", gender: "GIRLS" },
     { value: "PIONNIERES", label: "Pionnieres",  gender: "GIRLS" },
     { value: "GROUP",      label: "Group",       gender: "MIXED" },
+    { value: "ALL",        label: "All units (activities only)", gender: "MIXED" },
 ];
+
+export const ASSIGNABLE_UNIT_TYPES: readonly string[] = UNIT_TYPE_OPTIONS.map(o => o.value);
 
 export const UNIT_GENDER: Record<string, "BOYS" | "GIRLS" | "MIXED"> = {
     LOUVETEAUX: "BOYS",  ECLAIREURS: "BOYS",   ROUTIERS: "BOYS",
     LOUVETTES: "GIRLS",  ECLAIREUSES: "GIRLS", PIONNIERES: "GIRLS",
-    GROUP: "MIXED",
+    GROUP: "MIXED", ALL: "MIXED", ARCHIVE: "MIXED",
 };
+
+/** The archive unit type — hidden from every list, admin and public. */
+export const ARCHIVE_UNIT_TYPE = "ARCHIVE";
+
+/**
+ * Prisma `where` fragment that keeps system-only units out of a unit list.
+ * Use it on EVERY query that lists units for a person or the public; the
+ * archive unit once leaked onto the public activities page because a list
+ * query did not know it was special.
+ */
+export const VISIBLE_UNITS_WHERE = { unitType: { not: ARCHIVE_UNIT_TYPE } } as const;
+
+/** Unit types that never hold active members (so they have no roster). */
+export const NON_MEMBER_UNIT_TYPES: readonly string[] = ["ALL", ARCHIVE_UNIT_TYPE];
+
+/** Can active members belong to a unit of this type? */
+export function unitHoldsMembers(unitType: string): boolean {
+    return !NON_MEMBER_UNIT_TYPES.includes(unitType);
+}
 
 /** Human label for a unit type value. */
 export function unitTypeLabel(value: string): string {
+    if (value === ARCHIVE_UNIT_TYPE) return "Anciens";
+    if (value === "ALL") return "All units";
     return UNIT_TYPE_OPTIONS.find(o => o.value === value)?.label ?? value;
 }
 

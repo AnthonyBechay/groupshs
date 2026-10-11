@@ -1,5 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
+import { unitHoldsMembers, resolveMemberGender } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -180,19 +181,52 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const memberId = new URL(request.url).searchParams.get("memberId");
+        const url = new URL(request.url);
+        const memberId = url.searchParams.get("memberId");
+        // Only needed when their recorded unit cannot take members back (the
+        // archive unit): the caller chooses where they return to.
+        const targetUnitId = url.searchParams.get("unitId");
         if (!memberId) return NextResponse.json({ error: "memberId is required" }, { status: 400 });
 
         const member = await prisma.member.findUnique({
             where: { id: memberId },
-            select: { id: true, status: true, unitId: true },
+            select: {
+                id: true, status: true, unitId: true, gender: true, role: true,
+                unit: { select: { unitType: true } },
+            },
         });
         if (!member) return NextResponse.json({ error: "Member not found" }, { status: 404 });
         if (member.status !== "LEFT") {
             return NextResponse.json({ error: "This member has not left the group" }, { status: 409 });
         }
-        if (!canAccessUnit(session, member.unitId)) {
+
+        // Where do they come back to?
+        let returnUnitId = member.unitId;
+        let returnUnitType = member.unit.unitType;
+        if (targetUnitId && targetUnitId !== member.unitId) {
+            const target = await prisma.unit.findUnique({
+                where: { id: targetUnitId },
+                select: { id: true, unitType: true },
+            });
+            if (!target) return NextResponse.json({ error: "Unit not found" }, { status: 400 });
+            returnUnitId = target.id;
+            returnUnitType = target.unitType;
+        }
+
+        // Reactivating into a unit with no roster would make them an active
+        // member nobody can see or manage.
+        if (!unitHoldsMembers(returnUnitType)) {
+            return NextResponse.json(
+                { error: "Their original unit was not recorded. Choose the unit they are coming back to.", needsUnit: true },
+                { status: 409 }
+            );
+        }
+        if (!canAccessUnit(session, returnUnitId)) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        if (returnUnitId !== member.unitId) {
+            const check = resolveMemberGender(returnUnitType, member.gender, member.role);
+            if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
         }
 
         // Reactivating removes them from the Anciens list. The alumni profile
@@ -200,7 +234,10 @@ export async function DELETE(request: NextRequest) {
         // still correct if they leave again.
         await prisma.member.update({
             where: { id: memberId },
-            data: { status: "ACTIVE", leftAt: null, leftNote: null, hiddenFromAnciens: false },
+            data: {
+                status: "ACTIVE", leftAt: null, leftNote: null, hiddenFromAnciens: false,
+                ...(returnUnitId !== member.unitId ? { unitId: returnUnitId, subgroupId: null } : {}),
+            },
         });
 
         revalidatePath("/history");

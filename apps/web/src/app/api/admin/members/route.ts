@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
-import { resolveMemberGender, isCouncilRoleIn, COUNCIL_ROLES } from "@/lib/scout-config";
+import { resolveMemberGender, isCouncilRoleIn, COUNCIL_ROLES, unitHoldsMembers } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -98,6 +98,10 @@ export async function POST(request: NextRequest) {
         });
         if (!unit) {
             return NextResponse.json({ error: "Unit not found" }, { status: 400 });
+        }
+        // An active member in a unit with no roster would be invisible everywhere.
+        if (!unitHoldsMembers(unit.unitType)) {
+            return NextResponse.json({ error: "That unit cannot hold members. Pick a real unit." }, { status: 400 });
         }
         const genderCheck = resolveMemberGender(unit.unitType, body.gender, role);
         if (!genderCheck.ok) {

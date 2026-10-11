@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { MemberForm, type MemberFormData } from "../member-form";
 
 type Unit = { id: string; name: string; unitType: string };
@@ -38,7 +39,21 @@ export default function EditMemberPage() {
     }, [params?.id]);
 
     if (loading) return <p className="text-muted-foreground">Loading...</p>;
-    if (error || !data) return <p className="text-destructive">{error || "Not found"}</p>;
+    if (error || !data) {
+        // Reached by Back after a delete, or by an old link: say so plainly and
+        // offer the way out, rather than a bare error string.
+        return (
+            <div className="text-center py-20 border border-dashed rounded-2xl bg-muted/20">
+                <p className="font-semibold mb-1">This member is no longer available</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                    They may have been deleted, or you may not have access to their unit.
+                </p>
+                <Link href="/admin/members" className="text-sm text-primary underline underline-offset-4">
+                    Back to members
+                </Link>
+            </div>
+        );
+    }
 
     return <MemberForm initialData={data} units={units} subgroups={subgroups} />;
 }

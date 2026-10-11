@@ -351,7 +351,13 @@ model Activity {
 
   totalDays  Int? @map("total_days") // for partial-attendance computation
 
+  // Printed on the circular sent to parents. Free text on purpose: a fee is
+  // written "$25" or "500,000 LL", never computed with.
+  theme String?
+  fee   String?
+
   attendance ActivityAttendance[]
+  circulars  Circular[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -387,6 +393,36 @@ model ActivityAttendance {
   @@map("activity_attendance")
 }
 
+// A circular (letter to parents) generated for an activity.
+//
+// `seq` is the running number in the reference ("06" in 06/24-25/MeuteHathi).
+// It is shared by the WHOLE group within a scout year — not per unit — so two
+// units can never issue the same number. The unique index is what guarantees
+// that under concurrent creation; the API retries on a collision.
+model Circular {
+  id         String   @id @default(uuid())
+  activityId String   @map("activity_id")
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  scoutYear Int      @map("scout_year") // calendar year the scout year starts in
+  seq       Int
+  // Set only when the reference was typed by hand; otherwise it is derived
+  // from seq + scoutYear + unit name so a renamed unit stays consistent.
+  referenceOverride String? @map("reference_override")
+
+  template  String                      // key of the template it started from
+  title     String                      // label in the admin list only
+  issueDate DateTime @map("issue_date") // the date printed on the letter
+  content   Json                        // CircularContent — see src/lib/circular/types.ts
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([scoutYear, seq])
+  @@index([activityId])
+  @@map("circular")
+}
+
 // ─── Site Settings (singleton) ───────────────────────────────────────────────
 
 model SiteSettings {
@@ -405,6 +441,14 @@ model SiteSettings {
   ageEclaireursToRoutiers    Int @default(17) @map("age_eclaireurs_to_routiers")     // boys
   ageLouvettesToEclaireuses  Int @default(12) @map("age_louvettes_to_eclaireuses")   // girls
   ageEclaireusesToPionnieres Int @default(17) @map("age_eclaireuses_to_pionnieres")  // girls
+
+  // ─── Circular letterhead ───────────────────────────────────────────────────
+  // Left logo is the association's, centre is `logoUrl`, right is the unit's.
+  associationLogoUrl String? @map("association_logo_url")
+  circularStampUrl   String? @map("circular_stamp_url")
+  circularGroupName  String? @map("circular_group_name") // under the centre logo
+  circularCity       String? @map("circular_city")       // dateline: "Ain Saadeh, July 3, 2025"
+  circularMotto      String? @map("circular_motto")      // the year's motto, page footer
 
   // Footer
   footerDescription String? @map("footer_description")

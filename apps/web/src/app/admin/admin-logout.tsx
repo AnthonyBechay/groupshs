@@ -6,7 +6,10 @@ import { LogOut } from "lucide-react";
 export function AdminLogout() {
     async function handleLogout() {
         await fetch("/api/auth/logout", { method: "POST" });
-        window.location.href = "/login";
+        // replace(): after signing out, Back must not return to an admin page
+        // (which would bounce straight to /login again, or worse, show a stale
+        // copy of it from the browser's back/forward cache).
+        window.location.replace("/login");
     }
 
     return (

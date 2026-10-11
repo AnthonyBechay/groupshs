@@ -9,6 +9,7 @@ import {
     Loader2, AlertTriangle, Info, Undo2, ExternalLink, Users,
 } from "lucide-react";
 import { unitTypeLabel, unitAcceptsGender } from "@/lib/scout-config";
+import { useUrlState } from "@/hooks/use-url-state";
 
 // The recruitment pipeline, in the order an applicant moves through it.
 const STATUSES = [
@@ -69,9 +70,12 @@ type Placement = {
 export default function AdminRecruitmentPage() {
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState("ALL");
+    // Both filters live in the URL: "Open member" leaves this page, and Back
+    // should return to the same filtered list, not the unfiltered default.
+    const { params, setParams } = useUrlState();
+    const filter = params.get("status") ?? "ALL";
     // "ALL" | "UNPLACED" | a unit id
-    const [unitFilter, setUnitFilter] = useState("ALL");
+    const unitFilter = params.get("unit") ?? "ALL";
     const [search, setSearch] = useState("");
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [enrollingId, setEnrollingId] = useState<string | null>(null);
@@ -144,9 +148,17 @@ export default function AdminRecruitmentPage() {
      * (say "New") combined with a unit would show nothing, since everyone in a
      * unit is necessarily enrolled.
      */
+    function setFilter(next: string) {
+        setParams({ status: next === "ALL" ? null : next });
+    }
+
+    function setUnitFilter(next: string) {
+        setParams({ unit: next === "ALL" ? null : next });
+    }
+
     function selectUnitFilter(next: string) {
-        setUnitFilter(prev => (prev === next ? "ALL" : next));
-        setFilter("ALL");
+        // One write, so the two params cannot disagree for a render.
+        setParams({ unit: unitFilter === next ? null : next, status: null });
     }
 
     function exportCSV() {

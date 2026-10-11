@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
-import { UNIT_TYPES } from "@/lib/scout-config";
+import { ASSIGNABLE_UNIT_TYPES, ARCHIVE_UNIT_TYPE, unitHoldsMembers } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,8 +21,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         if (!name || !unitType) {
             return NextResponse.json({ error: "Name and unit type are required" }, { status: 400 });
         }
-        if (!(UNIT_TYPES as readonly string[]).includes(unitType)) {
+        if (!ASSIGNABLE_UNIT_TYPES.includes(unitType)) {
             return NextResponse.json({ error: "Invalid unit type" }, { status: 400 });
+        }
+
+        const current = await prisma.unit.findUnique({ where: { id }, select: { unitType: true } });
+        if (!current) return NextResponse.json({ error: "Unit not found" }, { status: 404 });
+        if (current.unitType === ARCHIVE_UNIT_TYPE) {
+            return NextResponse.json({ error: "This is a system unit and cannot be edited" }, { status: 403 });
+        }
+        // Turning a unit into an activities-only one would strand its roster.
+        if (!unitHoldsMembers(unitType)) {
+            const active = await prisma.member.count({ where: { unitId: id, status: "ACTIVE" } });
+            if (active > 0) {
+                return NextResponse.json(
+                    { error: `This unit has ${active} active member${active !== 1 ? "s" : ""}. Move them to another unit before making it activities-only.` },
+                    { status: 409 }
+                );
+            }
         }
 
         const updated = await prisma.$transaction(async (tx) => {
@@ -70,6 +86,11 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
         }
 
         const { id } = await params;
+
+        const target = await prisma.unit.findUnique({ where: { id }, select: { unitType: true } });
+        if (target?.unitType === ARCHIVE_UNIT_TYPE) {
+            return NextResponse.json({ error: "This is a system unit and cannot be deleted" }, { status: 403 });
+        }
 
         // Explain precisely why a delete is blocked rather than letting the
         // foreign key blow up as a 500. Departed members still hold a unitId,

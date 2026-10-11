@@ -1,7 +1,7 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import {
-    resolveMemberGender, LEADERSHIP_ROLES, touchesCouncilRole, COUNCIL_ROLES,
+    resolveMemberGender, LEADERSHIP_ROLES, touchesCouncilRole, COUNCIL_ROLES, unitHoldsMembers,
 } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -116,6 +116,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         });
         if (!nextUnit) {
             return NextResponse.json({ error: "Unit not found" }, { status: 400 });
+        }
+        // An ACTIVE member in a unit with no roster would be invisible
+        // everywhere. Former members are exempt: the archive unit is exactly
+        // where one with no recorded unit lives.
+        if (existing.status === "ACTIVE" && !unitHoldsMembers(nextUnit.unitType)) {
+            return NextResponse.json({ error: "That unit cannot hold members. Pick a real unit." }, { status: 400 });
         }
         const genderCheck = resolveMemberGender(nextUnit.unitType, nextGender, nextRole);
         if (!genderCheck.ok) {

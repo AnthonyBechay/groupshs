@@ -1,6 +1,6 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
-import { resolveMemberGender } from "@/lib/scout-config";
+import { resolveMemberGender, unitHoldsMembers } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -39,6 +39,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             });
             if (!target) {
                 return NextResponse.json({ error: "Target unit not found" }, { status: 400 });
+            }
+            if (!unitHoldsMembers(target.unitType)) {
+                return NextResponse.json({ error: "That unit cannot hold members. Pick a real unit." }, { status: 400 });
             }
             const nextRole = "toRole" in body ? (toRole || null) : existing.role;
             const check = resolveMemberGender(target.unitType, existing.gender, nextRole);
