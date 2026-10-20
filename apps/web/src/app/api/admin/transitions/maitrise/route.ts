@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import {
     LEADERSHIP_ROLES, isLeadershipRole, isLeadershipRoleIn, isCouncilRole,
-    touchesCouncilRole, COUNCIL_ROLES, NON_MEMBER_UNIT_TYPES,
+    touchesCouncilRole, COUNCIL_ROLES, NON_MEMBER_UNIT_TYPES, UNIT_CONTAINER_NAME,
 } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -150,11 +150,37 @@ export async function POST(request: NextRequest) {
         const targetIds = [...new Set(moves.map(m => m.toUnitId))];
         const targetUnits = await prisma.unit.findMany({
             where: { id: { in: targetIds }, unitType: { notIn: [...NON_MEMBER_UNIT_TYPES] } },
-            select: { id: true, name: true },
+            select: { id: true, name: true, unitType: true },
         });
         if (targetUnits.length !== targetIds.length) {
             return NextResponse.json({ error: "One or more target units no longer exist or cannot hold members" }, { status: 400 });
         }
+
+        // The roster shows people by sub-group, so a new CM left in her youth
+        // équipe still looks like a Pionniere there. Unit maîtrise go into the
+        // home unit's maîtrise group for the branch they serve ("Meute",
+        // "Troupe"…), found by who already sits in it or else by its name.
+        const homeUnitIds = [...new Set(members.map(m => m.unitId))];
+        const homeSubgroups = await prisma.subgroup.findMany({
+            where: { unitId: { in: homeUnitIds } },
+            select: {
+                id: true, name: true, unitId: true,
+                members: {
+                    where: { status: "ACTIVE", servesUnitId: { not: null } },
+                    select: { servesUnit: { select: { unitType: true } } },
+                },
+            },
+        });
+        const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+        const maitriseSubgroupFor = (homeUnitId: string, servedUnitType: string): string | null => {
+            const container = UNIT_CONTAINER_NAME[servedUnitType];
+            if (!container) return null;
+            const inHome = homeSubgroups.filter(s => s.unitId === homeUnitId);
+            const byOccupants = inHome.find(s => s.members.some(m =>
+                m.servesUnit && UNIT_CONTAINER_NAME[m.servesUnit.unitType] === container));
+            if (byOccupants) return byOccupants.id;
+            return inHome.find(s => fold(s.name) === fold(container))?.id ?? null;
+        };
 
         const batchId = randomUUID();
         const batchLabel = `Maîtrise transfer — ${moves.length} leader${moves.length !== 1 ? "s" : ""}`;
@@ -170,7 +196,11 @@ export async function POST(request: NextRequest) {
                 // take over a unit, which is recorded as the unit they serve.
                 const nextHomeUnitId = council ? mv.toUnitId : before.unitId;
                 const nextServesUnitId = council ? null : mv.toUnitId;
-                const homeChanged = nextHomeUnitId !== before.unitId;
+                // A leader never stays in a youth sub-group: the conseil has none,
+                // and unit maîtrise join their maîtrise group, or are left
+                // unassigned when the home unit has no such group yet.
+                const servedType = targetUnits.find(u => u.id === mv.toUnitId)!.unitType;
+                const nextSubgroupId = council ? null : maitriseSubgroupFor(before.unitId, servedType);
 
                 await tx.member.update({
                     where: { id: mv.memberId },
@@ -178,8 +208,7 @@ export async function POST(request: NextRequest) {
                         unitId: nextHomeUnitId,
                         servesUnitId: nextServesUnitId,
                         role: mv.toRole,
-                        // A leader belongs to the unit, not to one of its sub-groups.
-                        subgroupId: homeChanged ? null : before.subgroupId,
+                        subgroupId: nextSubgroupId,
                     },
                 });
 
@@ -189,7 +218,7 @@ export async function POST(request: NextRequest) {
                         fromUnitId: before.unitId,
                         toUnitId: nextHomeUnitId,
                         fromSubgroupId: before.subgroupId,
-                        toSubgroupId: homeChanged ? null : before.subgroupId,
+                        toSubgroupId: nextSubgroupId,
                         fromRole: before.role,
                         toRole: mv.toRole,
                         fromProgression: before.progressions ?? [],
