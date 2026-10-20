@@ -323,6 +323,22 @@ export function allRolesOf(m: { role?: string | null; extraRoles?: string[] | nu
 }
 
 /**
+ * Which kind of unit each leadership role is about: a CT runs a Troupe, a CM a
+ * Meute, a CC a Clan, and the conseil sits at group level. The transfer form
+ * offers only these units, so an ACM cannot be pointed at a Clan by mistake.
+ */
+export const UNIT_TYPES_FOR_LEADERSHIP_ROLE: Record<string, string[]> = {
+    CT: ["ECLAIREURS", "ECLAIREUSES"],
+    ACT: ["ECLAIREURS", "ECLAIREUSES"],
+    CM: ["LOUVETEAUX", "LOUVETTES"],
+    ACM: ["LOUVETEAUX", "LOUVETTES"],
+    CC: ["ROUTIERS", "PIONNIERES"],
+    ACC: ["ROUTIERS", "PIONNIERES"],
+    CE: ["ROUTIERS", "PIONNIERES"],
+    ...Object.fromEntries(COUNCIL_ROLES.map(r => [r, ["GROUP"]])),
+};
+
+/**
  * Only the maîtrise roles a member holds. A Routier who is ACT of the Troupe
  * keeps his youth role (say SE of his équipe) as `role` and carries ACT in
  * `extraRoles`, so the primary role is judged in context and the extras are not.
@@ -463,4 +479,22 @@ export function progressionLabel(value: string): string {
     }
     // Fallback: humanize the raw value
     return value.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Units in scouting order — youngest branch first, leadership last — rather
+ * than alphabetically, which scattered a Meute, a Troupe and a Clan at random.
+ * Each boys' branch sits next to its girls' equivalent.
+ */
+export function compareUnitsByBranch(
+    a: { unitType: string; name: string },
+    b: { unitType: string; name: string }
+): number {
+    const order = (t: string) => {
+        const i = (UNIT_TYPES as readonly string[]).indexOf(t);
+        return i === -1 ? 99 : i;
+    };
+    // 0,3 → 0 · 1,4 → 1 · 2,5 → 2: Louveteaux with Louvettes, and so on.
+    const band = (t: string) => { const i = order(t); return i < 6 ? i % 3 : i; };
+    return band(a.unitType) - band(b.unitType) || order(a.unitType) - order(b.unitType) || a.name.localeCompare(b.name);
 }

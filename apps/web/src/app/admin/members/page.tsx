@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { Pencil, Trash2, Users, Star, ChevronRight, List, Search, Network, UserPlus, FolderPlus, X, FileSpreadsheet, FileText, Globe, TreePine, Compass, Mountain, Phone, Calendar, MapPin, History, ArrowUpRight } from "lucide-react";
-import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, UNIT_GENDER, UNIT_TYPES, progressionLabel, unitHoldsMembers, leadershipRolesOf } from "@/lib/scout-config";
+import { Pencil, Trash2, Users, Star, ChevronRight, List, Search, Network, UserPlus, FolderPlus, X, FileSpreadsheet, FileText, Globe, Phone, Calendar, MapPin, History, ArrowUpRight } from "lucide-react";
+import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, UNIT_GENDER, progressionLabel, unitHoldsMembers, leadershipRolesOf, compareUnitsByBranch, isCouncilRole } from "@/lib/scout-config";
+import { UNIT_THEME } from "@/lib/unit-theme";
 import { useUrlState } from "@/hooks/use-url-state";
 import { exportMembersToExcel, exportMembersToPDF } from "@/lib/export-members";
 
@@ -76,103 +77,7 @@ function lastMove(m: Member) {
     return withinRecentWindow(mv.moveDate) ? mv : null;
 }
 
-// Per-unit-type colors (for subgroup cards in members visual view)
-const UNIT_THEME: Record<string, {
-    headerBg: string;       // colored header bg of subgroup card
-    pageAccent: string;     // page hero accent background
-    chip: string;
-    iconBg: string;
-    icon: typeof Users;
-    leadChip: string;
-    assistantChip: string;
-    dot: string;            // solid swatch for the unit tabs
-}> = {
-    LOUVETEAUX: {
-        headerBg: "bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-50 border-b border-amber-200",
-        pageAccent: "bg-gradient-to-br from-amber-500 via-yellow-500 to-amber-600",
-        chip: "bg-yellow-100 text-yellow-800",
-        iconBg: "bg-amber-100 text-amber-700",
-        icon: TreePine,
-        leadChip: "bg-amber-500 text-white",
-        assistantChip: "bg-amber-100 text-amber-700",
-        dot: "bg-amber-500",
-    },
-    ECLAIREURS: {
-        headerBg: "bg-gradient-to-br from-emerald-100 via-green-50 to-emerald-50 border-b border-emerald-200",
-        pageAccent: "bg-gradient-to-br from-emerald-600 via-green-700 to-emerald-800",
-        chip: "bg-emerald-100 text-emerald-800",
-        iconBg: "bg-emerald-100 text-emerald-700",
-        icon: Compass,
-        leadChip: "bg-emerald-600 text-white",
-        assistantChip: "bg-emerald-100 text-emerald-700",
-        dot: "bg-emerald-600",
-    },
-    ROUTIERS: {
-        headerBg: "bg-gradient-to-br from-rose-100 via-red-50 to-rose-50 border-b border-rose-200",
-        pageAccent: "bg-gradient-to-br from-red-500 via-rose-600 to-red-700",
-        chip: "bg-rose-100 text-rose-800",
-        iconBg: "bg-rose-100 text-rose-700",
-        icon: Mountain,
-        leadChip: "bg-rose-600 text-white",
-        assistantChip: "bg-rose-100 text-rose-700",
-        dot: "bg-rose-600",
-    },
-    // ─── Girls track ─────────────────────────────────────────────────────────
-    LOUVETTES: {
-        headerBg: "bg-gradient-to-br from-teal-100 via-cyan-50 to-teal-50 border-b border-teal-200",
-        pageAccent: "bg-gradient-to-br from-teal-500 via-cyan-500 to-teal-600",
-        chip: "bg-teal-100 text-teal-800",
-        iconBg: "bg-teal-100 text-teal-700",
-        icon: TreePine,
-        leadChip: "bg-teal-500 text-white",
-        assistantChip: "bg-teal-100 text-teal-700",
-        dot: "bg-teal-500",
-    },
-    ECLAIREUSES: {
-        headerBg: "bg-gradient-to-br from-violet-100 via-purple-50 to-violet-50 border-b border-violet-200",
-        pageAccent: "bg-gradient-to-br from-violet-600 via-purple-700 to-violet-800",
-        chip: "bg-violet-100 text-violet-800",
-        iconBg: "bg-violet-100 text-violet-700",
-        icon: Compass,
-        leadChip: "bg-violet-600 text-white",
-        assistantChip: "bg-violet-100 text-violet-700",
-        dot: "bg-violet-600",
-    },
-    PIONNIERES: {
-        headerBg: "bg-gradient-to-br from-pink-100 via-fuchsia-50 to-pink-50 border-b border-pink-200",
-        pageAccent: "bg-gradient-to-br from-pink-500 via-fuchsia-600 to-pink-700",
-        chip: "bg-pink-100 text-pink-800",
-        iconBg: "bg-pink-100 text-pink-700",
-        icon: Mountain,
-        leadChip: "bg-pink-600 text-white",
-        assistantChip: "bg-pink-100 text-pink-700",
-        dot: "bg-pink-600",
-    },
-    GROUP: {
-        headerBg: "bg-gradient-to-br from-primary/5 to-transparent border-b border-border",
-        pageAccent: "bg-gradient-to-br from-primary via-primary to-emerald-700",
-        chip: "bg-primary/10 text-primary",
-        iconBg: "bg-primary/10 text-primary",
-        icon: Users,
-        leadChip: "bg-primary text-white",
-        assistantChip: "bg-primary/10 text-primary",
-        dot: "bg-primary",
-    },
-};
-
-/**
- * Units in scouting order — youngest branch first, leadership last — rather
- * than alphabetically, which scattered a Meute, a Troupe and a Clan at random.
- */
-function byBranch(a: Unit, b: Unit): number {
-    const order = (t: string) => {
-        const i = (UNIT_TYPES as readonly string[]).indexOf(t);
-        return i === -1 ? 99 : i;
-    };
-    // Pair each boys' branch with its girls' equivalent: 0,3 → 0 · 1,4 → 1 · 2,5 → 2.
-    const band = (t: string) => { const i = order(t); return i < 6 ? i % 3 : i; };
-    return band(a.unitType) - band(b.unitType) || order(a.unitType) - order(b.unitType) || a.name.localeCompare(b.name);
-}
+const byBranch = compareUnitsByBranch;
 
 // Sort priority for roles in a subgroup
 function roleSortIndex(role: string | null, labels: { lead: string; assistant: string }): number {
@@ -457,13 +362,22 @@ export default function AdminMembersPage() {
                                 />
                             )}
 
-                            <UnitMaitrise
-                                unit={activeUnit}
-                                leaders={members.filter(m => m.servesUnitId === activeUnit.id)}
-                                onPreview={openPreview}
-                            />
+                            {activeUnit.unitType !== "GROUP" && (
+                                <UnitMaitrise
+                                    unit={activeUnit}
+                                    leaders={members.filter(m => m.servesUnitId === activeUnit.id)}
+                                    onPreview={openPreview}
+                                />
+                            )}
 
-                            {view === "visual" ? (
+                            {view === "visual" && activeUnit.unitType === "GROUP" ? (
+                                <MaitriseOverview
+                                    groupUnit={activeUnit}
+                                    members={rosterMembers}
+                                    units={rosterUnits}
+                                    onPreview={openPreview}
+                                />
+                            ) : view === "visual" ? (
                                 <VisualView
                                     unit={activeUnit}
                                     subgroups={unitSubgroups}
@@ -915,20 +829,73 @@ function MaitriseTag({ member, units }: { member: Member; units: Unit[] }) {
     );
 }
 
+/**
+ * The group-level unit ("Maitrises") as the whole maîtrise at a glance: the
+ * conseil, then every unit with the leaders who run it. Most unit leaders live
+ * in the Routiers / Pionnieres, so a roster of this unit's own members alone
+ * would miss nearly all of them.
+ */
+function MaitriseOverview({ groupUnit, members, units, onPreview }: {
+    groupUnit: Unit;
+    members: Member[];
+    units: Unit[];
+    onPreview: (id: string) => void;
+}) {
+    const rolesOf = (m: Member) => leadershipRolesOf(m, m.unit.unitType);
+    const council = members.filter(m => rolesOf(m).some(isCouncilRole));
+    const served = units.filter(u => u.unitType !== "GROUP");
+    const shown = new Set([
+        ...council.map(m => m.id),
+        ...members.filter(m => served.some(u => u.id === m.servesUnitId)).map(m => m.id),
+    ]);
+    // Anyone else who lives here: usually a leader whose unit was never set.
+    const unplaced = members.filter(m => m.unitId === groupUnit.id && !shown.has(m.id));
+
+    return (
+        <div className="space-y-5">
+            <UnitMaitrise unit={groupUnit} title="Conseil" leaders={council} onPreview={onPreview} />
+            <div className="grid md:grid-cols-2 gap-5">
+                {served.map(u => (
+                    <UnitMaitrise
+                        key={u.id}
+                        unit={u}
+                        title={u.name}
+                        leaders={members.filter(m => m.servesUnitId === u.id)}
+                        onPreview={onPreview}
+                        showEmpty
+                    />
+                ))}
+            </div>
+            {unplaced.length > 0 && (
+                <UnitMaitrise
+                    unit={groupUnit}
+                    title="Unit not set"
+                    hint="These leaders are not linked to the unit they run. Set it in Transitions → Maîtrise."
+                    leaders={unplaced}
+                    onPreview={onPreview}
+                />
+            )}
+        </div>
+    );
+}
+
 /** Assistants (ACT, ACM…) after the chief they assist. */
-const isAssistantRole = (role: string) => role.startsWith("A");
+const isAssistantRole = (role: string) => ["ACT", "ACM", "ACC", "ACG"].includes(role);
 
 /**
  * The leaders who run this unit — its CC, CT, ACTs… They usually belong to
  * another unit (a CT is a Routier), so they never appear in this roster's
  * sub-groups, only here.
  */
-function UnitMaitrise({ unit, leaders, onPreview }: {
+function UnitMaitrise({ unit, leaders, onPreview, title = "Maîtrise", hint, showEmpty = false }: {
     unit: Unit;
     leaders: Member[];
     onPreview: (id: string) => void;
+    title?: string;
+    hint?: string;
+    showEmpty?: boolean;
 }) {
-    if (leaders.length === 0) return null;
+    if (leaders.length === 0 && !showEmpty) return null;
     const theme = UNIT_THEME[unit.unitType] || UNIT_THEME.GROUP;
     const roleHere = (m: Member) => leadershipRolesOf(m, m.unit.unitType).find(r => !isAssistantRole(r))
         ?? leadershipRolesOf(m, m.unit.unitType)[0] ?? "";
@@ -939,12 +906,16 @@ function UnitMaitrise({ unit, leaders, onPreview }: {
     return (
         <div className="bg-card border rounded-2xl overflow-hidden">
             <div className={`px-5 py-3 ${theme.headerBg} flex items-center justify-between`}>
-                <h3 className="font-extrabold">Maîtrise</h3>
+                <h3 className="font-extrabold">{title}</h3>
                 <span className="text-xs text-muted-foreground font-medium">
                     {leaders.length} leader{leaders.length !== 1 ? "s" : ""}
                 </span>
             </div>
-            <div className="p-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-1">
+            {hint && <p className="px-5 pt-3 text-xs text-muted-foreground">{hint}</p>}
+            {leaders.length === 0 && (
+                <p className="p-5 text-xs text-muted-foreground italic text-center">No maîtrise assigned yet.</p>
+            )}
+            <div className="p-3 grid sm:grid-cols-2 gap-1 empty:hidden">
                 {sorted.map(m => {
                     const role = roleHere(m);
                     const lead = !isAssistantRole(role);
@@ -965,7 +936,9 @@ function UnitMaitrise({ unit, leaders, onPreview }: {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm font-semibold truncate">{m.firstName} {m.lastName}</div>
-                                <div className="text-[11px] text-muted-foreground truncate">{m.unit.name}</div>
+                                <div className="text-[11px] text-muted-foreground truncate">
+                                    {m.unitId === unit.id ? (m.subgroup?.name ?? "") : m.unit.name}
+                                </div>
                             </div>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 inline-flex items-center gap-1 ${
                                 lead ? theme.leadChip : theme.assistantChip

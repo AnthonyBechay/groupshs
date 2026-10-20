@@ -1,14 +1,16 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-    ArrowRight, Users, AlertTriangle, CheckCircle2, Undo2, Calendar,
-    Info, RefreshCw, History, ChevronRight, Loader2, ShieldCheck,
+    ArrowRight, AlertTriangle, CheckCircle2, Calendar, Info, Loader2, ChevronDown, Settings2, Users,
 } from "lucide-react";
-import { unitTypeLabel, UNIT_CONTAINER_NAME, unitHoldsMembers } from "@/lib/scout-config";
-import { REASON_LABEL, type EligibilityReason } from "@/lib/age-transition";
+import { unitTypeLabel, UNIT_CONTAINER_NAME, compareUnitsByBranch } from "@/lib/scout-config";
+import { REASON_LABEL, TRANSITION_PATH, type EligibilityReason } from "@/lib/age-transition";
+import { unitTheme } from "@/lib/unit-theme";
 import { useUrlState } from "@/hooks/use-url-state";
+import { BatchHistory } from "./batch-history";
 
 type Unit = { id: string; name: string; unitType: string };
 
@@ -33,21 +35,18 @@ type Preview = {
     counts: { total: number; eligible: number };
 };
 
-type Batch = {
-    batchId: string; batchLabel: string | null; moveDate: string; notes: string | null;
-    memberCount: number; revertedCount: number; members: string[];
-    fullyReverted: boolean; partiallyReverted: boolean;
-};
+/** Units whose members can move up — the final branches leave instead. */
+const canMoveUp = (u: Unit) => !!TRANSITION_PATH[u.unitType];
 
 export function MoveUpTab() {
-    const [units, setUnits] = useState<Unit[]>([]);
     // Which unit is being reviewed survives a refresh via the URL.
     const { params, setParams } = useUrlState();
     const unitId = params.get("unit") ?? "";
     const setUnitId = (id: string) => setParams({ unit: id || null });
-    const [preview, setPreview] = useState<Preview | null>(null);
+
+    const [units, setUnits] = useState<Unit[]>([]);
+    const [previews, setPreviews] = useState<Record<string, Preview>>({});
     const [loading, setLoading] = useState(true);
-    const [loadingPreview, setLoadingPreview] = useState(false);
 
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [destinations, setDestinations] = useState<Record<string, string>>({});
@@ -55,55 +54,46 @@ export function MoveUpTab() {
     const [clearRole, setClearRole] = useState(true);
     const [clearSubgroup, setClearSubgroup] = useState(true);
     const [resetProgressions, setResetProgressions] = useState(true);
+    const [showOptions, setShowOptions] = useState(false);
     const [notes, setNotes] = useState("");
 
     const [confirming, setConfirming] = useState(false);
     const [executing, setExecuting] = useState(false);
     const [result, setResult] = useState<{ movedCount: number; batchLabel: string } | null>(null);
     const [error, setError] = useState("");
+    const [historyKey, setHistoryKey] = useState(0);
 
-    const [batches, setBatches] = useState<Batch[]>([]);
-    const [showHistory, setShowHistory] = useState(false);
+    const movable = useMemo(() => units.filter(canMoveUp).sort(compareUnitsByBranch), [units]);
 
+    // Every movable unit is previewed up front, so the overview can say how many
+    // are due in each before anyone clicks.
+    const loadAll = useCallback(async () => {
+        const res = await fetch("/api/admin/units");
+        const list: Unit[] = res.ok ? await res.json() : [];
+        setUnits(list);
+        const entries = await Promise.all(list.filter(canMoveUp).map(async u => {
+            const r = await fetch(`/api/admin/transitions/preview?unitId=${u.id}`);
+            return r.ok ? [u.id, await r.json() as Preview] as const : null;
+        }));
+        setPreviews(Object.fromEntries(entries.filter((e): e is readonly [string, Preview] => !!e)));
+        setLoading(false);
+    }, []);
+
+     
+    useEffect(() => { loadAll(); }, [loadAll]);
+
+    const preview = unitId ? previews[unitId] ?? null : null;
+
+    // Selecting a unit pre-ticks everyone due and sends them to the first
+    // destination; most branches have exactly one.
     useEffect(() => {
-        (async () => {
-            const res = await fetch("/api/admin/units");
-            if (res.ok) setUnits(await res.json());
-            setLoading(false);
-        })();
-    }, []);
-
-    const loadBatches = useCallback(async () => {
-        const res = await fetch("/api/admin/transitions/batches");
-        if (res.ok) setBatches(await res.json());
-    }, []);
-
-    useEffect(() => { loadBatches(); }, [loadBatches]);
-
-    const loadPreview = useCallback(async (id: string) => {
-        if (!id) { setPreview(null); return; }
-        setLoadingPreview(true);
-        setError("");
-        setResult(null);
-        try {
-            const res = await fetch(`/api/admin/transitions/preview?unitId=${id}`);
-            if (!res.ok) {
-                const e = await res.json().catch(() => ({}));
-                setError(e.error || "Could not load the preview");
-                setPreview(null);
-                return;
-            }
-            const data: Preview = await res.json();
-            setPreview(data);
-            const defaultTarget = data.targetUnits[0]?.id ?? "";
-            setSelected(new Set(data.candidates.map(c => c.id)));
-            setDestinations(Object.fromEntries(data.candidates.map(c => [c.id, defaultTarget])));
-        } finally {
-            setLoadingPreview(false);
-        }
-    }, []);
-
-    useEffect(() => { loadPreview(unitId); }, [unitId, loadPreview]);
+        if (!preview) return;
+        const defaultTarget = preview.targetUnits[0]?.id ?? "";
+         
+        setSelected(new Set(preview.candidates.map(c => c.id)));
+        setDestinations(Object.fromEntries(preview.candidates.map(c => [c.id, defaultTarget])));
+        setConfirming(false);
+    }, [preview]);
 
     const selectedList = useMemo(
         () => (preview?.candidates ?? []).filter(c => selected.has(c.id)),
@@ -111,6 +101,14 @@ export function MoveUpTab() {
     );
     const missingDestination = selectedList.some(c => !destinations[c.id]);
     const canExecute = selectedList.length > 0 && !missingDestination && !executing;
+
+    const destinationSummary = useMemo(() => {
+        if (!preview) return "";
+        const names = [...new Set(selectedList.map(c => destinations[c.id]))]
+            .map(id => preview.targetUnits.find(t => t.id === id)?.name)
+            .filter(Boolean);
+        return names.join(" & ");
+    }, [preview, selectedList, destinations]);
 
     function toggle(id: string) {
         setSelected(prev => {
@@ -125,6 +123,12 @@ export function MoveUpTab() {
         setSelected(prev =>
             prev.size === preview.candidates.length ? new Set() : new Set(preview.candidates.map(c => c.id))
         );
+    }
+
+    function pick(id: string) {
+        setResult(null);
+        setError("");
+        setUnitId(id === unitId ? "" : id);
     }
 
     async function execute() {
@@ -146,7 +150,9 @@ export function MoveUpTab() {
             if (!res.ok) { setError(data.error || "The promotion failed"); return; }
             setResult({ movedCount: data.movedCount, batchLabel: data.batchLabel });
             setConfirming(false);
-            await Promise.all([loadPreview(preview.unit.id), loadBatches()]);
+            setNotes("");
+            setHistoryKey(k => k + 1);
+            await loadAll();
         } catch {
             setError("The promotion failed");
         } finally {
@@ -154,105 +160,82 @@ export function MoveUpTab() {
         }
     }
 
-    async function revert(batch: Batch) {
-        const dry = await fetch(`/api/admin/transitions/batches/${batch.batchId}/revert`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ dryRun: true }),
-        });
-        const plan = await dry.json();
-        if (!plan.willRevert) { alert(plan.error || "This batch cannot be reverted."); return; }
-
-        const lines = [
-            `Revert "${batch.batchLabel ?? "promotion"}"?`,
-            "",
-            `${plan.willRevert.length} member(s) will be moved back to their previous unit, role, sub-group and progressions.`,
-        ];
-        if (plan.skipped?.length) {
-            lines.push("", `${plan.skipped.length} will be SKIPPED:`);
-            for (const s of plan.skipped.slice(0, 8)) lines.push(`  • ${s.name} — ${s.reason}`);
-        }
-        if (!confirm(lines.join("\n"))) return;
-
-        const res = await fetch(`/api/admin/transitions/batches/${batch.batchId}/revert`, { method: "POST" });
-        const data = await res.json();
-        if (!res.ok) { alert(data.error || "Revert failed"); return; }
-        await Promise.all([loadBatches(), unitId ? loadPreview(unitId) : Promise.resolve()]);
-        alert(`Reverted ${data.reverted} member(s).`);
+    if (loading) {
+        return (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Checking every unit…
+            </p>
+        );
     }
 
-    if (loading) return <p className="text-muted-foreground">Loading…</p>;
+    const fiscalYear = Object.values(previews)[0]?.fiscalYear.label;
+    const totalDue = Object.values(previews).reduce((n, p) => n + p.counts.eligible, 0);
 
     return (
-        <div className="space-y-5">
-            <div className="flex justify-end">
-                <Button variant="outline" size="sm" onClick={() => setShowHistory(h => !h)} className="gap-2">
-                    <History className="w-4 h-4" /> History ({batches.length})
-                </Button>
-            </div>
-
-            {showHistory && (
-                <div className="rounded-2xl border bg-card overflow-hidden">
-                    <div className="px-4 py-3 border-b bg-muted/30">
-                        <h2 className="text-sm font-bold flex items-center gap-2">
-                            <History className="w-4 h-4 text-primary" /> Past transitions
-                        </h2>
+        <div className="space-y-5 pb-24">
+            {/* ── Step 1: the whole group at a glance ── */}
+            <div className="rounded-2xl border bg-card p-5 space-y-4">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                        <h2 className="text-base font-bold">Who moves up this year?</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" />
+                            Fiscal year <strong className="text-foreground">{fiscalYear ?? "—"}</strong>
+                            {" · "}{totalDue} member{totalDue !== 1 ? "s" : ""} due across the group
+                        </p>
                     </div>
-                    {batches.length === 0 ? (
-                        <p className="p-6 text-sm text-muted-foreground text-center">Nothing has been run yet.</p>
-                    ) : (
-                        <div className="divide-y">
-                            {batches.map(b => (
-                                <div key={b.batchId} className="p-4 flex flex-wrap items-center gap-3">
-                                    <div className="flex-1 min-w-[240px]">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="font-semibold text-sm">{b.batchLabel ?? "Transition"}</span>
-                                            {b.fullyReverted && (
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">REVERTED</span>
-                                            )}
-                                            {b.partiallyReverted && (
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">PARTLY REVERTED</span>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                            {new Date(b.moveDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                                            {" · "}{b.memberCount} member{b.memberCount !== 1 ? "s" : ""}
-                                            {b.revertedCount > 0 && ` · ${b.revertedCount} reverted`}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground mt-1 truncate">
-                                            {b.members.join(", ")}{b.memberCount > b.members.length ? " …" : ""}
-                                        </p>
-                                    </div>
-                                    {!b.fullyReverted && (
-                                        <Button variant="outline" size="sm" className="gap-1.5 text-destructive" onClick={() => revert(b)}>
-                                            <Undo2 className="w-3.5 h-3.5" /> Revert
-                                        </Button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    <Link href="/admin/settings" className="text-xs text-primary underline underline-offset-4">
+                        Change the age rules →
+                    </Link>
                 </div>
-            )}
 
-            <div className="rounded-2xl border bg-card p-5 space-y-3">
-                <label className="text-sm font-semibold">Which unit are you moving up from?</label>
-                <div className="flex flex-wrap gap-2">
-                    {units.filter(u => unitHoldsMembers(u.unitType)).map(u => (
-                        <button
-                            key={u.id}
-                            onClick={() => setUnitId(u.id)}
-                            className={`px-3.5 py-2 rounded-xl border text-sm font-medium transition-colors ${
-                                unitId === u.id ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"
-                            }`}
-                        >
-                            {u.name}
-                            <span className={`ml-2 text-[10px] ${unitId === u.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                                {unitTypeLabel(u.unitType)}
-                            </span>
-                        </button>
-                    ))}
-                </div>
+                {movable.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No unit can move up yet — create a Meute or a Troupe in Units.</p>
+                ) : (
+                    <div className="grid sm:grid-cols-2 gap-3">
+                        {movable.map(u => {
+                            const p = previews[u.id];
+                            const theme = unitTheme(u.unitType);
+                            const noDob = p?.others.filter(o => o.reason === "NO_DOB").length ?? 0;
+                            const target = p?.targetUnits.map(t => t.name).join(" / ")
+                                || unitTypeLabel(TRANSITION_PATH[u.unitType] ?? "");
+                            const active = u.id === unitId;
+                            return (
+                                <button
+                                    key={u.id}
+                                    type="button"
+                                    onClick={() => pick(u.id)}
+                                    aria-pressed={active}
+                                    className={`text-left rounded-xl border overflow-hidden transition-all ${
+                                        active ? "ring-2 ring-primary border-primary shadow-md" : "hover:shadow-sm hover:border-foreground/20"
+                                    }`}
+                                >
+                                    <div className={`${theme.headerBg} px-4 py-3 flex items-center gap-3`}>
+                                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${theme.dot}`} />
+                                        <span className="font-bold text-sm truncate">{u.name}</span>
+                                        <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                        <span className="text-sm text-muted-foreground truncate">{target}</span>
+                                    </div>
+                                    <div className="px-4 py-3 flex items-end justify-between gap-3">
+                                        <div>
+                                            <span className="text-2xl font-black">{p?.counts.eligible ?? "–"}</span>
+                                            <span className="text-xs text-muted-foreground ml-1.5">due of {p?.counts.total ?? 0}</span>
+                                        </div>
+                                        {noDob > 0 && (
+                                            <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                                <AlertTriangle className="w-3.5 h-3.5" /> {noDob} without a birth date
+                                            </span>
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                    <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    Routiers and Pionnières are the last branches: they leave through the Leaving tab. Leaders move through the Maîtrise tab.
+                </p>
             </div>
 
             {error && (
@@ -270,207 +253,240 @@ export function MoveUpTab() {
                             Moved {result.movedCount} member{result.movedCount !== 1 ? "s" : ""}.
                         </p>
                         <p className="text-xs text-emerald-800/80 dark:text-emerald-400/80 mt-0.5">
-                            {result.batchLabel} — you can undo this from History.
+                            {result.batchLabel} — you can undo it from History below.
                         </p>
                     </div>
                 </div>
             )}
 
-            {loadingPreview && (
-                <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Checking who is due to move…
-                </p>
-            )}
+            {/* ── Step 2: the selected unit ── */}
+            {preview && <UnitReview
+                preview={preview}
+                selected={selected}
+                destinations={destinations}
+                onToggle={toggle}
+                onToggleAll={toggleAll}
+                onDestination={(id, to) => setDestinations(d => ({ ...d, [id]: to }))}
+                onDestinationAll={to => setDestinations(Object.fromEntries(preview.candidates.map(c => [c.id, to])))}
+            />}
 
-            {preview && !loadingPreview && (
-                <>
-                    <div className="rounded-2xl border bg-muted/20 p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                        <span className="flex items-center gap-1.5">
-                            <Calendar className="w-4 h-4 text-primary" /> Fiscal year <strong>{preview.fiscalYear.label}</strong>
-                        </span>
-                        {preview.candidates[0]?.threshold != null && (
-                            <span className="flex items-center gap-1.5">
-                                <Info className="w-4 h-4 text-primary" /> Moves up at age <strong>{preview.candidates[0].threshold}</strong>
-                            </span>
+            <BatchHistory
+                refreshKey={historyKey}
+                filter={label => !label.startsWith("Maîtrise")}
+                onReverted={loadAll}
+            />
+
+            {/* ── Step 3: one action bar, always in reach ── */}
+            {preview && preview.candidates.length > 0 && (
+                <div className="fixed bottom-0 inset-x-0 z-30 border-t bg-background/95 backdrop-blur shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+                    <div className="container mx-auto px-4 py-3 space-y-3">
+                        {showOptions && (
+                            <div className="grid sm:grid-cols-3 gap-3 pb-3 border-b">
+                                <Check label="Clear their role" hint="A Sizenier is not a Sizenier in the Troupe." checked={clearRole} onChange={setClearRole} />
+                                <Check label={`Leave their ${UNIT_CONTAINER_NAME[preview.unit.unitType] ?? "unit"} group`} hint="Sub-groups belong to one unit." checked={clearSubgroup} onChange={setClearSubgroup} />
+                                <Check label="Reset progressions" hint="Badges restart in the new branch." checked={resetProgressions} onChange={setResetProgressions} />
+                                <input
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    placeholder="Note (optional) — e.g. End-of-year promotion"
+                                    className="sm:col-span-3 h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                />
+                            </div>
                         )}
-                        <span className="flex items-center gap-1.5">
-                            <Users className="w-4 h-4 text-primary" />
-                            <strong>{preview.counts.eligible}</strong> of {preview.counts.total} due to move
-                        </span>
-                        <a href="/admin/settings" className="text-xs text-primary underline underline-offset-4 ml-auto">
-                            Change the rules →
-                        </a>
-                    </div>
-
-                    {!preview.targetUnitType ? (
-                        <div className="rounded-2xl border border-dashed p-8 text-center">
-                            <ShieldCheck className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-                            <p className="text-sm text-muted-foreground">
-                                <strong>{unitTypeLabel(preview.unit.unitType)}</strong> is the final branch — there is nowhere to move up to.
-                                Members finishing here leave the group via the <strong>Leaving</strong> tab.
-                            </p>
-                        </div>
-                    ) : preview.targetUnits.length === 0 ? (
-                        <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/50 p-6 text-center">
-                            <AlertTriangle className="w-7 h-7 text-amber-600 mx-auto mb-2" />
-                            <p className="text-sm font-medium text-amber-900 dark:text-amber-300">
-                                No {unitTypeLabel(preview.targetUnitType)} unit exists yet.
-                            </p>
-                            <p className="text-xs text-amber-800/80 dark:text-amber-400/80 mt-1">
-                                Create one in <a href="/admin/units" className="underline underline-offset-2">Units</a> before moving anyone up.
-                            </p>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="rounded-2xl border bg-card overflow-hidden">
-                                <div className="px-4 py-3 border-b bg-muted/30 flex flex-wrap items-center justify-between gap-3">
-                                    <h2 className="text-sm font-bold flex items-center gap-2">
-                                        <ArrowRight className="w-4 h-4 text-primary" />
-                                        Due to move to {unitTypeLabel(preview.targetUnitType)}
-                                        <span className="text-muted-foreground font-normal">({preview.candidates.length})</span>
-                                    </h2>
-                                    {preview.candidates.length > 0 && (
-                                        <div className="flex items-center gap-3">
-                                            {preview.targetUnits.length > 1 && (
-                                                <select
-                                                    onChange={e => {
-                                                        if (!e.target.value) return;
-                                                        setDestinations(Object.fromEntries(preview.candidates.map(c => [c.id, e.target.value])));
-                                                    }}
-                                                    defaultValue=""
-                                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                                                >
-                                                    <option value="">Send all to…</option>
-                                                    {preview.targetUnits.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                </select>
-                                            )}
-                                            <button onClick={toggleAll} className="text-xs text-primary underline underline-offset-4">
-                                                {selected.size === preview.candidates.length ? "Deselect all" : "Select all"}
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {preview.candidates.length === 0 ? (
-                                    <p className="p-8 text-sm text-muted-foreground text-center">
-                                        Nobody in {preview.unit.name} is due to move up this fiscal year.
-                                    </p>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex-1 min-w-[200px] text-sm">
+                                {selectedList.length === 0 ? (
+                                    <span className="text-muted-foreground">Tick the members to move.</span>
+                                ) : missingDestination ? (
+                                    <span className="text-destructive font-medium">Choose a destination for everyone ticked.</span>
+                                ) : confirming ? (
+                                    <span className="font-semibold">
+                                        Move {selectedList.length} from {preview.unit.name} to {destinationSummary}? You can undo it afterwards.
+                                    </span>
                                 ) : (
-                                    <div className="divide-y">
-                                        {preview.candidates.map(c => (
-                                            <div key={c.id} className="p-3.5 flex flex-wrap items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selected.has(c.id)}
-                                                    onChange={() => toggle(c.id)}
-                                                    className="w-4 h-4 accent-primary shrink-0"
-                                                />
-                                                <div className="flex-1 min-w-[180px]">
-                                                    <p className="text-sm font-semibold">{c.firstName} {c.lastName}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Turns {c.ageReached} this year
-                                                        {c.role && ` · ${c.role}`}
-                                                        {c.subgroupName && ` · ${c.subgroupName}`}
-                                                    </p>
-                                                </div>
-                                                <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0" />
-                                                <select
-                                                    value={destinations[c.id] ?? ""}
-                                                    onChange={e => setDestinations(d => ({ ...d, [c.id]: e.target.value }))}
-                                                    className="h-9 rounded-md border border-input bg-background px-2 text-sm min-w-[160px]"
-                                                >
-                                                    <option value="">Select a unit…</option>
-                                                    {preview.targetUnits.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                </select>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <span>
+                                        <strong>{selectedList.length}</strong> selected
+                                        <ArrowRight className="w-3.5 h-3.5 inline mx-1.5 text-muted-foreground" />
+                                        <strong>{destinationSummary}</strong>
+                                    </span>
                                 )}
                             </div>
-
-                            {preview.candidates.length > 0 && (
-                                <div className="rounded-2xl border bg-card p-5 space-y-4">
-                                    <h2 className="text-sm font-bold">What happens on arrival</h2>
-                                    <div className="space-y-2.5">
-                                        <Check label="Clear their current role" hint="A Sizenier does not stay a Sizenier in the Troupe." checked={clearRole} onChange={setClearRole} />
-                                        <Check label={`Remove them from their ${UNIT_CONTAINER_NAME[preview.unit.unitType] ?? "unit"} sub-group`} hint="Sub-groups belong to a single unit." checked={clearSubgroup} onChange={setClearSubgroup} />
-                                        <Check label="Reset progressions" hint="Branch badges restart in the new branch." checked={resetProgressions} onChange={setResetProgressions} />
-                                    </div>
-                                    <p className="text-xs text-muted-foreground flex items-start gap-1.5 border-t pt-3">
-                                        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-primary" />
-                                        Previous values are saved on each member&apos;s move record, so nothing is lost and a revert restores them exactly.
-                                    </p>
-
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Note (optional)</label>
-                                        <input
-                                            value={notes}
-                                            onChange={e => setNotes(e.target.value)}
-                                            placeholder="e.g. End-of-year promotion"
-                                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                        />
-                                    </div>
-
-                                    {missingDestination && (
-                                        <p className="text-xs text-destructive font-medium">Every selected member needs a destination unit.</p>
-                                    )}
-
-                                    {!confirming ? (
-                                        <Button disabled={!canExecute} onClick={() => setConfirming(true)} className="gap-2">
-                                            <ArrowRight className="w-4 h-4" />
-                                            Move {selectedList.length} member{selectedList.length !== 1 ? "s" : ""} up
-                                        </Button>
-                                    ) : (
-                                        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
-                                            <p className="text-sm font-semibold">
-                                                Move {selectedList.length} member{selectedList.length !== 1 ? "s" : ""} out of {preview.unit.name}?
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                This updates their unit immediately. You can undo the whole batch from History.
-                                            </p>
-                                            <div className="flex gap-2">
-                                                <Button onClick={execute} disabled={executing} className="gap-2">
-                                                    {executing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                                    {executing ? "Moving…" : "Yes, move them"}
-                                                </Button>
-                                                <Button variant="outline" onClick={() => setConfirming(false)} disabled={executing}>Cancel</Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                            {!confirming && (
+                                <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setShowOptions(o => !o)}>
+                                    <Settings2 className="w-4 h-4" /> Options
+                                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showOptions ? "rotate-180" : ""}`} />
+                                </Button>
                             )}
-                        </>
-                    )}
+                            {confirming ? (
+                                <>
+                                    <Button variant="outline" onClick={() => setConfirming(false)} disabled={executing}>Cancel</Button>
+                                    <Button onClick={execute} disabled={executing} className="gap-2">
+                                        {executing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                        {executing ? "Moving…" : "Yes, move them"}
+                                    </Button>
+                                </>
+                            ) : (
+                                <Button disabled={!canExecute} onClick={() => setConfirming(true)} className="gap-2">
+                                    <ArrowRight className="w-4 h-4" />
+                                    Move {selectedList.length} up
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
-                    {preview.others.length > 0 && (
-                        <details className="rounded-2xl border bg-card overflow-hidden">
-                            <summary className="px-4 py-3 bg-muted/30 cursor-pointer text-sm font-bold select-none flex items-center gap-2">
-                                <Users className="w-4 h-4 text-muted-foreground" />
-                                Staying in {preview.unit.name} ({preview.others.length})
-                            </summary>
-                            <div className="divide-y">
-                                {preview.others.map(o => (
-                                    <div key={o.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                                        <span className="text-sm">
-                                            {o.firstName} {o.lastName}
-                                            {o.role && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{o.role}</span>}
-                                        </span>
-                                        <span className={`text-xs ${o.reason === "NO_DOB" ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                                            {o.ageNow != null && `${o.ageNow}y · `}{REASON_LABEL[o.reason]}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </details>
-                    )}
-                </>
+function UnitReview({
+    preview, selected, destinations, onToggle, onToggleAll, onDestination, onDestinationAll,
+}: {
+    preview: Preview;
+    selected: Set<string>;
+    destinations: Record<string, string>;
+    onToggle: (id: string) => void;
+    onToggleAll: () => void;
+    onDestination: (memberId: string, unitId: string) => void;
+    onDestinationAll: (unitId: string) => void;
+}) {
+    const theme = unitTheme(preview.unit.unitType);
+    const threshold = preview.candidates[0]?.threshold ?? preview.others.find(o => o.threshold != null)?.threshold;
+    const noDob = preview.others.filter(o => o.reason === "NO_DOB");
+    const staying = preview.others.filter(o => o.reason !== "NO_DOB");
+    const multipleTargets = preview.targetUnits.length > 1;
+    const allTicked = selected.size === preview.candidates.length;
+
+    return (
+        <div className="space-y-4">
+            <div className={`rounded-2xl ${theme.pageAccent} text-white p-5`}>
+                <p className="text-xs font-bold uppercase tracking-widest text-white/70">Moving up from</p>
+                <h2 className="text-2xl font-black">{preview.unit.name}</h2>
+                <p className="text-sm text-white/85 mt-1">
+                    {threshold != null ? <>Members who turn <strong>{threshold}</strong> during {preview.fiscalYear.label} move to </> : "Members move to "}
+                    <strong>{preview.targetUnits.map(t => t.name).join(" or ") || unitTypeLabel(preview.targetUnitType ?? "")}</strong>.
+                </p>
+            </div>
+
+            {preview.targetUnits.length === 0 ? (
+                <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/50 p-6 text-center">
+                    <AlertTriangle className="w-7 h-7 text-amber-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-300">
+                        No {unitTypeLabel(preview.targetUnitType ?? "")} unit exists yet.
+                    </p>
+                    <p className="text-xs text-amber-800/80 dark:text-amber-400/80 mt-1">
+                        Create one in <Link href="/admin/units" className="underline underline-offset-2">Units</Link> before moving anyone up.
+                    </p>
+                </div>
+            ) : null}
+
+            {noDob.length > 0 && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/50 p-4">
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        {noDob.length} member{noDob.length !== 1 ? "s have" : " has"} no date of birth, so nobody can tell if they are due
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                        {noDob.map(m => (
+                            <Link
+                                key={m.id}
+                                href={`/admin/members/${m.id}`}
+                                className="text-xs px-2 py-1 rounded-md bg-white/70 dark:bg-black/20 border border-amber-200 dark:border-amber-800/50 hover:underline"
+                            >
+                                {m.firstName} {m.lastName}
+                            </Link>
+                        ))}
+                    </div>
+                </div>
             )}
 
-            {!unitId && !loadingPreview && (
-                <div className="rounded-2xl border border-dashed p-10 text-center">
-                    <RefreshCw className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Pick a unit above to see who is due to move up.</p>
+            <div className="rounded-2xl border bg-card overflow-hidden">
+                <div className="px-4 py-3 border-b bg-muted/30 flex flex-wrap items-center justify-between gap-3">
+                    <label className="flex items-center gap-2.5 text-sm font-bold cursor-pointer">
+                        {preview.candidates.length > 0 && (
+                            <input type="checkbox" checked={allTicked} onChange={onToggleAll} className="w-4 h-4 accent-primary" />
+                        )}
+                        Due to move up ({preview.candidates.length})
+                    </label>
+                    {multipleTargets && preview.candidates.length > 0 && (
+                        <select
+                            onChange={e => { if (e.target.value) onDestinationAll(e.target.value); }}
+                            defaultValue=""
+                            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                        >
+                            <option value="">Send everyone to…</option>
+                            {preview.targetUnits.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    )}
                 </div>
+
+                {preview.candidates.length === 0 ? (
+                    <p className="p-8 text-sm text-muted-foreground text-center">
+                        Nobody in {preview.unit.name} is due to move up this year.
+                    </p>
+                ) : (
+                    <div className="divide-y">
+                        {preview.candidates.map(c => (
+                            <label key={c.id} className={`px-4 py-3 flex flex-wrap items-center gap-3 cursor-pointer hover:bg-muted/30 ${selected.has(c.id) ? "" : "opacity-60"}`}>
+                                <input
+                                    type="checkbox"
+                                    checked={selected.has(c.id)}
+                                    onChange={() => onToggle(c.id)}
+                                    className="w-4 h-4 accent-primary shrink-0"
+                                />
+                                <span className={`w-9 h-9 rounded-full ${theme.iconBg} flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden`}>
+                                    {c.photoUrl ? (
+                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                        <img src={c.photoUrl} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        `${c.firstName[0] ?? ""}${c.lastName[0] ?? ""}`.toUpperCase()
+                                    )}
+                                </span>
+                                <span className="flex-1 min-w-[160px]">
+                                    <span className="block text-sm font-semibold">{c.firstName} {c.lastName}</span>
+                                    <span className="block text-xs text-muted-foreground">
+                                        Turns {c.ageReached} this year
+                                        {c.role && ` · ${c.role}`}
+                                        {c.subgroupName && ` · ${c.subgroupName}`}
+                                    </span>
+                                </span>
+                                {multipleTargets && (
+                                    <select
+                                        value={destinations[c.id] ?? ""}
+                                        onChange={e => onDestination(c.id, e.target.value)}
+                                        className="h-9 rounded-md border border-input bg-background px-2 text-sm min-w-[160px]"
+                                    >
+                                        <option value="">Choose a unit…</option>
+                                        {preview.targetUnits.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                )}
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {staying.length > 0 && (
+                <details className="rounded-2xl border bg-card overflow-hidden group">
+                    <summary className="px-4 py-3 bg-muted/30 cursor-pointer text-sm font-bold select-none flex items-center gap-2">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        Staying in {preview.unit.name} ({staying.length})
+                        <ChevronDown className="w-4 h-4 ml-auto text-muted-foreground transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="divide-y">
+                        {staying.map(o => (
+                            <div key={o.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                                <span className="text-sm">
+                                    {o.firstName} {o.lastName}
+                                    {o.role && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{o.role}</span>}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    {o.ageNow != null && `${o.ageNow} y · `}{REASON_LABEL[o.reason]}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </details>
             )}
         </div>
     );
