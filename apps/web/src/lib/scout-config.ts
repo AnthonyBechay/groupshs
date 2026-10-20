@@ -323,6 +323,20 @@ export function allRolesOf(m: { role?: string | null; extraRoles?: string[] | nu
 }
 
 /**
+ * Only the maîtrise roles a member holds. A Routier who is ACT of the Troupe
+ * keeps his youth role (say SE of his équipe) as `role` and carries ACT in
+ * `extraRoles`, so the primary role is judged in context and the extras are not.
+ */
+export function leadershipRolesOf(
+    m: { role?: string | null; extraRoles?: string[] | null },
+    unitType: string
+): string[] {
+    const roles = (m.extraRoles ?? []).filter(isLeadershipRole);
+    if (isLeadershipRoleIn(m.role, unitType)) roles.unshift(m.role!);
+    return [...new Set(roles)];
+}
+
+/**
  * Non-blocking consistency warnings for a leader's placement.
  *
  * These are advisory, not rules: the group does make exceptions (someone can be

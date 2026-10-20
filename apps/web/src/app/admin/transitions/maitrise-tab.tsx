@@ -6,7 +6,7 @@ import {
     Shuffle, Shield, CheckCircle2, Loader2, AlertTriangle, Info, Plus, X, UserPlus, Search,
 } from "lucide-react";
 import {
-    unitTypeLabel, LEADERSHIP_ROLE_GROUPS, isCouncilRole, allRolesOf,
+    unitTypeLabel, LEADERSHIP_ROLE_GROUPS, isCouncilRole, leadershipRolesOf,
 } from "@/lib/scout-config";
 
 /** Only the senior branches are old enough to join the maîtrise. */
@@ -23,6 +23,12 @@ type Leader = {
 };
 
 type Draft = { memberId: string; toUnitId: string; toRole: string };
+
+/** The maîtrise role a leader holds now — never their youth role as a Routier. */
+const leaderRoleOf = (m: Leader) => leadershipRolesOf(m, m.unit.unitType)[0] ?? "";
+/** The unit a transfer would name: the one they run, or else where they sit. */
+const leaderUnitOf = (m: Leader) => m.servesUnit?.id ?? m.unitId;
+const isUnchanged = (m: Leader, d: Draft) => leaderUnitOf(m) === d.toUnitId && leaderRoleOf(m) === d.toRole;
 
 export function MaitriseTab() {
     const [leaders, setLeaders] = useState<Leader[]>([]);
@@ -55,11 +61,11 @@ export function MaitriseTab() {
 
     // Split the current maîtrise into its two tiers.
     const council = useMemo(
-        () => leaders.filter(m => allRolesOf(m).some(isCouncilRole)),
+        () => leaders.filter(m => leadershipRolesOf(m, m.unit.unitType).some(isCouncilRole)),
         [leaders]
     );
     const unitLeaders = useMemo(
-        () => leaders.filter(m => !allRolesOf(m).some(isCouncilRole)),
+        () => leaders.filter(m => !leadershipRolesOf(m, m.unit.unitType).some(isCouncilRole)),
         [leaders]
     );
 
@@ -83,7 +89,7 @@ export function MaitriseTab() {
     function addDraft(m: Leader) {
         if (drafts.some(d => d.memberId === m.id)) return;
         setDone(null);
-        setDrafts(d => [...d, { memberId: m.id, toUnitId: m.unitId, toRole: m.role ?? "" }]);
+        setDrafts(d => [...d, { memberId: m.id, toUnitId: leaderUnitOf(m), toRole: leaderRoleOf(m) }]);
     }
 
     function updateDraft(memberId: string, patch: Partial<Draft>) {
@@ -98,7 +104,7 @@ export function MaitriseTab() {
     // Only submit rows that actually change something.
     const changed = drafts.filter(d => {
         const m = all.find(x => x.id === d.memberId);
-        return m && (m.unitId !== d.toUnitId || (m.role ?? "") !== d.toRole);
+        return m && !isUnchanged(m, d);
     });
 
     async function save() {
@@ -171,7 +177,7 @@ export function MaitriseTab() {
                         {drafts.map(d => {
                             const m = all.find(x => x.id === d.memberId);
                             if (!m) return null;
-                            const isChanged = m.unitId !== d.toUnitId || (m.role ?? "") !== d.toRole;
+                            const isChanged = !isUnchanged(m, d);
                             return (
                                 <div key={d.memberId} className="p-3.5 flex flex-wrap items-center gap-3">
                                     <div className="flex-1 min-w-[160px]">
@@ -263,7 +269,7 @@ export function MaitriseTab() {
                                     {section.label} ({section.list.length})
                                 </p>
                                 {section.list.map(m => {
-                                    const roles = allRolesOf(m);
+                                    const roles = leadershipRolesOf(m, m.unit.unitType);
                                     return (
                                         <div key={m.id} className="px-4 py-3 flex flex-wrap items-center gap-3 border-t">
                                             <div className="flex-1 min-w-[180px]">

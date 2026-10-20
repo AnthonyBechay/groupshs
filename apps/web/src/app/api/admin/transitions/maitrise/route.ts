@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import {
     LEADERSHIP_ROLES, isLeadershipRole, isLeadershipRoleIn, isCouncilRole,
-    touchesCouncilRole, COUNCIL_ROLES, NON_MEMBER_UNIT_TYPES, UNIT_CONTAINER_NAME,
+    touchesCouncilRole, COUNCIL_ROLES, NON_MEMBER_UNIT_TYPES, SENIOR_BRANCHES,
 } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
             where: { id: { in: memberIds }, status: "ACTIVE" },
             select: {
                 id: true, firstName: true, lastName: true, unitId: true,
-                subgroupId: true, role: true, extraRoles: true, progressions: true,
+                subgroupId: true, servesUnitId: true, role: true, extraRoles: true, progressions: true,
                 unit: { select: { unitType: true } },
             },
         });
@@ -156,32 +156,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "One or more target units no longer exist or cannot hold members" }, { status: 400 });
         }
 
-        // The roster shows people by sub-group, so a new CM left in her youth
-        // équipe still looks like a Pionniere there. Unit maîtrise go into the
-        // home unit's maîtrise group for the branch they serve ("Meute",
-        // "Troupe"…), found by who already sits in it or else by its name.
-        const homeUnitIds = [...new Set(members.map(m => m.unitId))];
-        const homeSubgroups = await prisma.subgroup.findMany({
-            where: { unitId: { in: homeUnitIds } },
-            select: {
-                id: true, name: true, unitId: true,
-                members: {
-                    where: { status: "ACTIVE", servesUnitId: { not: null } },
-                    select: { servesUnit: { select: { unitType: true } } },
-                },
-            },
-        });
-        const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
-        const maitriseSubgroupFor = (homeUnitId: string, servedUnitType: string): string | null => {
-            const container = UNIT_CONTAINER_NAME[servedUnitType];
-            if (!container) return null;
-            const inHome = homeSubgroups.filter(s => s.unitId === homeUnitId);
-            const byOccupants = inHome.find(s => s.members.some(m =>
-                m.servesUnit && UNIT_CONTAINER_NAME[m.servesUnit.unitType] === container));
-            if (byOccupants) return byOccupants.id;
-            return inHome.find(s => fold(s.name) === fold(container))?.id ?? null;
-        };
-
         const batchId = randomUUID();
         const batchLabel = `Maîtrise transfer — ${moves.length} leader${moves.length !== 1 ? "s" : ""}`;
         const when = new Date();
@@ -189,25 +163,47 @@ export async function POST(request: NextRequest) {
         await prisma.$transaction(async (tx) => {
             for (const mv of moves) {
                 const before = members.find(m => m.id === mv.memberId)!;
+                const homeType = before.unit.unitType;
                 const council = isCouncilRole(mv.toRole);
+                const extras = before.extraRoles ?? [];
 
-                // Conseil: group level becomes their home, and they stop running
-                // a unit. Unit maîtrise: home unit is untouched — they merely
-                // take over a unit, which is recorded as the unit they serve.
-                const nextHomeUnitId = council ? mv.toUnitId : before.unitId;
-                const nextServesUnitId = council ? null : mv.toUnitId;
-                // A leader never stays in a youth sub-group: the conseil has none,
-                // and unit maîtrise join their maîtrise group, or are left
-                // unassigned when the home unit has no such group yet.
-                const servedType = targetUnits.find(u => u.id === mv.toUnitId)!.unitType;
-                const nextSubgroupId = council ? null : maitriseSubgroupFor(before.unitId, servedType);
+                // Conseil: group level becomes their home, they stop running a
+                // unit, and the conseil role is their primary role.
+                //
+                // Unit maîtrise from a senior branch: nothing about them as a
+                // Routier / Pionniere changes — same unit, équipe and youth role.
+                // The leadership role is ADDED as an extra, alongside the unit
+                // they serve, so their roster shows "SE · ACT Troupe" and the
+                // CC stays their chief. It replaces any unit role they held
+                // before, since they serve a single unit.
+                //
+                // Unit maîtrise living elsewhere (e.g. at group level) have no
+                // youth role to keep, so the role stays primary as before.
+                let nextHomeUnitId = before.unitId;
+                let nextServesUnitId: string | null = mv.toUnitId;
+                let nextSubgroupId = before.subgroupId;
+                let nextRole: string | null = mv.toRole;
+                const otherExtras = extras.filter(r => r !== mv.toRole && isCouncilRole(r));
+                let nextExtras = otherExtras;
+
+                if (council) {
+                    nextHomeUnitId = mv.toUnitId;
+                    nextServesUnitId = null;
+                    if (nextHomeUnitId !== before.unitId) nextSubgroupId = null;
+                } else if (SENIOR_BRANCHES.includes(homeType)) {
+                    // A unit role left as primary by the old transfer is
+                    // dropped: it now lives in the extras.
+                    nextRole = isLeadershipRoleIn(before.role, homeType) ? null : before.role;
+                    nextExtras = [...otherExtras, mv.toRole];
+                }
 
                 await tx.member.update({
                     where: { id: mv.memberId },
                     data: {
                         unitId: nextHomeUnitId,
                         servesUnitId: nextServesUnitId,
-                        role: mv.toRole,
+                        role: nextRole,
+                        extraRoles: nextExtras,
                         subgroupId: nextSubgroupId,
                     },
                 });
@@ -220,9 +216,15 @@ export async function POST(request: NextRequest) {
                         fromSubgroupId: before.subgroupId,
                         toSubgroupId: nextSubgroupId,
                         fromRole: before.role,
-                        toRole: mv.toRole,
+                        toRole: nextRole,
                         fromProgression: before.progressions ?? [],
                         toProgression: before.progressions ?? [],
+                        // So a revert also gives back the extras and served unit.
+                        leadershipSnapshot: true,
+                        fromExtraRoles: extras,
+                        toExtraRoles: nextExtras,
+                        fromServesUnitId: before.servesUnitId,
+                        toServesUnitId: nextServesUnitId,
                         moveDate: when,
                         notes: notes || null,
                         batchId,

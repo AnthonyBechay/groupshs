@@ -68,7 +68,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
 
         // ── Verify the restore targets still exist ───────────────────────────
-        const restoreUnitIds = [...new Set(pending.map(m => m.fromUnitId).filter((v): v is string => !!v))];
+        const restoreUnitIds = [...new Set(
+            pending.flatMap(m => [m.fromUnitId, m.fromServesUnitId]).filter((v): v is string => !!v)
+        )];
         const existingUnits = await prisma.unit.findMany({
             where: { id: { in: restoreUnitIds } },
             select: { id: true },
@@ -138,6 +140,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                         subgroupId: restoreSubgroupId,
                         role: mv.fromRole,
                         progressions: mv.fromProgression ?? [],
+                        // Only maîtrise transfers record these; older moves leave
+                        // them as they are. A served unit since deleted is dropped.
+                        ...(mv.leadershipSnapshot
+                            ? {
+                                extraRoles: mv.fromExtraRoles ?? [],
+                                servesUnitId: mv.fromServesUnitId && existingUnitIds.has(mv.fromServesUnitId)
+                                    ? mv.fromServesUnitId
+                                    : null,
+                            }
+                            : {}),
                     },
                 });
 

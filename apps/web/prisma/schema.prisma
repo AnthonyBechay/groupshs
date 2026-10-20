@@ -301,6 +301,14 @@ model MemberMove {
   fromProgression String[] @default([]) @map("from_progression")
   toProgression   String[] @default([]) @map("to_progression")
 
+  // Maîtrise transfers also change the extra roles and the unit served. Older
+  // moves never recorded them, so a revert only restores them when this is set.
+  leadershipSnapshot Boolean  @default(false) @map("leadership_snapshot")
+  fromExtraRoles     String[] @default([]) @map("from_extra_roles")
+  toExtraRoles       String[] @default([]) @map("to_extra_roles")
+  fromServesUnitId   String?  @map("from_serves_unit_id")
+  toServesUnitId     String?  @map("to_serves_unit_id")
+
   moveDate DateTime @default(now()) @map("move_date")
   notes    String?
 

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Pencil, Trash2, Users, Star, ChevronRight, List, Search, Network, UserPlus, FolderPlus, X, FileSpreadsheet, FileText, Globe, TreePine, Compass, Mountain, Phone, Calendar, MapPin, History, ArrowUpRight } from "lucide-react";
-import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, UNIT_GENDER, UNIT_TYPES, progressionLabel, unitHoldsMembers } from "@/lib/scout-config";
+import { SUBGROUP_LABEL_BY_UNIT_TYPE, UNIT_CONTAINER_NAME, UNIT_GENDER, UNIT_TYPES, progressionLabel, unitHoldsMembers, leadershipRolesOf } from "@/lib/scout-config";
 import { useUrlState } from "@/hooks/use-url-state";
 import { exportMembersToExcel, exportMembersToPDF } from "@/lib/export-members";
 
@@ -21,6 +21,8 @@ type Member = {
     email: string | null;
     bloodType: string | null;
     role: string | null;
+    // Concurrent roles; for a Routier who is ACT of the Troupe, "ACT" is here.
+    extraRoles?: string[];
     progressions: string[];
     unitId: string;
     // The unit a leader runs, when it is not the one they belong to.
@@ -455,6 +457,12 @@ export default function AdminMembersPage() {
                                 />
                             )}
 
+                            <UnitMaitrise
+                                unit={activeUnit}
+                                leaders={members.filter(m => m.servesUnitId === activeUnit.id)}
+                                onPreview={openPreview}
+                            />
+
                             {view === "visual" ? (
                                 <VisualView
                                     unit={activeUnit}
@@ -544,6 +552,7 @@ function SearchResults({ results, units, query, onPreview }: {
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="text-sm font-semibold truncate">{m.firstName} {m.lastName}</span>
+                                    <MaitriseTag member={m} units={units} />
                                     <RecentTags member={m} units={units} />
                                 </div>
                                 <div className="text-xs text-muted-foreground truncate">
@@ -888,6 +897,89 @@ function RecentTags({ member, units }: { member: Member; units: Unit[] }) {
     return null;
 }
 
+/**
+ * "ACT · Troupe Aigle" on a Routier who also leads a younger unit. He is still
+ * listed in his équipe as a Routier; the tag is the only sign of the second hat.
+ */
+function MaitriseTag({ member, units }: { member: Member; units: Unit[] }) {
+    // The primary role already shows as the role line; only extras need a tag,
+    // unless the primary role is the leadership one and they serve elsewhere.
+    const roles = leadershipRolesOf(member, member.unit.unitType)
+        .filter(r => r !== member.role || !!member.servesUnitId);
+    if (roles.length === 0) return null;
+    const served = units.find(u => u.id === member.servesUnitId);
+    return (
+        <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary shrink-0">
+            {roles.join(" / ")}{served ? ` · ${served.name}` : ""}
+        </span>
+    );
+}
+
+/** Assistants (ACT, ACM…) after the chief they assist. */
+const isAssistantRole = (role: string) => role.startsWith("A");
+
+/**
+ * The leaders who run this unit — its CC, CT, ACTs… They usually belong to
+ * another unit (a CT is a Routier), so they never appear in this roster's
+ * sub-groups, only here.
+ */
+function UnitMaitrise({ unit, leaders, onPreview }: {
+    unit: Unit;
+    leaders: Member[];
+    onPreview: (id: string) => void;
+}) {
+    if (leaders.length === 0) return null;
+    const theme = UNIT_THEME[unit.unitType] || UNIT_THEME.GROUP;
+    const roleHere = (m: Member) => leadershipRolesOf(m, m.unit.unitType).find(r => !isAssistantRole(r))
+        ?? leadershipRolesOf(m, m.unit.unitType)[0] ?? "";
+    const sorted = [...leaders].sort((a, b) =>
+        Number(isAssistantRole(roleHere(a))) - Number(isAssistantRole(roleHere(b)))
+        || `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
+
+    return (
+        <div className="bg-card border rounded-2xl overflow-hidden">
+            <div className={`px-5 py-3 ${theme.headerBg} flex items-center justify-between`}>
+                <h3 className="font-extrabold">Maîtrise</h3>
+                <span className="text-xs text-muted-foreground font-medium">
+                    {leaders.length} leader{leaders.length !== 1 ? "s" : ""}
+                </span>
+            </div>
+            <div className="p-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-1">
+                {sorted.map(m => {
+                    const role = roleHere(m);
+                    const lead = !isAssistantRole(role);
+                    return (
+                        <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => onPreview(m.id)}
+                            className="text-left flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                            <div className={`w-8 h-8 rounded-full ${theme.iconBg} flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden`}>
+                                {m.photoUrl ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img src={m.photoUrl} alt={m.firstName} className="w-full h-full object-cover" />
+                                ) : (
+                                    `${m.firstName[0]}${m.lastName[0]}`.toUpperCase()
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-sm font-semibold truncate">{m.firstName} {m.lastName}</div>
+                                <div className="text-[11px] text-muted-foreground truncate">{m.unit.name}</div>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 inline-flex items-center gap-1 ${
+                                lead ? theme.leadChip : theme.assistantChip
+                            }`}>
+                                {lead && <Star className="w-3 h-3" />} {role}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 function MemberRow({ member, unitType, accentRole, onPreview, allUnits = [] }: { member: Member; unitType?: string; accentRole?: string; onPreview: (id: string) => void; allUnits?: Unit[] }) {
     const theme = UNIT_THEME[unitType || "GROUP"] || UNIT_THEME.GROUP;
     const isLead = accentRole && (accentRole === "CP" || accentRole === "SI" || accentRole === "CE");
@@ -909,6 +1001,7 @@ function MemberRow({ member, unitType, accentRole, onPreview, allUnits = [] }: {
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm font-semibold truncate">{member.firstName} {member.lastName}</span>
+                    <MaitriseTag member={member} units={allUnits} />
                     <RecentTags member={member} units={allUnits} />
                 </div>
                 {member.role && (
@@ -988,6 +1081,7 @@ function ListView({
                                 <td className="p-3 text-sm font-medium">
                                     <span className="inline-flex items-center gap-1.5 flex-wrap">
                                         <span className="hover:text-primary">{m.firstName} {m.lastName}</span>
+                                        <MaitriseTag member={m} units={allUnits} />
                                         <RecentTags member={m} units={allUnits} />
                                     </span>
                                 </td>
