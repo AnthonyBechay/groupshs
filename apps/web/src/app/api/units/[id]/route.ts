@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { ARCHIVE_UNIT_TYPE } from "@/lib/scout-config";
+import { ARCHIVE_UNIT_TYPE, PUBLIC_ACTIVITY_WHERE } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -8,14 +8,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
         const unit = await prisma.unit.findUnique({
             where: { id },
+            // Public endpoint: only what the public site shows. It used to send
+            // hidden activities and the full roster of children's names.
             include: {
                 activities: {
+                    where: PUBLIC_ACTIVITY_WHERE,
                     orderBy: { startDate: "desc" },
-                },
-                members: {
-                    where: { status: "ACTIVE" },
-                    select: { id: true, firstName: true, lastName: true, role: true, progressions: true },
-                    orderBy: { firstName: "asc" },
                 },
             },
         });

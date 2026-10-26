@@ -1,5 +1,5 @@
 import { prisma } from "@/db";
-import { VISIBLE_UNITS_WHERE } from "@/lib/scout-config";
+import { VISIBLE_UNITS_WHERE, PUBLIC_ACTIVITY_WHERE } from "@/lib/scout-config";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
                 _count: {
                     select: {
                         members: { where: { status: "ACTIVE" } },
-                        activities: true,
+                        activities: { where: PUBLIC_ACTIVITY_WHERE },
                     },
                 },
             },

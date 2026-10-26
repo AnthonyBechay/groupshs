@@ -77,8 +77,16 @@ export const ACTIVITY_TYPES = [
     { value: "TEMPS", label: "Meeting" },
     { value: "MARCHE", label: "Hike" },
     { value: "CEREMONY", label: "Ceremony" },
+    { value: "REUNION", label: "Weekly reunion" },
     { value: "OTHER", label: "Other" },
 ] as const;
+
+/**
+ * What the public site may show. Weekly reunions are the units' own routine —
+ * forty identical "Reunion" cards would bury the camps and events — so they
+ * stay in the admin area. Spread this into every public activity query.
+ */
+export const PUBLIC_ACTIVITY_WHERE = { hidden: false, activityType: { not: "REUNION" } } as const;
 
 /** Label for an activity type code; unknown codes are shown as they are. */
 export const ACTIVITY_TYPE_LABELS: Record<string, string> = Object.fromEntries(ACTIVITY_TYPES.map(t => [t.value, t.label]));

@@ -21,6 +21,8 @@ type Permission = {
 };
 
 type AdminNavProps = {
+    /** Shown as a shortcut when the account is linked to a unit leader. */
+    myUnitName: string | null;
     name: string;
     isSuperAdmin: boolean;
     permissions: Permission;
@@ -29,7 +31,7 @@ type AdminNavProps = {
 type LinkItem = { href: string; label: string; show: boolean };
 type MenuGroup = { label: string; items: LinkItem[] };
 
-export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) {
+export function AdminNav({ myUnitName, name, isSuperAdmin, permissions: p }: AdminNavProps) {
     const pathname = usePathname();
     // The page a click is heading to, for the progress bar. Cleared when the
     // route actually changes.
@@ -64,6 +66,7 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
             items: [
                 { href: "/admin/units", label: "Units", show: p.canManageUnits },
                 { href: "/admin/members", label: "Members", show: p.canManageMembers },
+                { href: "/admin/members/updates", label: "Family updates", show: p.canManageMembers },
                 { href: "/admin/recruitment", label: "Recruitment", show: p.canViewSubmissions },
                 { href: "/admin/transitions", label: "Move Up / Transitions", show: p.canManageTransitions },
                 { href: "/admin/activities", label: "Activities", show: p.canManageActivities },
@@ -129,6 +132,17 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
 
                     {/* Desktop menu */}
                     <div className="hidden md:flex items-center gap-1">
+                        {myUnitName && (
+                            <Link
+                                href="/admin/my-unit"
+                                onClick={() => onNavigate("/admin/my-unit")}
+                                className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
+                                    isActive("/admin/my-unit") ? "text-primary bg-primary/10" : "text-foreground hover:text-primary hover:bg-primary/5"
+                                }`}
+                            >
+                                My unit
+                            </Link>
+                        )}
                         {groups.map(group => {
                             const active = groupHasActive(group);
                             const open = openGroup === group.label;
@@ -216,6 +230,15 @@ export function AdminNav({ name, isSuperAdmin, permissions: p }: AdminNavProps) 
             {mobileOpen && (
                 <div className="md:hidden border-t bg-background animate-fade-in">
                     <div className="container mx-auto px-4 py-3 space-y-4">
+                        {myUnitName && (
+                            <Link
+                                href="/admin/my-unit"
+                                onClick={() => onNavigate("/admin/my-unit")}
+                                className="block w-full text-left px-3 py-2 rounded-md text-sm font-semibold bg-primary/5 text-primary"
+                            >
+                                My unit · {myUnitName}
+                            </Link>
+                        )}
                         {groups.map(group => (
                             <div key={group.label}>
                                 <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1.5 px-2">

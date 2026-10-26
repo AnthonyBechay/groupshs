@@ -86,6 +86,8 @@ export type SessionUser = {
     permissions: Record<Permission, boolean>;
     allowedUnitIds: string[];
     isSuperAdmin: boolean;
+    /** The member this account belongs to, if linked. Identity only — never access. */
+    memberId: string | null;
 };
 
 export async function hashPassword(password: string) {
@@ -140,6 +142,7 @@ export async function getSession(): Promise<SessionUser | null> {
                 canManageHistory: true,
                 canManageTransitions: true,
                 allowedUnitIds: true,
+                memberId: true,
             },
         });
         if (!user) return null;
@@ -153,6 +156,7 @@ export async function getSession(): Promise<SessionUser | null> {
             name: user.name,
             isSuperAdmin,
             allowedUnitIds: user.allowedUnitIds,
+            memberId: user.memberId,
             permissions: {
                 canManageUnits: isSuperAdmin || user.canManageUnits,
                 canManageMembers: isSuperAdmin || user.canManageMembers,

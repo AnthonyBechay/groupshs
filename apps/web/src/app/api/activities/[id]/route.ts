@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import type { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
+import { scheduleError, toDay } from "@/lib/activity-schedule";
+import { syncActivitySessions } from "@/lib/activity-sessions";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -45,7 +47,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         if ("fee" in body) data.fee = typeof body.fee === "string" && body.fee.trim() ? body.fee.trim() : null;
         if ("unitId" in body && body.unitId) data.unit = { connect: { id: body.unitId } };
 
-        const updated = await prisma.activity.update({ where: { id }, data });
+        // The schedule: validated as it will be after this update, since the
+        // start date and the repeat rule can change in the same request.
+        const nextRecurrence = "recurrence" in body ? (body.recurrence || null) : existing.recurrence;
+        const nextUntil = "recurrenceUntil" in body
+            ? (nextRecurrence && body.recurrenceUntil ? toDay(body.recurrenceUntil) : null)
+            : (nextRecurrence ? existing.recurrenceUntil : null);
+        const nextStart = data.startDate instanceof Date ? data.startDate : existing.startDate;
+        const badSchedule = scheduleError(nextStart, nextRecurrence, nextUntil);
+        if (badSchedule) return NextResponse.json({ error: badSchedule }, { status: 400 });
+        data.recurrence = nextRecurrence;
+        data.recurrenceUntil = nextUntil;
+        if (nextRecurrence) data.endDate = null;
+
+        const scheduleChanged = "startDate" in body || "recurrence" in body || "recurrenceUntil" in body;
+        const updated = await prisma.$transaction(async (tx) => {
+            const a = await tx.activity.update({ where: { id }, data });
+            if (scheduleChanged) await syncActivitySessions(tx, id);
+            return a;
+        });
 
         revalidatePath("/activities");
         revalidatePath("/");

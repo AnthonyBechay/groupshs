@@ -1,9 +1,11 @@
 import { prisma } from "@/db";
 import { getSession, hashPassword, type SessionUser, PERMISSION_KEYS } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { checkMemberLink, linkedMemberSelect } from "@/lib/user-member";
 
 /** Every permission column, for a Prisma `select`. */
 const permissionSelect = Object.fromEntries(PERMISSION_KEYS.map(k => [k, true]));
+
 
 function requireSuperAdmin(session: SessionUser | null) {
     return session?.isSuperAdmin === true;
@@ -25,6 +27,8 @@ export async function GET() {
                 createdAt: true,
                 ...permissionSelect,
                 allowedUnitIds: true,
+                memberId: true,
+                member: linkedMemberSelect,
             },
             orderBy: { createdAt: "desc" },
         });
@@ -57,6 +61,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Email already in use" }, { status: 400 });
         }
 
+        const memberCheck = await checkMemberLink(body.memberId, null);
+        if (memberCheck.error) return NextResponse.json({ error: memberCheck.error }, { status: 400 });
+
         const hashedPassword = await hashPassword(password);
 
         const user = await prisma.user.create({
@@ -69,6 +76,7 @@ export async function POST(request: NextRequest) {
                 // forgotten here the way canManageHistory was.
                 ...Object.fromEntries(PERMISSION_KEYS.map(k => [k, body[k] === true])),
                 allowedUnitIds: Array.isArray(allowedUnitIds) ? allowedUnitIds : [],
+                memberId: memberCheck.memberId,
             },
             select: { id: true, name: true, email: true, role: true },
         });
@@ -79,3 +87,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
+

@@ -16,7 +16,7 @@
  */
 
 import { prisma } from "@/db";
-import { VISIBLE_UNITS_WHERE } from "@/lib/scout-config";
+import { VISIBLE_UNITS_WHERE, PUBLIC_ACTIVITY_WHERE } from "@/lib/scout-config";
 
 // ─── Site-wide ────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ export function getCachedUnitsWithActivities() {
         // Public: never list the archive unit (it once showed up here as a tab).
         where: VISIBLE_UNITS_WHERE,
         include: {
-            activities: { where: { hidden: false } },
+            activities: { where: PUBLIC_ACTIVITY_WHERE },
             contacts: {
                 // Never advertise a leader who has left the group.
                 where: { member: { status: "ACTIVE" } },
@@ -73,7 +73,7 @@ export function getCachedUnitsWithActivities() {
 /** All public activities with their unit name (for Activities page tabs + home page). */
 export function getCachedAllActivities() {
     return prisma.activity.findMany({
-        where: { hidden: false },
+        where: PUBLIC_ACTIVITY_WHERE,
         include: { unit: { select: { name: true, id: true } } },
         orderBy: { startDate: "desc" },
     });
@@ -85,7 +85,7 @@ export function getCachedUnit(id: string) {
         where: { id, ...VISIBLE_UNITS_WHERE },
         include: {
             activities: {
-                where: { hidden: false },
+                where: PUBLIC_ACTIVITY_WHERE,
                 orderBy: { startDate: "desc" },
             },
             contacts: {

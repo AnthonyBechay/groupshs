@@ -1,6 +1,7 @@
 import { getSession, isAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminNav } from "./admin-nav";
+import { getMyUnit } from "@/lib/my-unit";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
     const session = await getSession();
@@ -13,9 +14,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         redirect("/");
     }
 
+    const mine = await getMyUnit(session);
+
     return (
         <div className="min-h-screen flex flex-col">
             <AdminNav
+                myUnitName={mine?.unit.name ?? null}
                 name={session.name}
                 isSuperAdmin={session.isSuperAdmin}
                 permissions={session.permissions}

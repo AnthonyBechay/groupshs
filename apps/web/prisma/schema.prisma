@@ -34,6 +34,13 @@ model User {
   // Empty array = access to all units; otherwise restricted to listed unit IDs
   allowedUnitIds String[] @default([]) @map("allowed_unit_ids")
 
+  // The person behind the account, when there is one. Optional so existing
+  // accounts keep working. It says WHO they are (a CM of the Meute…) and drives
+  // the "My unit" view; it never grants access by itself — permissions and
+  // allowedUnitIds above still decide what they may touch.
+  memberId String?  @unique @map("member_id")
+  member   Member?  @relation("UserMember", fields: [memberId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
@@ -241,6 +248,8 @@ model Member {
   recruitment   RecruitmentSubmission? @relation("RecruitedMember")
   unitContacts  UnitContact[]
   attendance    ActivityAttendance[]
+  user          User?                 @relation("UserMember")
+  updateRequests MemberUpdateRequest[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -250,6 +259,43 @@ model Member {
   @@index([subgroupId])
   @@index([status])
   @@index([servesUnitId])
+}
+
+// A link sent to a family so they fill in the member's file themselves
+// (contacts, doctor, allergies, treatment). What they send is only a proposal:
+// a leader of the unit reviews it and chooses what to apply. Nothing a family
+// types ever reaches the member record without that review.
+model MemberUpdateRequest {
+  id       String @id @default(uuid())
+  memberId String @map("member_id")
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  // Kept in clear, unlike a password, so a leader can copy the link again to
+  // resend it. A leaked token can only PROPOSE changes, which still need review.
+  token     String   @unique
+  status    String   @default("OPEN") // OPEN | SUBMITTED | APPROVED | REJECTED | REVOKED
+  expiresAt DateTime @map("expires_at")
+  sentTo    String?  @map("sent_to") // who it went to, e.g. "Mother"
+
+  createdById   String? @map("created_by_id")
+  createdByName String? @map("created_by_name")
+
+  openedAt    DateTime? @map("opened_at")
+  submittedAt DateTime? @map("submitted_at")
+  submittedBy String?   @map("submitted_by") // the name the family typed
+  changes     Json      @default("{}")       // { fields: {key: value}, medications?: [...] }
+
+  reviewedById   String?   @map("reviewed_by_id")
+  reviewedByName String?   @map("reviewed_by_name")
+  reviewedAt     DateTime? @map("reviewed_at")
+  reviewNote     String?   @map("review_note")
+  appliedFields  String[]  @default([]) @map("applied_fields")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([memberId])
+  @@index([status])
+  @@map("member_update_request")
 }
 
 // Brothers/sisters of the member that are also in the group
@@ -364,6 +410,14 @@ model Activity {
   theme String?
   fee   String?
 
+  // A weekly reunion is ONE activity with many sessions. startDate is the first
+  // session; it repeats every week up to and including recurrenceUntil.
+  // Null recurrence = a one-off, which still has exactly one session, so
+  // programme and attendance always live on a session.
+  recurrence      String?   // WEEKLY
+  recurrenceUntil DateTime? @map("recurrence_until")
+
+  sessions   ActivitySession[]
   attendance ActivityAttendance[]
   circulars  Circular[]
 
@@ -373,11 +427,37 @@ model Activity {
   @@map("activity")
 }
 
-// Per-member attendance for an activity (pre + post)
+// One occurrence of an activity: a given Saturday's reunion, or the single
+// session of a camp. What differs from week to week — the programme, the
+// attendance, a cancellation — lives here, never on the activity.
+model ActivitySession {
+  id         String   @id @default(uuid())
+  activityId String   @map("activity_id")
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  date         DateTime                         // the day, at UTC midnight like Activity.startDate
+  status       String   @default("SCHEDULED")   // SCHEDULED | CANCELLED
+  cancelReason String?  @map("cancel_reason")
+  programme    Json     @default("[]")          // [{time,title,details,by}] — see src/lib/activity-sessions.ts
+  notes        String?
+
+  attendance ActivityAttendance[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([activityId, date])
+  @@index([date])
+  @@map("activity_session")
+}
+
+// Per-member attendance for one session (pre + post)
 model ActivityAttendance {
   id         String   @id @default(uuid())
   activityId String   @map("activity_id")
   activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  sessionId  String          @map("session_id")
+  session    ActivitySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   memberId   String   @map("member_id")
   member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
@@ -395,7 +475,7 @@ model ActivityAttendance {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  @@unique([activityId, memberId])
+  @@unique([sessionId, memberId])
   @@index([activityId])
   @@index([memberId])
   @@map("activity_attendance")

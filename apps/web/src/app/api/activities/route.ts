@@ -1,7 +1,11 @@
 import { prisma } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, isAdmin, hasPermission, canAccessUnit } from "@/lib/auth";
+import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { PUBLIC_ACTIVITY_WHERE } from "@/lib/scout-config";
+import { scheduleError, toDay } from "@/lib/activity-schedule";
+import { syncActivitySessions, viewableActivitiesWhere } from "@/lib/activity-sessions";
+import type { Prisma } from "@/generated/prisma/client";
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,23 +15,22 @@ export async function GET(request: NextRequest) {
         const unitId = searchParams.get("unitId");
         const includeHidden = searchParams.get("includeHidden") === "true";
 
-        const where: Record<string, unknown> = {};
+        const where: Prisma.ActivityWhereInput = {};
         if (upcoming === "true") where.isUpcoming = true;
         if (upcoming === "false") where.isUpcoming = false;
         if (year) where.year = parseInt(year);
         if (unitId) where.unitId = unitId;
 
         if (!includeHidden) {
-            where.hidden = false;
+            Object.assign(where, PUBLIC_ACTIVITY_WHERE);
         } else {
+            // The granular permission, not the admin role: every admin has the
+            // role, so it would hand a gallery editor every hidden activity.
             const session = await getSession();
-            if (!isAdmin(session)) {
+            if (!hasPermission(session, "canManageActivities")) {
                 return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
-            // Scope to allowed units if restricted
-            if (session && !session.isSuperAdmin && session.allowedUnitIds.length > 0) {
-                where.unitId = { in: session.allowedUnitIds };
-            }
+            where.AND = [viewableActivitiesWhere(session)];
         }
 
         const activities = await prisma.activity.findMany({
@@ -58,40 +61,52 @@ export async function POST(request: NextRequest) {
             pickupLocationUrl, dropoffLocationUrl, locationUrl,
             imageUrl, hidden, year, totalDays, theme, fee,
         } = body;
+        const recurrence = body.recurrence || null;
+        const recurrenceUntil = recurrence && body.recurrenceUntil ? toDay(body.recurrenceUntil) : null;
 
         // The description is website copy and may be left for later.
         if (!title || !unitId || !startDate || !year) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
+        const badSchedule = scheduleError(startDate, recurrence, recurrenceUntil);
+        if (badSchedule) return NextResponse.json({ error: badSchedule }, { status: 400 });
 
         if (!canAccessUnit(session, unitId)) {
             return NextResponse.json({ error: "Forbidden: cannot create activities for this unit" }, { status: 403 });
         }
 
-        const newActivity = await prisma.activity.create({
-            data: {
-                title,
-                description: typeof description === "string" ? description : "",
-                whatToBring: whatToBring || null,
-                unitId,
-                activityType: activityType || "OTHER",
-                startDate: new Date(startDate),
-                endDate: endDate ? new Date(endDate) : null,
-                pickupTime: pickupTime || null,
-                dropoffTime: dropoffTime || null,
-                pickupLocation: pickupLocation || null,
-                dropoffLocation: dropoffLocation || null,
-                location: location || null,
-                pickupLocationUrl: pickupLocationUrl || null,
-                dropoffLocationUrl: dropoffLocationUrl || null,
-                locationUrl: locationUrl || null,
-                imageUrl: imageUrl || null,
-                hidden: hidden ?? false,
-                year,
-                totalDays: typeof totalDays === "number" ? totalDays : null,
-                theme: typeof theme === "string" && theme.trim() ? theme.trim() : null,
-                fee: typeof fee === "string" && fee.trim() ? fee.trim() : null,
-            },
+        const newActivity = await prisma.$transaction(async (tx) => {
+            const created = await tx.activity.create({
+                data: {
+                    title,
+                    description: typeof description === "string" ? description : "",
+                    whatToBring: whatToBring || null,
+                    unitId,
+                    activityType: activityType || "OTHER",
+                    startDate: new Date(startDate),
+                    // A series runs from its first to its last session; endDate
+                    // is for a single activity spanning several days.
+                    endDate: !recurrence && endDate ? new Date(endDate) : null,
+                    recurrence,
+                    recurrenceUntil,
+                    pickupTime: pickupTime || null,
+                    dropoffTime: dropoffTime || null,
+                    pickupLocation: pickupLocation || null,
+                    dropoffLocation: dropoffLocation || null,
+                    location: location || null,
+                    pickupLocationUrl: pickupLocationUrl || null,
+                    dropoffLocationUrl: dropoffLocationUrl || null,
+                    locationUrl: locationUrl || null,
+                    imageUrl: imageUrl || null,
+                    hidden: hidden ?? false,
+                    year,
+                    totalDays: typeof totalDays === "number" ? totalDays : null,
+                    theme: typeof theme === "string" && theme.trim() ? theme.trim() : null,
+                    fee: typeof fee === "string" && fee.trim() ? fee.trim() : null,
+                },
+            });
+            await syncActivitySessions(tx, created.id);
+            return created;
         });
 
         revalidatePath("/activities");

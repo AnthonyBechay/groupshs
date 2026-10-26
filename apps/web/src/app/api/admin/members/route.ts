@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
         const members = await prisma.member.findMany({
             where,
             include: {
-                unit: { select: { name: true, unitType: true } },
+                unit: { select: { id: true, name: true, unitType: true } },
+                servesUnit: { select: { id: true, name: true, unitType: true } },
                 subgroup: { select: { id: true, name: true } },
                 ...(includeSheet
                     ? {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { MemberForm, type MemberFormData } from "../member-form";
+import { FamilyLinkPanel } from "../family-link-panel";
 
 type Unit = { id: string; name: string; unitType: string };
 type Subgroup = { id: string; name: string; unitId: string };
@@ -55,5 +56,15 @@ export default function EditMemberPage() {
         );
     }
 
-    return <MemberForm initialData={data} units={units} subgroups={subgroups} />;
+    return (
+        <MemberForm
+            initialData={data}
+            units={units}
+            subgroups={subgroups}
+            // A former member's family has nothing left to fill in.
+            belowHeader={data.id && (data as { status?: string }).status !== "LEFT"
+                ? <FamilyLinkPanel memberId={data.id} firstName={data.firstName ?? ""} />
+                : null}
+        />
+    );
 }

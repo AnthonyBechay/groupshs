@@ -3,11 +3,27 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect } from "react";
-import { Trash2, Plus, Pencil, Shield, ShieldCheck, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Trash2, Plus, Pencil, Shield, ShieldCheck, X, Link2, Search, UserRound } from "lucide-react";
 import { UnsavedFormGuard } from "@/components/unsaved-form-guard";
+import { leadershipRolesOf } from "@/lib/scout-config";
 
 type Unit = { id: string; name: string };
+type LinkedMember = {
+    id: string; firstName: string; lastName: string;
+    role: string | null; extraRoles: string[];
+    unit: { id: string; name: string; unitType: string };
+    servesUnit: { id: string; name: string; unitType: string } | null;
+};
+
+/** "CM · Meute Hathi" — what this person is in the group. */
+function describeMember(m: LinkedMember): string {
+    const leading = leadershipRolesOf(m, m.unit.unitType);
+    if (leading.length > 0) {
+        return `${leading.join(" / ")} · ${m.servesUnit?.name ?? m.unit.name}`;
+    }
+    return `${m.role ?? "Member"} · ${m.unit.name}`;
+}
 type User = {
     id: string;
     name: string;
@@ -26,6 +42,8 @@ type User = {
     canManageHistory: boolean;
     canManageTransitions: boolean;
     allowedUnitIds: string[];
+    memberId: string | null;
+    member: LinkedMember | null;
 };
 
 const PERMISSIONS = [
@@ -128,6 +146,8 @@ export default function AdminUsersPage() {
     });
     const [allowedUnitIds, setAllowedUnitIds] = useState<string[]>([]);
     const [restrictUnits, setRestrictUnits] = useState(false);
+    const [linkedMember, setLinkedMember] = useState<LinkedMember | null>(null);
+    const [members, setMembers] = useState<LinkedMember[]>([]);
 
     function applyPreset(preset: RolePreset) {
         const newPerms: Record<PermissionKey, boolean> = {
@@ -155,6 +175,13 @@ export default function AdminUsersPage() {
         setLoading(false);
     }
 
+    // Loaded once the form opens: the picker is the only thing that needs it.
+    async function loadMembers() {
+        if (members.length > 0) return;
+        const res = await fetch("/api/admin/members");
+        if (res.ok) setMembers(await res.json());
+    }
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchData(); }, []);
 
@@ -169,7 +196,9 @@ export default function AdminUsersPage() {
         });
         setAllowedUnitIds([]);
         setRestrictUnits(false);
+        setLinkedMember(null);
         setShowForm(true);
+        loadMembers();
     }
 
     function startEdit(u: User) {
@@ -190,7 +219,9 @@ export default function AdminUsersPage() {
         });
         setAllowedUnitIds(u.allowedUnitIds || []);
         setRestrictUnits((u.allowedUnitIds || []).length > 0);
+        setLinkedMember(u.member);
         setShowForm(true);
+        loadMembers();
     }
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -204,6 +235,7 @@ export default function AdminUsersPage() {
             role,
             ...permissions,
             allowedUnitIds: restrictUnits ? allowedUnitIds : [],
+            memberId: linkedMember?.id ?? null,
         };
 
         const password = fd.get("password") as string;
@@ -322,6 +354,18 @@ export default function AdminUsersPage() {
                         </div>
                     </div>
 
+                    <MemberLink
+                        members={members}
+                        users={users}
+                        editingId={editing?.id ?? null}
+                        value={linkedMember}
+                        onChange={setLinkedMember}
+                        onUseUnit={(unitId) => {
+                            setRestrictUnits(true);
+                            setAllowedUnitIds([unitId]);
+                        }}
+                    />
+
                     {/* Permissions */}
                     <div className="border-t pt-5 space-y-4">
                         <div className="flex items-center justify-between">
@@ -402,6 +446,7 @@ export default function AdminUsersPage() {
                         <tr>
                             <th className="text-left p-3 text-sm font-medium">Name</th>
                             <th className="text-left p-3 text-sm font-medium">Email</th>
+                            <th className="text-left p-3 text-sm font-medium">Member</th>
                             <th className="text-left p-3 text-sm font-medium">Role</th>
                             <th className="text-left p-3 text-sm font-medium">Permissions</th>
                             <th className="text-left p-3 text-sm font-medium">Units</th>
@@ -410,11 +455,21 @@ export default function AdminUsersPage() {
                     </thead>
                     <tbody>
                         {users.length === 0 ? (
-                            <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No users</td></tr>
+                            <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No users</td></tr>
                         ) : users.map((u) => (
                             <tr key={u.id} className="border-t">
                                 <td className="p-3 text-sm font-medium">{u.name}</td>
                                 <td className="p-3 text-sm text-muted-foreground">{u.email}</td>
+                                <td className="p-3 text-sm">
+                                    {u.member ? (
+                                        <span className="inline-flex flex-col">
+                                            <span className="font-medium">{u.member.firstName} {u.member.lastName}</span>
+                                            <span className="text-xs text-muted-foreground">{describeMember(u.member)}</span>
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-muted-foreground">Not linked</span>
+                                    )}
+                                </td>
                                 <td className="p-3 text-sm">
                                     {u.role === "super_admin" ? (
                                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-primary text-white">
@@ -445,6 +500,102 @@ export default function AdminUsersPage() {
                     </tbody>
                 </table>
             </div>
+        </div>
+    );
+}
+
+/**
+ * Who this account belongs to. Optional: linking only tells the app which
+ * unit the person leads (for "My unit"). Access is still the permissions and
+ * unit list below — "Limit access to this unit" copies the unit across when
+ * that is what you want.
+ */
+function MemberLink({ members, users, editingId, value, onChange, onUseUnit }: {
+    members: LinkedMember[];
+    users: User[];
+    editingId: string | null;
+    value: LinkedMember | null;
+    onChange: (m: LinkedMember | null) => void;
+    onUseUnit: (unitId: string) => void;
+}) {
+    const [query, setQuery] = useState("");
+    // Who is taken by another account, so the picker can say so up front.
+    const takenBy = useMemo(() => new Map(
+        users.filter(u => u.memberId && u.id !== editingId).map(u => [u.memberId!, u.name])
+    ), [users, editingId]);
+    const matches = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (q.length < 2) return [];
+        return members
+            .filter(m => `${m.firstName} ${m.lastName}`.toLowerCase().includes(q)
+                || `${m.lastName} ${m.firstName}`.toLowerCase().includes(q))
+            .slice(0, 8);
+    }, [members, query]);
+
+    const ledUnit = value ? (value.servesUnit ?? value.unit) : null;
+
+    return (
+        <div className="border-t pt-5 space-y-3">
+            <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Link2 className="w-4 h-4" /> Linked member <span className="normal-case font-normal tracking-normal">(optional)</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                    The person behind this account. Their role in the group (CM, CT…) gives them a &quot;My unit&quot; view.
+                    It does not change what they can access.
+                </p>
+            </div>
+
+            {value ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-primary/5 border-primary/20 p-3">
+                    <span className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <UserRound className="w-4 h-4" />
+                    </span>
+                    <div className="flex-1 min-w-[160px]">
+                        <p className="text-sm font-semibold">{value.firstName} {value.lastName}</p>
+                        <p className="text-xs text-muted-foreground">{describeMember(value)}</p>
+                    </div>
+                    {ledUnit && (
+                        <Button type="button" variant="outline" size="sm" onClick={() => onUseUnit(ledUnit.id)}>
+                            Limit access to {ledUnit.name}
+                        </Button>
+                    )}
+                    <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)} className="text-destructive">
+                        Unlink
+                    </Button>
+                </div>
+            ) : (
+                <div className="relative max-w-md">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        placeholder="Search a member by name…"
+                        className="pl-9"
+                    />
+                    {matches.length > 0 && (
+                        <div className="absolute z-20 mt-1 w-full rounded-xl border bg-card shadow-lg p-1">
+                            {matches.map(m => {
+                                const taken = takenBy.get(m.id);
+                                return (
+                                    <button
+                                        key={m.id}
+                                        type="button"
+                                        disabled={!!taken}
+                                        onClick={() => { onChange(m); setQuery(""); }}
+                                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted disabled:opacity-50 disabled:hover:bg-transparent"
+                                    >
+                                        <span className="block text-sm font-medium">{m.firstName} {m.lastName}</span>
+                                        <span className="block text-xs text-muted-foreground">
+                                            {taken ? `Already linked to ${taken}` : describeMember(m)}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

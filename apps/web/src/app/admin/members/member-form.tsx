@@ -83,7 +83,7 @@ export type MemberFormData = {
     moves?: Move[];
 };
 
-export function MemberForm({ initialData, units, subgroups }: { initialData: MemberFormData; units: Unit[]; subgroups: Subgroup[] }) {
+export function MemberForm({ initialData, units, subgroups, belowHeader }: { initialData: MemberFormData; units: Unit[]; subgroups: Subgroup[]; belowHeader?: React.ReactNode }) {
     const [data, setData] = useState<MemberFormData>(initialData);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
@@ -285,6 +285,8 @@ export function MemberForm({ initialData, units, subgroups }: { initialData: Mem
                     </Button>
                 )}
             </div>
+
+            {belowHeader}
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* ── Identity ── */}

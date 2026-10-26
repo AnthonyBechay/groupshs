@@ -219,6 +219,43 @@ template  →  CircularContent (blocks + {{tokens}}, stored as JSON on `circular
 - The activity form's **dropoff = start, pickup = end** (the family's point of
   view). The circular calls them `startTime/startPlace`, `endTime/endPlace`.
 
+### Activities have sessions
+
+An `Activity` is defined once; each occurrence is an `ActivitySession`, which
+holds what differs per day: `programme`, `notes`, attendance, cancellation.
+A one-off has exactly one session; a weekly reunion (`recurrence = "WEEKLY"`,
+`recurrenceUntil`) has one per week. **Attendance always belongs to a session**
+(`@@unique([sessionId, memberId])`).
+
+- Schedule maths is pure in `activity-schedule.ts` (days at UTC midnight, capped
+  at `MAX_SESSIONS`); `syncActivitySessions()` applies it after any schedule
+  change. It never deletes a session that has attendance or a programme — it
+  cancels it instead — and a one-off whose date moves keeps its session.
+- Access (`activity-sessions.ts`): a restricted user **views** their units'
+  activities plus group-wide (`ALL`) ones, **edits** only their units', and
+  takes attendance only for members of units they can access. The roster is the
+  single check for attendance writes.
+- Weekly reunions never reach the public site: every public activity query
+  spreads `PUBLIC_ACTIVITY_WHERE`.
+
+### Users ↔ members, "My unit"
+
+`User.memberId` (optional, unique) links an account to the person. It is
+**identity, not access**: `getMyUnit()` reads the unit they lead (served unit,
+else home unit; none for the conseil) for the "My unit" page, but permissions
+and `allowedUnitIds` still decide what they may touch.
+
+### Family update links
+
+`MemberUpdateRequest`: a token link a leader sends to a family to fill in the
+file (`FAMILY_FIELD_GROUPS` in `member-update.ts` is the only set of fields a
+family can propose). Opening it asks for the child's date of birth when one is
+on file; it is rate-limited per IP and per link. A submission stores only the
+diff and changes nothing until a leader applies it field by field. One open
+link per member — creating another revokes the previous one. Tokens are stored
+in clear on purpose so a link can be copied again; a leaked one can only
+propose changes.
+
 ### Navigation state and unsaved changes
 
 - Tabs, filters and open panels that a user would expect Back to restore live

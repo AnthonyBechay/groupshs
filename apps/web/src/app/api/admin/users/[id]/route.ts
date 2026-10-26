@@ -1,6 +1,7 @@
 import { prisma } from "@/db";
 import { getSession, hashPassword, PERMISSION_KEYS, type SessionUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { checkMemberLink } from "@/lib/user-member";
 
 function requireSuperAdmin(session: SessionUser | null) {
     return session?.isSuperAdmin === true;
@@ -31,6 +32,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             if (key in body) data[key] = body[key] === true;
         }
         if (Array.isArray(body.allowedUnitIds)) data.allowedUnitIds = body.allowedUnitIds;
+        if ("memberId" in body) {
+            const link = await checkMemberLink(body.memberId, id);
+            if (link.error) return NextResponse.json({ error: link.error }, { status: 400 });
+            data.memberId = link.memberId;
+        }
 
         const updated = await prisma.user.update({
             where: { id },

@@ -8,7 +8,7 @@ import Image from "next/image";
 import { prisma } from "@/db";
 import { SocialIcon } from "@/components/social-icons";
 import { getCachedGallery, getCachedPartners, getCachedSocialLinks, getCachedSettings } from "@/lib/query-cache";
-import { ACTIVITY_TYPE_LABELS, NON_MEMBER_UNIT_TYPES } from "@/lib/scout-config";
+import { ACTIVITY_TYPE_LABELS, NON_MEMBER_UNIT_TYPES, PUBLIC_ACTIVITY_WHERE } from "@/lib/scout-config";
 import { ActivityCoverFallback } from "@/components/activity-cover-fallback";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function Home() {
   const [upcomingActivities, galleryPhotos, partners, socialLinks, thisYearActivities, memberCount, unitCount, totalActivitiesCount, settings] = await Promise.all([
     prisma.activity.findMany({
       where: {
-        hidden: false,
+        ...PUBLIC_ACTIVITY_WHERE,
         OR: [
           { endDate: { gte: now } },
           { endDate: null, startDate: { gte: now } },
@@ -42,7 +42,7 @@ export default async function Home() {
     getCachedSocialLinks(),
     prisma.activity.findMany({
       where: {
-        hidden: false,
+        ...PUBLIC_ACTIVITY_WHERE,
         year: currentYear,
         AND: [
           {
@@ -60,7 +60,7 @@ export default async function Home() {
     // "Units" means real scouting units: not the leadership team, not the
     // group-wide activities audience, not the archive of former members.
     prisma.unit.count({ where: { unitType: { notIn: ["GROUP", ...NON_MEMBER_UNIT_TYPES] } } }),
-    prisma.activity.count({ where: { hidden: false } }),
+    prisma.activity.count({ where: PUBLIC_ACTIVITY_WHERE }),
     getCachedSettings(),
   ]);
 
