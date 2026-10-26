@@ -24,8 +24,12 @@ const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
 
 /** WhatsApp text a leader can send as-is. */
 export function familyMessage(firstName: string, url: string, expiresAt: string) {
-    return `Hello! Could you please check and complete ${firstName}'s scout file (contacts and medical info)? ` +
-        `It takes a few minutes: ${url}\nThe link works until ${date(expiresAt)}. Thank you!`;
+    return [
+        `Hello! Could you please check and complete ${firstName}'s scout file?`,
+        `The purpose is to make sure ${firstName}'s basic health and allergy information is up to date, so the leaders can look after them during activities. It takes a few minutes:`,
+        url,
+        `This link is for ${firstName}'s family only and can be used once (until ${date(expiresAt)}). If you need another one, just tell us. Thank you!`,
+    ].join("\n\n");
 }
 
 /**

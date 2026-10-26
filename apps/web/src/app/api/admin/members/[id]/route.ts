@@ -4,6 +4,7 @@ import {
     resolveMemberGender, LEADERSHIP_ROLES, touchesCouncilRole, COUNCIL_ROLES, unitHoldsMembers,
 } from "@/lib/scout-config";
 import { NextRequest, NextResponse } from "next/server";
+import { recordChanges } from "@/lib/member-history";
 
 const STRING_FIELDS = [
     "placeOfBirth", "email", "bloodType",
@@ -204,6 +205,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
         const updated = await prisma.$transaction(async (tx) => {
             const m = await tx.member.update({ where: { id }, data });
+            // Unit, sub-group, role and progressions already have their own
+            // history (MemberMove); every other field is recorded here.
+            await recordChanges(tx, id, existing, data, { source: "ADMIN", id: session?.userId, name: session?.name },
+                ["unitId", "subgroupId", "role", "progressions"]);
             if (moves.length > 0) {
                 await tx.memberMove.create({
                     data: {

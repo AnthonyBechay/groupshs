@@ -97,7 +97,8 @@ export async function getMyUnitOverview(session: SessionUser, unitId: string) {
         .sort((a, b) => a.dateOfBirth!.slice(8, 10).localeCompare(b.dateOfBirth!.slice(8, 10)));
 
     const pendingUpdates = canMembers
-        ? await prisma.memberUpdateRequest.count({ where: { status: "SUBMITTED", member: { OR: [{ unitId }, { servesUnitId: unitId }] } } })
+        // The unit's own members only: those are the files this leader can review.
+        ? await prisma.memberUpdateRequest.count({ where: { status: "SUBMITTED", member: { unitId, status: "ACTIVE" } } })
         : 0;
 
     let upcoming: { id: string; date: Date; status: string; activity: { id: string; title: string; activityType: string } }[] = [];

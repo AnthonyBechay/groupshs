@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Loader2, X } from "lucide-react";
-import { FAMILY_FIELD_GROUPS, type Medication, type SubmittedChanges } from "@/lib/member-update";
+import { FAMILY_FIELD_GROUPS, describeSibling, type Medication, type Sibling, type SubmittedChanges } from "@/lib/member-update";
 
 type Data = {
     id: string; state: string; submittedAt: string | null; submittedBy: string | null;
@@ -13,6 +13,7 @@ type Data = {
     changes: SubmittedChanges;
     member: Record<string, unknown> & { id: string; firstName: string; lastName: string; consentSignedAt: string | null; unit: { name: string } };
     currentMedications: Medication[];
+    currentSiblings: Sibling[];
 };
 
 const show = (v: unknown) => (v == null || v === "" ? <span className="italic text-muted-foreground">empty</span> : String(v));
@@ -38,6 +39,7 @@ export default function ReviewUpdatePage() {
             setData(d);
             const all = Object.keys(d.changes.fields ?? {});
             if (d.changes.medications) all.push("medications");
+            if (d.changes.siblings) all.push("siblings");
             if (d.changes.consent) all.push("consent");
             setKeep(new Set(all));
         });
@@ -56,7 +58,8 @@ export default function ReviewUpdatePage() {
 
     const toggle = (k: string) => setKeep(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
     const reviewable = data.state === "SUBMITTED";
-    const total = Object.keys(data.changes.fields ?? {}).length + (data.changes.medications ? 1 : 0) + (data.changes.consent ? 1 : 0);
+    const total = Object.keys(data.changes.fields ?? {}).length + (data.changes.medications ? 1 : 0)
+        + (data.changes.siblings ? 1 : 0) + (data.changes.consent ? 1 : 0);
 
     async function decide(action: "apply" | "reject") {
         if (action === "apply" && keep.size === 0 && !confirm("Nothing is ticked: this rejects the whole submission. Continue?")) return;
@@ -66,8 +69,9 @@ export default function ReviewUpdatePage() {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 action, note,
-                fields: [...keep].filter(k => k !== "medications" && k !== "consent"),
+                fields: [...keep].filter(k => !["medications", "siblings", "consent"].includes(k)),
                 medications: keep.has("medications"),
+                siblings: keep.has("siblings"),
                 consent: keep.has("consent"),
             }),
         });
@@ -126,6 +130,21 @@ export default function ReviewUpdatePage() {
                         applied={data.appliedFields.includes("medications")}
                         disabled={!reviewable}
                         onToggle={() => toggle("medications")}
+                    />
+                </section>
+            )}
+
+            {data.changes.siblings && (
+                <section className="rounded-2xl border bg-card overflow-hidden">
+                    <h2 className="px-4 py-2.5 border-b bg-muted/30 text-xs font-bold uppercase tracking-wider">Siblings in the group</h2>
+                    <ChangeRow
+                        label="Brothers & sisters"
+                        before={data.currentSiblings.length ? <ul className="space-y-0.5">{data.currentSiblings.map((s, i) => <li key={i}>{describeSibling(s)}</li>)}</ul> : show(null)}
+                        after={data.changes.siblings.length ? <ul className="space-y-0.5">{data.changes.siblings.map((s, i) => <li key={i}>{describeSibling(s)}</li>)}</ul> : <span className="italic">none</span>}
+                        checked={keep.has("siblings")}
+                        applied={data.appliedFields.includes("siblings")}
+                        disabled={!reviewable}
+                        onToggle={() => toggle("siblings")}
                     />
                 </section>
             )}

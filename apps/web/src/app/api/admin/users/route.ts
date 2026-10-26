@@ -1,7 +1,7 @@
 import { prisma } from "@/db";
 import { getSession, hashPassword, type SessionUser, PERMISSION_KEYS } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { checkMemberLink, linkedMemberSelect } from "@/lib/user-member";
+import { checkMemberLink, linkedMemberSelect, userWriteError } from "@/lib/user-member";
 
 /** Every permission column, for a Prisma `select`. */
 const permissionSelect = Object.fromEntries(PERMISSION_KEYS.map(k => [k, true]));
@@ -84,7 +84,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(user);
     } catch (error) {
         console.error("Error creating user:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        const { status, error: message } = userWriteError(error);
+        return NextResponse.json({ error: message }, { status });
     }
 }
 

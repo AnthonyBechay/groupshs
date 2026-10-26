@@ -1,6 +1,8 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { recordListChange } from "@/lib/member-history";
+import { describeSibling } from "@/lib/member-update";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -21,8 +23,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
         if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
-        const sibling = await prisma.groupSibling.create({
-            data: { memberId: id, name, schoolClass: schoolClass || null, unitName: unitName || null },
+        const sibling = await prisma.$transaction(async (tx) => {
+            const created = await tx.groupSibling.create({
+                data: { memberId: id, name, schoolClass: schoolClass || null, unitName: unitName || null },
+            });
+            await recordListChange(tx, id, "siblings", { added: describeSibling(created) },
+                { source: "ADMIN", id: session?.userId, name: session?.name });
+            return created;
         });
         return NextResponse.json(sibling);
     } catch (error) {

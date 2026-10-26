@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-    AlertTriangle, CalendarClock, Cake, ClipboardCheck, ClipboardList, Inbox, Link2, Plus, Star, Users,
+    CalendarClock, Cake, ClipboardCheck, ClipboardList, Inbox, Link2, Plus, Star, Users,
 } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { getMyUnit, getMyUnitOverview } from "@/lib/my-unit";
@@ -39,7 +39,6 @@ export default async function MyUnitPage() {
     const o = await getMyUnitOverview(session, mine.unit.id);
     const theme = unitTheme(mine.unit.unitType);
     const today = new Date();
-    const toTake = o.recent.filter(r => r.recorded === 0);
     const taken = o.recent.filter(r => r.recorded > 0);
     const rate = taken.length ? Math.round(100 * taken.reduce((n, r) => n + r.present, 0) / taken.reduce((n, r) => n + r.recorded, 0)) : null;
     const unitQ = `unit=${mine.unit.id}`;
@@ -61,7 +60,6 @@ export default async function MyUnitPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {o.canMembers && <Tile label="Members" value={String(o.youth.length)} hint={`+ ${o.maitrise.length} in the maîtrise`} />}
                 {o.canActivities && <Tile label="Attendance" value={rate == null ? "—" : `${rate}%`} hint={`last ${taken.length} session${taken.length !== 1 ? "s" : ""}`} />}
-                {o.canActivities && <Tile label="Attendance to take" value={String(toTake.length)} hint="past sessions, nothing recorded" warn={toTake.length > 0} />}
                 {o.canMembers && <Tile label="Files to complete" value={String(o.incomplete.length)} hint="missing essential info" warn={o.incomplete.length > 0} />}
                 {o.canMembers && o.pendingUpdates > 0 && <Tile label="To review" value={String(o.pendingUpdates)} hint="sent in by families" warn />}
             </div>
@@ -88,7 +86,7 @@ export default async function MyUnitPage() {
                                 {r.recorded ? (
                                     <span className="text-xs font-semibold">{r.present}/{r.recorded}</span>
                                 ) : (
-                                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Take it</span>
+                                    <span className="text-xs text-muted-foreground">—</span>
                                 )}
                             </Row>
                         ))}

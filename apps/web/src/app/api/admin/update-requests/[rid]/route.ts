@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { FAMILY_FIELD_KEYS, linkState, type SubmittedChanges } from "@/lib/member-update";
-import { applyReview, linkUrl, toMedications } from "@/lib/member-update-service";
+import { applyReview, linkUrl, toMedications, toSiblings } from "@/lib/member-update-service";
 
 type Params = { params: Promise<{ rid: string }> };
 
@@ -20,6 +20,7 @@ async function load(params: Params["params"]) {
                     id: true, firstName: true, lastName: true, unitId: true, consentSignedAt: true,
                     unit: { select: { id: true, name: true, unitType: true } },
                     medications: { orderBy: { createdAt: "asc" } },
+                    groupSiblings: { orderBy: { createdAt: "asc" } },
                     ...Object.fromEntries(FAMILY_FIELD_KEYS.map(k => [k, true])),
                 },
             },
@@ -36,7 +37,7 @@ export async function GET(_: NextRequest, { params }: Params) {
         const g = await load(params);
         if (g.error) return g.error;
         const { r } = g;
-        const { medications, ...member } = r.member;
+        const { medications, groupSiblings, ...member } = r.member;
         return NextResponse.json({
             ...r,
             token: undefined,
@@ -45,6 +46,7 @@ export async function GET(_: NextRequest, { params }: Params) {
             changes: r.changes as unknown as SubmittedChanges,
             member,
             currentMedications: toMedications(medications),
+            currentSiblings: toSiblings(groupSiblings),
         });
     } catch (error) {
         console.error("Error loading update request:", error);
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             const updated = await applyReview(r.id, {
                 fields: Array.isArray(body.fields) ? body.fields.filter((k: unknown) => typeof k === "string") : [],
                 medications: body.medications === true,
+                siblings: body.siblings === true,
                 consent: body.consent === true,
                 note,
             }, session);

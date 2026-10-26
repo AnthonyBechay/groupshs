@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { CheckCircle2, Loader2, Lock, Plus, ShieldCheck, Trash2 } from "lucide-react";
-import { BLOOD_TYPES, FAMILY_FIELD_GROUPS, type FieldDef, type Medication } from "@/lib/member-update";
+import { BLOOD_TYPES, FAMILY_FIELD_GROUPS, type FieldDef, type Medication, type Sibling } from "@/lib/member-update";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 
 type Step = "verify" | "form" | "done";
 const EMPTY_MED: Medication = { name: "", dosage: "", timeToTake: "", startDate: "", endDate: "" };
+const EMPTY_SIB: Sibling = { name: "", schoolClass: "", unitName: "" };
 
 export function FamilyForm({ token, firstName, unitName, needsDob, expiresAt }: {
     token: string; firstName: string; unitName: string; needsDob: boolean; expiresAt: string;
@@ -18,6 +19,7 @@ export function FamilyForm({ token, firstName, unitName, needsDob, expiresAt }: 
     const [dob, setDob] = useState("");
     const [fields, setFields] = useState<Record<string, string>>({});
     const [meds, setMeds] = useState<Medication[]>([]);
+    const [sibs, setSibs] = useState<Sibling[]>([]);
     const [consent, setConsent] = useState(false);
     const [name, setName] = useState("");
     const [busy, setBusy] = useState(false);
@@ -36,8 +38,9 @@ export function FamilyForm({ token, firstName, unitName, needsDob, expiresAt }: 
         const d = await res.json().catch(() => ({}));
         setBusy(false);
         if (!res.ok) { setError(d.error || "Something went wrong"); return; }
-        setFields(Object.fromEntries(Object.entries(d.fields as Record<string, string | null>).map(([k, v]) => [k, v ?? ""])));
+        setFields(Object.fromEntries(Object.entries(d.fields as Record<string, string | number | null>).map(([k, v]) => [k, v == null ? "" : String(v)])));
         setMeds(d.medications);
+        setSibs(d.siblings ?? []);
         setStep("form");
         window.scrollTo({ top: 0 });
     }
@@ -45,7 +48,11 @@ export function FamilyForm({ token, firstName, unitName, needsDob, expiresAt }: 
     async function submit(e: React.FormEvent) {
         e.preventDefault();
         setBusy(true); setError("");
-        const res = await api({ action: "submit", submittedBy: name, fields, medications: meds.filter(m => m.name.trim()), consent });
+        const res = await api({
+            action: "submit", submittedBy: name, fields, consent,
+            medications: meds.filter(m => m.name.trim()),
+            siblings: sibs.filter(s => s.name.trim()),
+        });
         const d = await res.json().catch(() => ({}));
         setBusy(false);
         if (!res.ok) { setError(d.error || "Something went wrong"); return; }
@@ -56,6 +63,7 @@ export function FamilyForm({ token, firstName, unitName, needsDob, expiresAt }: 
 
     const set = (k: string, v: string) => { setFields(f => ({ ...f, [k]: v })); setDirty(true); };
     const setMed = (i: number, patch: Partial<Medication>) => { setMeds(ms => ms.map((m, j) => (j === i ? { ...m, ...patch } : m))); setDirty(true); };
+    const setSib = (i: number, patch: Partial<Sibling>) => { setSibs(ss => ss.map((s, j) => (j === i ? { ...s, ...patch } : s))); setDirty(true); };
     const until = new Date(expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
 
     if (step === "done") {
@@ -77,8 +85,12 @@ export function FamilyForm({ token, firstName, unitName, needsDob, expiresAt }: 
                     <p className="text-xs font-bold uppercase tracking-widest text-primary">Group SHS · {unitName}</p>
                     <h1 className="text-2xl md:text-3xl font-black mt-1">{firstName}&apos;s scout file</h1>
                     <p className="text-sm text-muted-foreground mt-2">
-                        Please check and complete the contacts and medical information we keep for {firstName}.
-                        It is only used by the leaders, to look after your child during activities. This link works until {until}.
+                        The purpose is to make sure {firstName}&apos;s basic health and allergy information is up to date,
+                        along with the contacts we call if needed. It is only used by the leaders, to look after your child during activities.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2 rounded-lg bg-muted/60 px-3 py-2">
+                        This link is for {firstName}&apos;s family only and can be sent once. It works until {until}.
+                        If you need another one, just tell your child&apos;s leader.
                     </p>
                 </div>
                 {needsDob ? (
@@ -109,6 +121,27 @@ export function FamilyForm({ token, firstName, unitName, needsDob, expiresAt }: 
                     <div className="grid sm:grid-cols-2 gap-4">
                         {g.fields.map(f => <FieldInput key={f.key} f={f} value={fields[f.key] ?? ""} onChange={v => set(f.key, v)} />)}
                     </div>
+                    {g.title === "Family" && (
+                        <div className="border-t pt-4 space-y-3">
+                            <div>
+                                <h3 className="text-sm font-semibold">Brothers and sisters in the group</h3>
+                                <p className="text-xs text-muted-foreground">Only those who are scouts with us too.</p>
+                            </div>
+                            {sibs.map((s, i) => (
+                                <div key={i} className="grid grid-cols-2 sm:grid-cols-[1fr_8rem_9rem_auto] gap-2 items-end rounded-xl border p-3">
+                                    <Field label="Name"><Input value={s.name} onChange={e => setSib(i, { name: e.target.value })} /></Field>
+                                    <Field label="Class"><Input value={s.schoolClass} onChange={e => setSib(i, { schoolClass: e.target.value })} /></Field>
+                                    <Field label="Unit"><Input value={s.unitName} onChange={e => setSib(i, { unitName: e.target.value })} placeholder="e.g. Meute Hathi" /></Field>
+                                    <button type="button" onClick={() => { setSibs(ss => ss.filter((_, j) => j !== i)); setDirty(true); }} className="h-10 px-2 text-muted-foreground hover:text-destructive" aria-label="Remove">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => { setSibs(ss => [...ss, { ...EMPTY_SIB }]); setDirty(true); }}>
+                                <Plus className="w-4 h-4" /> Add a brother or sister
+                            </Button>
+                        </div>
+                    )}
                     {g.title === "Medical" && (
                         <div className="border-t pt-4 space-y-3">
                             <div>
@@ -120,6 +153,9 @@ export function FamilyForm({ token, firstName, unitName, needsDob, expiresAt }: 
                                     <Field label="Medicine"><Input value={m.name} onChange={e => setMed(i, { name: e.target.value })} /></Field>
                                     <Field label="Dosage"><Input value={m.dosage} onChange={e => setMed(i, { dosage: e.target.value })} /></Field>
                                     <Field label="When"><Input value={m.timeToTake} onChange={e => setMed(i, { timeToTake: e.target.value })} placeholder="08:00" /></Field>
+                                    <span className="hidden sm:block" />
+                                    <Field label="From"><Input type="date" value={m.startDate} onChange={e => setMed(i, { startDate: e.target.value })} /></Field>
+                                    <Field label="Until"><Input type="date" value={m.endDate} onChange={e => setMed(i, { endDate: e.target.value })} /></Field>
                                     <button type="button" onClick={() => { setMeds(ms => ms.filter((_, j) => j !== i)); setDirty(true); }} className="h-10 px-2 text-muted-foreground hover:text-destructive" aria-label="Remove">
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -168,6 +204,8 @@ function FieldInput({ f, value, onChange }: { f: FieldDef; value: string; onChan
             <option value="">Don&apos;t know</option>
             {BLOOD_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
+    ) : f.type === "number" ? (
+        <Input type="number" min={0} max={20} inputMode="numeric" value={value} onChange={e => onChange(e.target.value)} />
     ) : (
         <Input type={f.type === "tel" ? "tel" : f.type} value={value} onChange={e => onChange(e.target.value)} />
     );

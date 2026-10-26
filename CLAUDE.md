@@ -256,6 +256,14 @@ link per member — creating another revokes the previous one. Tokens are stored
 in clear on purpose so a link can be copied again; a leaked one can only
 propose changes.
 
+### Member change history
+
+`MemberChange` keeps one row per changed field of a member's file (old value,
+new value, who, when, `ADMIN` or `FAMILY`). Every write path records it — the
+member PUT (`recordChanges`, skipping what `MemberMove` already tracks), the
+treatment and sibling routes, and `applyReview`. A new path that edits member
+details must call it too, or the history silently gets a hole.
+
 ### Navigation state and unsaved changes
 
 - Tabs, filters and open panels that a user would expect Back to restore live

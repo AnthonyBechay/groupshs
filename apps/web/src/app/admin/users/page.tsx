@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect, useMemo } from "react";
 import { Trash2, Plus, Pencil, Shield, ShieldCheck, X, Link2, Search, UserRound } from "lucide-react";
 import { UnsavedFormGuard } from "@/components/unsaved-form-guard";
-import { leadershipRolesOf } from "@/lib/scout-config";
+import { leadershipRolesOf, isCouncilRole } from "@/lib/scout-config";
 
 type Unit = { id: string; name: string };
 type LinkedMember = {
@@ -15,6 +15,24 @@ type LinkedMember = {
     unit: { id: string; name: string; unitType: string };
     servesUnit: { id: string; name: string; unitType: string } | null;
 };
+
+/** The unit this member runs as unit maîtrise (CM, ACT…), if any. */
+function ledUnitOf(m: LinkedMember | null) {
+    if (!m?.servesUnit) return null;
+    const roles = leadershipRolesOf(m, m.unit.unitType).filter(r => !isCouncilRole(r));
+    return roles.length ? m.servesUnit : null;
+}
+
+/** What a unit leader needs: their unit's activities, members and family links. */
+const LEADER_PERMISSIONS = ["canManageActivities", "canManageMembers"] as const;
+
+/** Can this account do a unit leader's job for that unit? */
+function leaderAccessOk(
+    perms: Partial<Record<(typeof LEADER_PERMISSIONS)[number], boolean>>, role: string, restrict: boolean, allowed: string[], unitId: string
+) {
+    if (role === "super_admin") return true;
+    return LEADER_PERMISSIONS.every(k => perms[k]) && (!restrict || allowed.includes(unitId));
+}
 
 /** "CM · Meute Hathi" — what this person is in the group. */
 function describeMember(m: LinkedMember): string {
@@ -185,6 +203,14 @@ export default function AdminUsersPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchData(); }, []);
 
+    // The panel scrolls; the list behind it should not.
+    useEffect(() => {
+        if (!showForm) return;
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = prev; };
+    }, [showForm]);
+
     function startCreate() {
         setEditing(null);
         setRole("admin");
@@ -272,6 +298,12 @@ export default function AdminUsersPage() {
         fetchData();
     }
 
+    /** Add what a unit leader needs for this unit, keeping everything else. */
+    function grantLeaderAccess(unitId: string) {
+        setPermissions(prev => ({ ...prev, ...Object.fromEntries(LEADER_PERMISSIONS.map(k => [k, true])) }));
+        if (restrictUnits) setAllowedUnitIds(prev => (prev.includes(unitId) ? prev : [...prev, unitId]));
+    }
+
     function toggleAll(value: boolean) {
         const next = { ...permissions };
         for (const p of PERMISSIONS) next[p.key] = value;
@@ -294,15 +326,25 @@ export default function AdminUsersPage() {
                 </Button>
             </div>
 
+            {/* A panel over the list rather than a form pushed above it: the
+                list stays where it was, and closing returns to the same spot.
+                The backdrop does not close it, so a stray click cannot throw
+                away half-entered permissions. */}
             {showForm && (
-                <form onSubmit={handleSubmit} className="border rounded-2xl p-6 mb-8 space-y-6 bg-card">
+                <div className="fixed inset-0 z-[60] flex justify-end" role="dialog" aria-modal="true" aria-label={editing ? `Edit ${editing.name}` : "New user"}>
+                <div className="absolute inset-0 bg-black/40" aria-hidden />
+                <form onSubmit={handleSubmit} className="relative h-full w-full max-w-2xl bg-background shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
                     <UnsavedFormGuard />
-                    <div className="flex justify-between items-start">
-                        <h2 className="text-xl font-semibold">{editing ? `Edit ${editing.name}` : "New User"}</h2>
-                        <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="text-muted-foreground hover:text-foreground">
+                    <div className="flex justify-between items-center gap-3 px-6 py-4 border-b">
+                        <div className="min-w-0">
+                            <h2 className="text-xl font-semibold truncate">{editing ? `Edit ${editing.name}` : "New user"}</h2>
+                            {editing && <p className="text-xs text-muted-foreground truncate">{editing.email}</p>}
+                        </div>
+                        <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="text-muted-foreground hover:text-foreground p-1" aria-label="Close">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
+                    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
                     {/* Quick presets */}
                     <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 space-y-3">
@@ -359,11 +401,25 @@ export default function AdminUsersPage() {
                         users={users}
                         editingId={editing?.id ?? null}
                         value={linkedMember}
-                        onChange={setLinkedMember}
-                        onUseUnit={(unitId) => {
-                            setRestrictUnits(true);
-                            setAllowedUnitIds([unitId]);
+                        onChange={(m) => {
+                            setLinkedMember(m);
+                            // Linking a CT / ACT / CM… sets them up to run their
+                            // unit straight away: a brand-new account gets the
+                            // unit chef preset on that unit, an existing one just
+                            // gains the unit. Everything stays editable below.
+                            const unit = ledUnitOf(m);
+                            if (!unit) return;
+                            const noPermissions = !Object.values(permissions).some(Boolean);
+                            if (noPermissions) {
+                                applyPreset(ROLE_PRESETS.find(p => p.key === "ct")!);
+                                setRestrictUnits(true);
+                                setAllowedUnitIds([unit.id]);
+                            } else {
+                                grantLeaderAccess(unit.id);
+                            }
                         }}
+                        accessOk={(unitId) => leaderAccessOk(permissions, role, restrictUnits, allowedUnitIds, unitId)}
+                        onGrantAccess={grantLeaderAccess}
                     />
 
                     {/* Permissions */}
@@ -375,7 +431,7 @@ export default function AdminUsersPage() {
                                 <Button type="button" variant="ghost" size="sm" onClick={() => toggleAll(false)}>Revoke all</Button>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {PERMISSIONS.map(p => (
                                 <label
                                     key={p.key}
@@ -408,7 +464,7 @@ export default function AdminUsersPage() {
                             <span className="text-sm font-medium">Restrict to specific units</span>
                         </label>
                         {restrictUnits ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pl-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-6">
                                 {units.map(u => (
                                     <label key={u.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
                                         allowedUnitIds.includes(u.id) ? "bg-primary/5 border-primary/30" : "bg-background hover:bg-muted/30"
@@ -431,13 +487,17 @@ export default function AdminUsersPage() {
                         )}
                     </div>
 
-                    {error && <p className="text-sm text-destructive">{error}</p>}
+                    </div>
 
-                    <div className="flex gap-2 pt-2">
-                        <Button type="submit">{editing ? "Update User" : "Create User"}</Button>
-                        <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); }}>Cancel</Button>
+                    <div className="border-t px-6 py-3 space-y-2 bg-card">
+                        {error && <p className="text-sm text-destructive">{error}</p>}
+                        <div className="flex gap-2">
+                            <Button type="submit">{editing ? "Save changes" : "Create user"}</Button>
+                            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); }}>Cancel</Button>
+                        </div>
                     </div>
                 </form>
+                </div>
             )}
 
             <div className="border rounded-xl overflow-hidden bg-card">
@@ -465,6 +525,11 @@ export default function AdminUsersPage() {
                                         <span className="inline-flex flex-col">
                                             <span className="font-medium">{u.member.firstName} {u.member.lastName}</span>
                                             <span className="text-xs text-muted-foreground">{describeMember(u.member)}</span>
+                                            {(() => {
+                                                const unit = ledUnitOf(u.member);
+                                                if (!unit || leaderAccessOk(u, u.role, u.allowedUnitIds.length > 0, u.allowedUnitIds, unit.id)) return null;
+                                                return <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Cannot manage {unit.name} yet</span>;
+                                            })()}
                                         </span>
                                     ) : (
                                         <span className="text-xs text-muted-foreground">Not linked</span>
@@ -510,13 +575,14 @@ export default function AdminUsersPage() {
  * unit list below — "Limit access to this unit" copies the unit across when
  * that is what you want.
  */
-function MemberLink({ members, users, editingId, value, onChange, onUseUnit }: {
+function MemberLink({ members, users, editingId, value, onChange, accessOk, onGrantAccess }: {
     members: LinkedMember[];
     users: User[];
     editingId: string | null;
     value: LinkedMember | null;
     onChange: (m: LinkedMember | null) => void;
-    onUseUnit: (unitId: string) => void;
+    accessOk: (unitId: string) => boolean;
+    onGrantAccess: (unitId: string) => void;
 }) {
     const [query, setQuery] = useState("");
     // Who is taken by another account, so the picker can say so up front.
@@ -532,7 +598,7 @@ function MemberLink({ members, users, editingId, value, onChange, onUseUnit }: {
             .slice(0, 8);
     }, [members, query]);
 
-    const ledUnit = value ? (value.servesUnit ?? value.unit) : null;
+    const ledUnit = ledUnitOf(value);
 
     return (
         <div className="border-t pt-5 space-y-3">
@@ -541,8 +607,8 @@ function MemberLink({ members, users, editingId, value, onChange, onUseUnit }: {
                     <Link2 className="w-4 h-4" /> Linked member <span className="normal-case font-normal tracking-normal">(optional)</span>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                    The person behind this account. Their role in the group (CM, CT…) gives them a &quot;My unit&quot; view.
-                    It does not change what they can access.
+                    The person behind this account. If they lead a unit (CM, CT, ACT…), they get a &quot;My unit&quot; view,
+                    and linking sets them up to manage that unit&apos;s activities, members and family links.
                 </p>
             </div>
 
@@ -555,14 +621,23 @@ function MemberLink({ members, users, editingId, value, onChange, onUseUnit }: {
                         <p className="text-sm font-semibold">{value.firstName} {value.lastName}</p>
                         <p className="text-xs text-muted-foreground">{describeMember(value)}</p>
                     </div>
-                    {ledUnit && (
-                        <Button type="button" variant="outline" size="sm" onClick={() => onUseUnit(ledUnit.id)}>
-                            Limit access to {ledUnit.name}
-                        </Button>
-                    )}
                     <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)} className="text-destructive">
                         Unlink
                     </Button>
+                    {ledUnit && (
+                        accessOk(ledUnit.id) ? (
+                            <p className="w-full text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                                ✓ Can manage {ledUnit.name}: its activities, attendance, members and family links.
+                            </p>
+                        ) : (
+                            <div className="w-full flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 px-3 py-2">
+                                <span className="text-xs text-amber-900 dark:text-amber-300 flex-1">
+                                    This account cannot manage {ledUnit.name}, the unit they lead, yet.
+                                </span>
+                                <Button type="button" size="sm" variant="outline" onClick={() => onGrantAccess(ledUnit.id)}>Give access</Button>
+                            </div>
+                        )
+                    )}
                 </div>
             ) : (
                 <div className="relative max-w-md">

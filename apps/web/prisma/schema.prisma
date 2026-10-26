@@ -250,6 +250,7 @@ model Member {
   attendance    ActivityAttendance[]
   user          User?                 @relation("UserMember")
   updateRequests MemberUpdateRequest[]
+  changes        MemberChange[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -296,6 +297,31 @@ model MemberUpdateRequest {
   @@index([memberId])
   @@index([status])
   @@map("member_update_request")
+}
+
+// One changed field on a member's file: who changed it, from what, to what.
+// Written by every path that edits personal details — the member form, the
+// treatment and sibling lists, and a family submission when a leader applies
+// it — so "who changed the allergies, and when?" always has an answer.
+// Unit / role / progression moves have their own history in MemberMove.
+model MemberChange {
+  id       String @id @default(uuid())
+  memberId String @map("member_id")
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  field    String            // a member column, or "medications" / "siblings"
+  oldValue String? @map("old_value")
+  newValue String? @map("new_value")
+
+  source        String  @default("ADMIN")  // ADMIN | FAMILY
+  changedById   String? @map("changed_by_id")
+  changedByName String? @map("changed_by_name")
+  requestId     String? @map("request_id")  // the family submission, when FAMILY
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([memberId, createdAt])
+  @@map("member_change")
 }
 
 // Brothers/sisters of the member that are also in the group

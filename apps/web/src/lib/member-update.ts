@@ -6,7 +6,7 @@
  * can use the field list, and so the diff can be tested from a script.
  */
 
-export type FieldType = "text" | "textarea" | "date" | "email" | "tel" | "blood";
+export type FieldType = "text" | "textarea" | "date" | "email" | "tel" | "blood" | "number";
 export type FieldDef = { key: string; label: string; type: FieldType; hint?: string };
 export type FieldGroup = { title: string; fields: FieldDef[] };
 
@@ -41,6 +41,7 @@ export const FAMILY_FIELD_GROUPS: FieldGroup[] = [
             { key: "fatherPhone", label: "Phone", type: "tel" },
             { key: "fatherEmail", label: "Email", type: "email" },
             { key: "fatherProfession", label: "Profession", type: "text" },
+            { key: "fatherOldScout", label: "Was he a scout? (which group)", type: "text" },
         ],
     },
     {
@@ -50,6 +51,14 @@ export const FAMILY_FIELD_GROUPS: FieldGroup[] = [
             { key: "motherPhone", label: "Phone", type: "tel" },
             { key: "motherEmail", label: "Email", type: "email" },
             { key: "motherProfession", label: "Profession", type: "text" },
+            { key: "motherOldScout", label: "Was she a scout? (which group)", type: "text" },
+        ],
+    },
+    {
+        title: "Family",
+        fields: [
+            { key: "numberOfBrothers", label: "Number of brothers", type: "number" },
+            { key: "numberOfSisters", label: "Number of sisters", type: "number" },
         ],
     },
     {
@@ -102,11 +111,18 @@ export const DEFAULT_VALIDITY_DAYS = 60;
 
 export type Medication = { name: string; dosage: string; timeToTake: string; startDate: string; endDate: string };
 
+export type Sibling = { name: string; schoolClass: string; unitName: string };
+
+/** Numeric columns: stored as Int, travel as strings in the form. */
+export const NUMBER_FIELDS = FAMILY_FIELDS.filter(f => f.type === "number").map(f => f.key);
+
 export type SubmittedChanges = {
     /** Only the fields that differ from the file at submission time. */
     fields: Record<string, string | null>;
     /** The full proposed treatment list, when it differs; absent = unchanged. */
     medications?: Medication[];
+    /** Brothers and sisters also in the group, when the list differs. */
+    siblings?: Sibling[];
     /** The family ticked the consent box. */
     consent?: boolean;
 };
@@ -131,6 +147,22 @@ export function sanitizeMedications(input: unknown): Medication[] {
     }).filter(m => m.name);
 }
 
+export function sanitizeSiblings(input: unknown): Sibling[] {
+    if (!Array.isArray(input)) return [];
+    return input.slice(0, 15).map(row => {
+        const r = (row ?? {}) as Record<string, unknown>;
+        return { name: clean(r.name, 200) ?? "", schoolClass: clean(r.schoolClass, 100) ?? "", unitName: clean(r.unitName, 100) ?? "" };
+    }).filter(s => s.name);
+}
+
+const sibKey = (list: Sibling[]) => JSON.stringify(list.map(s => [s.name, s.schoolClass, s.unitName]));
+
+/** One line per entry, for the change history. */
+export const describeMedication = (m: { name: string; dosage?: string | null; timeToTake?: string | null; startDate?: string | null; endDate?: string | null }) =>
+    [m.name, m.dosage, m.timeToTake, m.startDate || m.endDate ? `${m.startDate ?? "…"} → ${m.endDate ?? "…"}` : null].filter(Boolean).join(" · ");
+export const describeSibling = (s: { name: string; schoolClass?: string | null; unitName?: string | null }) =>
+    [s.name, s.schoolClass, s.unitName].filter(Boolean).join(" · ");
+
 const medKey = (list: Medication[]) =>
     JSON.stringify(list.map(m => [m.name, m.dosage, m.timeToTake, m.startDate, m.endDate]));
 
@@ -142,7 +174,8 @@ const medKey = (list: Medication[]) =>
 export function diffSubmission(
     current: Record<string, unknown>,
     currentMeds: Medication[],
-    submitted: { fields?: unknown; medications?: unknown; consent?: unknown }
+    submitted: { fields?: unknown; medications?: unknown; siblings?: unknown; consent?: unknown },
+    currentSiblings: Sibling[] = []
 ): SubmittedChanges {
     const input = (submitted.fields ?? {}) as Record<string, unknown>;
     const fields: Record<string, string | null> = {};
@@ -152,7 +185,9 @@ export function diffSubmission(
         // A malformed value is ignored, never read as "clear this field".
         if (f.type === "blood" && next && !BLOOD_TYPES.includes(next)) continue;
         if (f.type === "date" && next && !/^\d{4}-\d{2}-\d{2}$/.test(next)) continue;
-        const before = clean(current[f.key] as string | null, 2000);
+        if (f.type === "number" && next && !/^\d{1,2}$/.test(next)) continue;
+        const raw = current[f.key];
+        const before = clean(raw == null ? null : String(raw), 2000);
         if (next !== before) fields[f.key] = next;
     }
     const out: SubmittedChanges = { fields };
@@ -160,12 +195,16 @@ export function diffSubmission(
         const meds = sanitizeMedications(submitted.medications);
         if (medKey(meds) !== medKey(currentMeds)) out.medications = meds;
     }
+    if (submitted.siblings !== undefined) {
+        const sibs = sanitizeSiblings(submitted.siblings);
+        if (sibKey(sibs) !== sibKey(currentSiblings)) out.siblings = sibs;
+    }
     if (submitted.consent === true) out.consent = true;
     return out;
 }
 
 export function changeCount(c: SubmittedChanges): number {
-    return Object.keys(c.fields ?? {}).length + (c.medications ? 1 : 0) + (c.consent ? 1 : 0);
+    return Object.keys(c.fields ?? {}).length + (c.medications ? 1 : 0) + (c.siblings ? 1 : 0) + (c.consent ? 1 : 0);
 }
 
 /** OPEN links past their date are expired, whatever the stored status says. */

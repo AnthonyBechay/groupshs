@@ -202,7 +202,7 @@ function SessionList({ title, sessions, activityId, canEdit, onStatus, today }: 
                                                 <ClipboardCheck className="w-3.5 h-3.5 text-primary" /> {s.attendance.present}/{s.attendance.expected || s.attendance.recorded} present
                                             </span>
                                         ) : isPast ? (
-                                            <span className="text-amber-700 dark:text-amber-400 font-semibold">Attendance not taken</span>
+                                            <span>No attendance</span>
                                         ) : null}
                                     </span>
                                 )}

@@ -1,7 +1,7 @@
 import { prisma } from "@/db";
 import { getSession, hashPassword, PERMISSION_KEYS, type SessionUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { checkMemberLink } from "@/lib/user-member";
+import { checkMemberLink, userWriteError } from "@/lib/user-member";
 
 function requireSuperAdmin(session: SessionUser | null) {
     return session?.isSuperAdmin === true;
@@ -47,7 +47,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json(updated);
     } catch (error) {
         console.error("Error updating user:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        const { status, error: message } = userWriteError(error);
+        return NextResponse.json({ error: message }, { status });
     }
 }
 

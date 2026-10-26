@@ -1,6 +1,8 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { recordListChange } from "@/lib/member-history";
+import { describeMedication } from "@/lib/member-update";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -21,15 +23,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
         if (!name) return NextResponse.json({ error: "Medication name is required" }, { status: 400 });
 
-        const med = await prisma.memberMedication.create({
-            data: {
-                memberId: id,
-                name,
-                dosage: dosage || null,
-                startDate: startDate || null,
-                endDate: endDate || null,
-                timeToTake: timeToTake || null,
-            },
+        const med = await prisma.$transaction(async (tx) => {
+            const created = await tx.memberMedication.create({
+                data: {
+                    memberId: id,
+                    name,
+                    dosage: dosage || null,
+                    startDate: startDate || null,
+                    endDate: endDate || null,
+                    timeToTake: timeToTake || null,
+                },
+            });
+            await recordListChange(tx, id, "medications", { added: describeMedication(created) },
+                { source: "ADMIN", id: session?.userId, name: session?.name });
+            return created;
         });
         return NextResponse.json(med);
     } catch (error) {

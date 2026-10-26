@@ -32,3 +32,21 @@ export async function checkMemberLink(
     }
     return { memberId };
 }
+
+/**
+ * A readable reason for a failed user write. A generic 500 hid the real cause
+ * (an email or member already used by another account) from the super admin
+ * — the only person who can use these routes, so the detail is safe to show.
+ */
+export function userWriteError(error: unknown): { status: number; error: string } {
+    const e = error as { code?: string; meta?: unknown; message?: string };
+    if (e?.code === "P2002") {
+        const target = JSON.stringify(e.meta ?? {});
+        if (target.includes("email")) return { status: 400, error: "Another account already uses this email" };
+        if (target.includes("member")) return { status: 400, error: "That member is already linked to another account" };
+        return { status: 400, error: "Another account already uses one of these values" };
+    }
+    if (e?.code === "P2003") return { status: 400, error: "The linked member no longer exists" };
+    if (e?.code === "P2025") return { status: 404, error: "User not found" };
+    return { status: 500, error: `Could not save the user: ${e?.message?.split("\n").filter(Boolean).at(-1) ?? "unknown error"}` };
+}

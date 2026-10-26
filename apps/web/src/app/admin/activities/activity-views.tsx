@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-    AlertTriangle, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock,
+    CalendarClock, ChevronLeft, ChevronRight, ClipboardCheck, Clock,
     Eye, EyeOff, FileText, MapPin, Pencil, Repeat, Search, Trash2, TrendingUp, Ban, ListTodo,
 } from "lucide-react";
 import { ACTIVITY_TYPE_LABELS } from "@/lib/scout-config";
@@ -102,7 +102,8 @@ export function StatsStrip({ sessions }: { sessions: SessionRow[] }) {
 
     const thisWeek = live.filter(s => key(s.date) >= week && key(s.date) < addDays(week, 7)).length;
     const next = live.find(s => key(s.date) >= today);
-    const toTake = live.filter(s => needsAttendance(s, today)).length;
+    const month = today.slice(0, 7);
+    const thisMonth = live.filter(s => key(s.date).startsWith(month)).length;
 
     // Attendance over the last four weeks, only where it was actually taken.
     const taken = live.filter(s => key(s.date) < today && s.attendance.recorded > 0);
@@ -118,17 +119,14 @@ export function StatsStrip({ sessions }: { sessions: SessionRow[] }) {
             hint: next?.activity.title ?? "nothing scheduled",
         },
         { icon: TrendingUp, label: "Attendance, 4 weeks", value: rate == null ? "—" : `${rate}%`, hint: `${taken.length} session${taken.length !== 1 ? "s" : ""} recorded` },
-        {
-            icon: toTake ? AlertTriangle : CheckCircle2, label: "Attendance to take", value: String(toTake),
-            hint: toTake ? "past sessions with no record" : "all caught up", warn: toTake > 0,
-        },
+        { icon: CalendarClock, label: "This month", value: String(thisMonth), hint: thisMonth === 1 ? "session" : "sessions" },
     ];
 
     return (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {tiles.map(t => (
-                <div key={t.label} className={`rounded-2xl border p-4 ${t.warn ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/50" : "bg-card"}`}>
-                    <p className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${t.warn ? "text-amber-800 dark:text-amber-300" : "text-muted-foreground"}`}>
+                <div key={t.label} className="rounded-2xl border p-4 bg-card">
+                    <p className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 text-muted-foreground">
                         <t.icon className="w-3.5 h-3.5" /> {t.label}
                     </p>
                     <p className="text-xl font-black mt-1 truncate">{t.value}</p>
@@ -145,9 +143,11 @@ export function AgendaView({ sessions, showUnit }: { sessions: SessionRow[]; sho
     const today = todayKey();
     const [showRecent, setShowRecent] = useState(false);
 
-    const toTake = sessions.filter(s => needsAttendance(s, today));
+    // Attendance is optional, so past sessions without it are not a to-do:
+    // they sit in one small collapsed list, for whoever wants to look back.
     const upcoming = sessions.filter(s => key(s.date) >= today);
-    const recent = sessions.filter(s => key(s.date) < today && !needsAttendance(s, today)).reverse();
+    const recent = sessions.filter(s => key(s.date) < today).reverse();
+    const withoutRecord = recent.filter(s => needsAttendance(s, today)).length;
 
     const byWeek = useMemo(() => {
         const groups = new Map<string, SessionRow[]>();
@@ -160,17 +160,6 @@ export function AgendaView({ sessions, showUnit }: { sessions: SessionRow[]; sho
 
     return (
         <div className="space-y-6">
-            {toTake.length > 0 && (
-                <section className="rounded-2xl border border-amber-300 bg-amber-50/60 dark:bg-amber-950/10 dark:border-amber-800/50 overflow-hidden">
-                    <h2 className="px-4 py-3 text-sm font-bold flex items-center gap-2 text-amber-900 dark:text-amber-300">
-                        <AlertTriangle className="w-4 h-4" /> Attendance to take ({toTake.length})
-                    </h2>
-                    <div className="divide-y divide-amber-200/70 dark:divide-amber-800/40 bg-card">
-                        {toTake.map(s => <SessionLine key={s.id} s={s} showUnit={showUnit} today={today} />)}
-                    </div>
-                </section>
-            )}
-
             {byWeek.length === 0 ? (
                 <div className="rounded-2xl border border-dashed p-10 text-center">
                     <CalendarClock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -197,7 +186,10 @@ export function AgendaView({ sessions, showUnit }: { sessions: SessionRow[]; sho
                         className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 px-1 flex items-center gap-1 hover:text-foreground"
                     >
                         <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showRecent ? "rotate-90" : ""}`} />
-                        Last four weeks ({recent.length})
+                        Past four weeks ({recent.length})
+                        {withoutRecord > 0 && (
+                            <span className="normal-case tracking-normal font-normal ml-1">· {withoutRecord} without attendance</span>
+                        )}
                     </button>
                     {showRecent && (
                         <div className="rounded-2xl border bg-card divide-y overflow-hidden">
@@ -255,7 +247,7 @@ function SessionLine({ s, showUnit, today }: { s: SessionRow; showUnit: boolean;
                                 <ClipboardCheck className="w-3.5 h-3.5 text-primary" /> {present}/{expected || recorded}
                             </span>
                         ) : (
-                            <span className="text-amber-700 dark:text-amber-400 font-semibold">Take attendance</span>
+                            <span className="text-muted-foreground">No attendance</span>
                         )
                     )}
                 </div>

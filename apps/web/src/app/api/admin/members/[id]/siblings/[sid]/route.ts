@@ -1,6 +1,8 @@
 import { prisma } from "@/db";
 import { getSession, hasPermission, canAccessUnit } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { recordListChange } from "@/lib/member-history";
+import { describeSibling } from "@/lib/member-update";
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string; sid: string }> }) {
     try {
@@ -16,7 +18,14 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        await prisma.groupSibling.delete({ where: { id: sid } });
+        // Scoped to this member, whose unit the access check just looked at.
+        const sibling = await prisma.groupSibling.findFirst({ where: { id: sid, memberId: id } });
+        if (!sibling) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        await prisma.$transaction(async (tx) => {
+            await tx.groupSibling.delete({ where: { id: sibling.id } });
+            await recordListChange(tx, id, "siblings", { removed: describeSibling(sibling) },
+                { source: "ADMIN", id: session?.userId, name: session?.name });
+        });
 
         return NextResponse.json({ success: true });
     } catch (error) {

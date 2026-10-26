@@ -2,7 +2,7 @@ import { prisma } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, clientIp, resetRateLimit } from "@/lib/rate-limit";
 import { FAMILY_FIELD_KEYS, changeCount, diffSubmission } from "@/lib/member-update";
-import { findFamilyRequest, toMedications } from "@/lib/member-update-service";
+import { findFamilyRequest, toMedications, toSiblings } from "@/lib/member-update-service";
 
 /**
  * Public: the family side of an update link. No session — the token IS the
@@ -48,17 +48,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
         const current = Object.fromEntries(FAMILY_FIELD_KEYS.map(k => [k, (m as Record<string, unknown>)[k] ?? null]));
         const currentMeds = toMedications(m.medications);
+        const currentSiblings = toSiblings(m.groupSiblings);
 
         if (body.action === "open") {
             if (!r.openedAt) await prisma.memberUpdateRequest.update({ where: { id: r.id }, data: { openedAt: new Date() } });
-            return NextResponse.json({ fields: current, medications: currentMeds });
+            return NextResponse.json({ fields: current, medications: currentMeds, siblings: currentSiblings });
         }
 
         if (body.action === "submit") {
             const submittedBy = typeof body.submittedBy === "string" ? body.submittedBy.trim().slice(0, 120) : "";
             if (!submittedBy) return NextResponse.json({ error: "Please write your name" }, { status: 400 });
 
-            const changes = diffSubmission(current, currentMeds, body);
+            const changes = diffSubmission(current, currentMeds, body, currentSiblings);
             if (changeCount(changes) === 0) {
                 return NextResponse.json({ error: "Nothing was changed. If everything is correct, you can simply close this page." }, { status: 400 });
             }
