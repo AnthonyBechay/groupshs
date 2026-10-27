@@ -2,7 +2,8 @@ import { prisma } from "@/db";
 import { getSession, hasPermission } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
-import { sanitizeProgramme } from "@/lib/activity-schedule";
+import { randomUUID } from "crypto";
+import { dayKey, sanitizeProgramme } from "@/lib/activity-schedule";
 import { canEditActivity, canViewActivity, findActivityScope } from "@/lib/activity-sessions";
 
 type Params = { params: Promise<{ id: string; sessionId: string }> };
@@ -43,8 +44,8 @@ export async function GET(_: NextRequest, { params }: Params) {
         return NextResponse.json({
             activity,
             canEdit: canEditActivity(session, activity),
-            session: { ...s, programme: sanitizeProgramme(s.programme) },
-            prev: prev && { id: prev.id, date: prev.date, programme: sanitizeProgramme(prev.programme) },
+            session: { ...s, programme: sanitizeProgramme(s.programme, dayKey(s.date)) },
+            prev: prev && { id: prev.id, date: prev.date, programme: sanitizeProgramme(prev.programme, dayKey(prev.date)) },
             next,
         });
     } catch (error) {
@@ -70,7 +71,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
         const body = await request.json();
         const data: Prisma.ActivitySessionUpdateInput = {};
-        if ("programme" in body) data.programme = sanitizeProgramme(body.programme);
+        if ("programme" in body) {
+            // Positional ids from older programmes become permanent ones here,
+            // so anything linked to a moment later keeps pointing at it.
+            data.programme = sanitizeProgramme(body.programme, dayKey(s.date))
+                .map(item => (item.id.startsWith("item-") ? { ...item, id: randomUUID() } : item));
+        }
         if ("notes" in body) data.notes = typeof body.notes === "string" && body.notes.trim() ? body.notes.trim().slice(0, 5000) : null;
         if ("status" in body) {
             if (body.status !== "SCHEDULED" && body.status !== "CANCELLED") {
@@ -83,7 +89,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         }
 
         const updated = await prisma.activitySession.update({ where: { id: s.id }, data });
-        return NextResponse.json({ ...updated, programme: sanitizeProgramme(updated.programme) });
+        return NextResponse.json({ ...updated, programme: sanitizeProgramme(updated.programme, dayKey(updated.date)) });
     } catch (error) {
         console.error("Error updating session:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-    CalendarClock, Cake, ClipboardCheck, ClipboardList, Inbox, Link2, Plus, Star, Users,
+    CalendarClock, Cake, Package, ClipboardCheck, ClipboardList, Inbox, Link2, Plus, Star, Users,
 } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { getMyUnit, getMyUnitOverview } from "@/lib/my-unit";
@@ -54,6 +54,7 @@ export default async function MyUnitPage() {
                     {o.canActivities && <HeroLink href={`/admin/activities?${unitQ}`} icon={CalendarClock}>Activities</HeroLink>}
                     {o.canActivities && <HeroLink href={`/admin/activities?${unitQ}&new=1`} icon={Plus}>New activity</HeroLink>}
                     {o.canMembers && <HeroLink href={`/admin/members/updates?${unitQ}`} icon={Inbox}>Family updates{o.pendingUpdates ? ` (${o.pendingUpdates})` : ""}</HeroLink>}
+                    {o.canMembers && <HeroLink href="/admin/stock?tab=requests" icon={Package}>Request uniforms & badges</HeroLink>}
                 </div>
             </div>
 

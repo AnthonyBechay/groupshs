@@ -30,6 +30,10 @@ model User {
   // Move Up / Maîtrise / Leaving. Separate from canManageMembers because moving
   // members between branches is a group-level decision, not day-to-day editing.
   canManageTransitions Boolean @default(false) @map("can_manage_transitions")
+  // Stock: equipment, food, uniforms and badges. Unrestricted = the group's
+  // storekeeper (locations, catalog, processing requests); restricted to units
+  // = looks after those units' own gear only.
+  canManageStock       Boolean @default(false) @map("can_manage_stock")
 
   // Empty array = access to all units; otherwise restricted to listed unit IDs
   allowedUnitIds String[] @default([]) @map("allowed_unit_ids")
@@ -96,6 +100,8 @@ model Unit {
 
   members    Member[]   @relation("UnitMembers")
   maitrise   Member[]   @relation("UnitMaitrise")  // leaders serving this unit from elsewhere
+  stockItems   StockItem[]
+  itemRequests ItemRequest[]
   activities Activity[]
   subgroups  Subgroup[]
   contacts   UnitContact[]
@@ -132,7 +138,8 @@ model Subgroup {
   unitId String @map("unit_id")
   unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
-  members Member[]
+  members    Member[]
+  stockItems StockItem[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -251,6 +258,7 @@ model Member {
   user          User?                 @relation("UserMember")
   updateRequests MemberUpdateRequest[]
   changes        MemberChange[]
+  itemRequests   ItemRequest[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -702,4 +710,118 @@ model SocialLink {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("social_link")
+}
+
+// ─── Stock ───────────────────────────────────────────────────────────────────
+
+// Where things are kept: a room, and the shelves inside it (one level down).
+model StorageLocation {
+  id       String            @id @default(uuid())
+  name     String
+  parentId String?           @map("parent_id")
+  parent   StorageLocation?  @relation("LocationTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children StorageLocation[] @relation("LocationTree")
+  notes    String?
+  sortOrder Int              @default(0) @map("sort_order")
+
+  items StockItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([parentId])
+  @@map("storage_location")
+}
+
+// Anything the group keeps: a tent, a pot, rice, scarves, badges.
+// Ownership is explicit: no unit = the group's; a unit, optionally narrowed to
+// one of its sub-groups (an équipe's own kit).
+model StockItem {
+  id          String  @id @default(uuid())
+  name        String
+  category    String  // see STOCK_CATEGORIES in src/lib/stock.ts
+  description String?
+
+  quantity      Int     @default(0)
+  unitOfMeasure String  @default("pcs") @map("unit_of_measure")
+  minQuantity   Int?    @map("min_quantity")   // below this, it shows as running low
+  condition     String  @default("GOOD")       // NEW | GOOD | WORN | TO_REPAIR | DAMAGED | LOST
+  expiresAt     DateTime? @map("expires_at")   // food
+
+  unitId     String?          @map("unit_id")
+  unit       Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  subgroupId String?          @map("subgroup_id")
+  subgroup   Subgroup?        @relation(fields: [subgroupId], references: [id], onDelete: SetNull)
+  locationId String?          @map("location_id")
+  location   StorageLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  // Part of the catalog leaders can request for a scout (uniform, badges…),
+  // usually bought from the QG on demand, sometimes handed out from stock.
+  requestable Boolean  @default(false)
+  variants    String[] @default([])   // sizes or options to choose from
+  price       String?                 // free text: "$12", "450,000 LL"
+
+  photoUrl String? @map("photo_url")
+  notes    String?
+  archived Boolean @default(false)
+
+  movements StockMovement[]
+  requests  ItemRequest[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([unitId])
+  @@index([locationId])
+  @@map("stock_item")
+}
+
+// Every change of quantity, so a count that looks wrong can be explained.
+model StockMovement {
+  id            String    @id @default(uuid())
+  itemId        String    @map("item_id")
+  item          StockItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  delta         Int
+  quantityAfter Int       @map("quantity_after")
+  reason        String?
+  requestId     String?   @map("request_id")
+  byId          String?   @map("by_id")
+  byName        String?   @map("by_name")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([itemId, createdAt])
+  @@map("stock_movement")
+}
+
+// A leader asks for a catalog item for one scout (or for the unit itself):
+// REQUESTED → APPROVED → ORDERED (bought at the QG) → READY → DELIVERED,
+// or REJECTED / CANCELLED. Handing it out from stock jumps to DELIVERED.
+model ItemRequest {
+  id       String    @id @default(uuid())
+  itemId   String    @map("item_id")
+  item     StockItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  unitId   String    @map("unit_id")
+  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  memberId String?   @map("member_id")
+  member   Member?   @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  variant  String?
+  quantity Int     @default(1)
+  note     String?
+
+  status     String  @default("REQUESTED")
+  fromStock  Boolean @default(false) @map("from_stock")
+  statusNote String? @map("status_note")
+
+  requestedById   String? @map("requested_by_id")
+  requestedByName String? @map("requested_by_name")
+  handledByName   String? @map("handled_by_name")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([unitId])
+  @@index([itemId])
+  @@map("item_request")
 }

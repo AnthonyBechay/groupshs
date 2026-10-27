@@ -238,6 +238,31 @@ A one-off has exactly one session; a weekly reunion (`recurrence = "WEEKLY"`,
 - Weekly reunions never reach the public site: every public activity query
   spreads `PUBLIC_ACTIVITY_WHERE`.
 
+**Programme** (`ActivitySession.programme`, JSON): items carry a stable `id`,
+a `day`, `time`/`endTime`, and `kind`/`meal` (BREAKFAST, LUNCH, GOUTER,
+DINNER). The id is what a future food module should reference — never the
+position. A camp's days run from its start to end date; "add a day" moves the
+activity's `endDate`. The PDF (`programme-pdf.ts`) uses Helvetica, which has no
+arrows or Arabic: keep such characters out of the text it prints.
+
+**Cancelling a one-off** cancels its only session, which is the activity:
+`PUBLIC_ACTIVITY_WHERE` requires at least one scheduled session.
+
+### Stock and item requests
+
+`StockItem` (category, quantity, condition, owner = group / unit / sub-group,
+`StorageLocation` room › shelf), `StockMovement` (every quantity change —
+always go through `moveStock()`), and `ItemRequest` (a leader asks a catalog
+item, `requestable = true`, for a scout). Vocabulary and the request lifecycle
+are in `stock.ts` (safe for the browser); access rules in `stock-access.ts`
+(server only):
+
+| Who | Can |
+|---|---|
+| `canManageStock`, unrestricted | everything: storage, catalog, processing requests |
+| `canManageStock`, restricted | their units' own items; the group's are read-only |
+| `canManageMembers` on a unit | request catalog items for that unit's scouts, cancel until bought |
+
 ### Users ↔ members, "My unit"
 
 `User.memberId` (optional, unique) links an account to the person. It is

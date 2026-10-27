@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Save, Settings as SettingsIcon, Upload, X, History, ArrowUpRight, Info } from "lucide-react";
+import { Save, Settings as SettingsIcon, Upload, X, History, ArrowUpRight, Info, Warehouse } from "lucide-react";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 
 const MONTHS = [
@@ -159,6 +159,16 @@ export default function AdminSettingsPage() {
                     <p className="text-sm text-muted-foreground mt-0.5">Site-wide content, branding, stats and footer info</p>
                 </div>
             </div>
+
+            {/* Storage lives with the stock; linked here because it is set up once, like the rest of this page. */}
+            <Link href="/admin/stock/storage" className="flex items-center gap-3 rounded-xl border p-4 mb-6 hover:bg-muted/40">
+                <Warehouse className="w-5 h-5 text-primary" />
+                <span className="flex-1">
+                    <span className="block text-sm font-semibold">Storage rooms & shelves</span>
+                    <span className="block text-xs text-muted-foreground">Where stock items can be placed</span>
+                </span>
+                <span className="text-sm text-primary">Open →</span>
+            </Link>
 
             <form onSubmit={handleSubmit} onChange={() => setDirty(true)} className="space-y-6">
                 {/* Branding */}

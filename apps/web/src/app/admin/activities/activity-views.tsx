@@ -407,6 +407,8 @@ export function ListView({ activities, units, isSuperAdmin, onEdit, onChanged }:
                     {filtered.map(a => {
                         const theme = unitTheme(a.unit.unitType);
                         const ss = a.sessionSummary;
+                        // Every session cancelled: for a camp, the activity itself is.
+                        const cancelled = ss.total > 0 && ss.cancelled === ss.total;
                         return (
                             <div key={a.id} className={`rounded-2xl border bg-card overflow-hidden flex flex-col group ${a.hidden ? "opacity-70" : ""}`}>
                                 <Link href={`/admin/activities/${a.id}`} className="relative h-28 block">
@@ -424,7 +426,10 @@ export function ListView({ activities, units, isSuperAdmin, onEdit, onChanged }:
                                     )}
                                 </Link>
                                 <div className="p-4 flex-1 flex flex-col gap-2">
-                                    <Link href={`/admin/activities/${a.id}`} className="font-bold hover:text-primary leading-tight">{a.title}</Link>
+                                    <div className="flex items-start gap-2">
+                                        <Link href={`/admin/activities/${a.id}`} className={`font-bold hover:text-primary leading-tight ${cancelled ? "line-through text-muted-foreground" : ""}`}>{a.title}</Link>
+                                        {cancelled && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-destructive/10 text-destructive shrink-0">Cancelled</span>}
+                                    </div>
                                     <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                                         {a.recurrence ? <Repeat className="w-3.5 h-3.5" /> : <CalendarClock className="w-3.5 h-3.5" />}
                                         {ACTIVITY_TYPE_LABELS[a.activityType] ?? a.activityType} ·{" "}

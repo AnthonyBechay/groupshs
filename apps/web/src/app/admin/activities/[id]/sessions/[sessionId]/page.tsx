@@ -71,7 +71,13 @@ export default function SessionPage() {
     async function setStatus(status: "SCHEDULED" | "CANCELLED") {
         let cancelReason: string | null = null;
         if (status === "CANCELLED") {
-            cancelReason = prompt("Cancel this session?\n\nReason (optional, e.g. \"Exams\", \"Bad weather\"):", "");
+            // A camp or day out is a single session: cancelling it cancels the activity.
+            cancelReason = prompt(
+                isSeries
+                    ? "Cancel this week only? The rest of the series stays as it is.\n\nReason (optional, e.g. \"Exams\", \"Bad weather\"):"
+                    : `Cancel "${a.title}"?\n\nIt is marked as cancelled and taken off the public site. You can restore it later.\n\nReason (optional):`,
+                ""
+            );
             if (cancelReason === null) return;
         }
         const res = await fetch(`/api/admin/activities/${id}/sessions/${sessionId}`, {
@@ -135,11 +141,11 @@ export default function SessionPage() {
                     {canEdit && (
                         cancelled ? (
                             <Button size="sm" variant="outline" className="gap-1.5 bg-white/10 border-white/30 text-white hover:bg-white/20" onClick={() => setStatus("SCHEDULED")}>
-                                <RotateCcw className="w-4 h-4" /> Restore this session
+                                <RotateCcw className="w-4 h-4" /> {isSeries ? "Restore this session" : "Restore activity"}
                             </Button>
                         ) : (
                             <Button size="sm" variant="outline" className="gap-1.5 bg-white/10 border-white/30 text-white hover:bg-white/20" onClick={() => setStatus("CANCELLED")}>
-                                <Ban className="w-4 h-4" /> Cancel this session
+                                <Ban className="w-4 h-4" /> {isSeries ? "Cancel this session" : "Cancel activity"}
                             </Button>
                         )
                     )}
@@ -165,8 +171,9 @@ export default function SessionPage() {
             {tab === "programme" ? (
                 <ProgrammeEditor
                     key={s.id}
-                    activityId={a.id}
+                    activity={a}
                     sessionId={s.id}
+                    sessionDate={s.date}
                     initial={s.programme}
                     initialNotes={s.notes}
                     previous={data.prev}
