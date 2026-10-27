@@ -25,11 +25,14 @@ export const metadata: Metadata = {
     description: "Official website of the Scouts du Liban group at Sagesse High School. Join the adventure, leadership, and service.",
     siteName: "Group SHS",
     type: "website",
+    // A small JPEG on purpose: WhatsApp drops preview images above ~300 KB,
+    // and logo-original.png (8.5 MB) showed links with no logo at all.
     images: [
       {
-        url: "/logo-original.png",
-        width: 1080,
-        height: 1080,
+        url: "/og-logo.jpg",
+        width: 600,
+        height: 600,
+        type: "image/jpeg",
         alt: "Group SHS - Scouts du Liban Logo",
       },
     ],
@@ -38,7 +41,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Group SHS - Scout du Liban",
     description: "Official website of the Scouts du Liban group at Sagesse High School.",
-    images: ["/logo-original.png"],
+    images: ["/og-logo.jpg"],
   },
 };
 
