@@ -55,7 +55,8 @@ export type Permission =
     | "canManageSettings"
     | "canManageHistory"
     | "canManageTransitions"
-    | "canManageStock";
+    | "canManageStock"
+    | "canSeeAllRequests";
 
 /**
  * Every permission, in one place.
@@ -78,6 +79,7 @@ export const PERMISSION_KEYS = [
     "canManageHistory",
     "canManageTransitions",
     "canManageStock",
+    "canSeeAllRequests",
 ] as const satisfies readonly Permission[];
 
 export type SessionUser = {
@@ -144,6 +146,7 @@ export async function getSession(): Promise<SessionUser | null> {
                 canManageHistory: true,
                 canManageTransitions: true,
                 canManageStock: true,
+                canSeeAllRequests: true,
                 allowedUnitIds: true,
                 memberId: true,
             },
@@ -173,6 +176,7 @@ export async function getSession(): Promise<SessionUser | null> {
                 canManageHistory: isSuperAdmin || user.canManageHistory,
                 canManageTransitions: isSuperAdmin || user.canManageTransitions,
                 canManageStock: isSuperAdmin || user.canManageStock,
+                canSeeAllRequests: isSuperAdmin || user.canSeeAllRequests,
             },
         };
     } catch {

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Boxes, ClipboardList, Copy, ExternalLink, Package, ShoppingCart, Warehouse } from "lucide-react";
 import { useUrlState } from "@/hooks/use-url-state";
 import { compareUnitsByBranch } from "@/lib/scout-config";
+import { OPEN_REQUEST_STATUSES } from "@/lib/stock";
 import { api, type Item, type Request, type Room, type Subgroup, type Unit } from "./shared";
 import { Inventory } from "./inventory";
 import { Requests } from "./requests";
@@ -12,12 +13,14 @@ import { ShoppingList } from "./shopping";
 
 type Tab = "inventory" | "requests" | "shopping";
 
-export function StockApp({ storekeeper, inventory, canRequest }: { storekeeper: boolean; inventory: boolean; canRequest: boolean }) {
+export function StockApp({ storekeeper, inventory, canRequest, seesAll }: { storekeeper: boolean; inventory: boolean; canRequest: boolean; seesAll: boolean }) {
     const { params, setParams } = useUrlState();
     const tabs = ([
         inventory && { key: "inventory", label: "Inventory", icon: Boxes },
         canRequest && { key: "requests", label: "Requests", icon: ClipboardList },
-        storekeeper && { key: "shopping", label: "QG shopping list", icon: ShoppingCart },
+        // Everyone who follows requests can do a QG run: their own units', or
+        // every unit's for the storekeeper and whoever has canSeeAllRequests.
+        { key: "shopping", label: "QG list", icon: ShoppingCart },
     ].filter(Boolean)) as { key: Tab; label: string; icon: typeof Boxes }[];
     const tab: Tab = (tabs.find(t => t.key === params.get("tab"))?.key ?? tabs[0]?.key ?? "requests") as Tab;
 
@@ -58,7 +61,7 @@ export function StockApp({ storekeeper, inventory, canRequest }: { storekeeper: 
     useEffect(() => { loadRequests(); }, [loadRequests]);
 
     const refresh = () => { loadItems(); loadRequests(); };
-    const openRequests = (requests ?? []).filter(r => ["REQUESTED", "APPROVED", "ORDERED", "READY"].includes(r.status)).length;
+    const openRequests = (requests ?? []).filter(r => OPEN_REQUEST_STATUSES.includes(r.status as never)).length;
 
     return (
         <div className="space-y-5">
@@ -70,6 +73,8 @@ export function StockApp({ storekeeper, inventory, canRequest }: { storekeeper: 
                             ? "Everything the group keeps, where it is and who owns it — and what scouts need from the QG."
                             : inventory
                                 ? "Your unit's gear, the group's stock, and requests for your scouts."
+                                : seesAll
+                                ? "Every unit's uniform and badge requests, and what to bring from the QG."
                                 : "Request uniforms and badges for the scouts of your unit, and follow them."}
                     </p>
                 </div>
@@ -123,7 +128,7 @@ export function StockApp({ storekeeper, inventory, canRequest }: { storekeeper: 
                     storekeeper={storekeeper} onChanged={refresh}
                 />
             )}
-            {tab === "shopping" && storekeeper && <ShoppingList requests={requests ?? []} onChanged={refresh} />}
+            {tab === "shopping" && <ShoppingList requests={requests ?? []} storekeeper={storekeeper} onChanged={refresh} />}
         </div>
     );
 }

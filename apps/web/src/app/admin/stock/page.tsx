@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { canSeeInventory, canUseStock, isStorekeeper } from "@/lib/stock-access";
+import { canSeeInventory, canUseStock, isStorekeeper, seesAllRequests } from "@/lib/stock-access";
 import { StockApp } from "./stock-app";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,7 @@ export default async function StockPage() {
             storekeeper={isStorekeeper(session)}
             inventory={canSeeInventory(session)}
             canRequest={canUseStock(session)}
+            seesAll={seesAllRequests(session)}
         />
     );
 }

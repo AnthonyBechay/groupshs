@@ -28,13 +28,10 @@ export async function POST(request: NextRequest) {
 
         const unitId = clean(body.unitId, 64);
         const childName = clean(body.childName, 120);
-        const contactName = clean(body.contactName, 120);
-        const contactPhone = clean(body.contactPhone, 40);
         const note = clean(body.note, 500) || null;
-        if (!unitId || !childName || !contactName || !contactPhone) {
-            return NextResponse.json({ error: "Please fill in the unit, your child's name, your name and your phone" }, { status: 400 });
-        }
-        if (!/\d{6,}/.test(contactPhone.replace(/\D/g, ""))) return NextResponse.json({ error: "Please check the phone number" }, { status: 400 });
+        // No contact details: the item is handed to the child at the meeting,
+        // so the unit and the child's name are all the leaders need.
+        if (!unitId || !childName) return NextResponse.json({ error: "Please choose the unit and type your child's name" }, { status: 400 });
 
         const unit = await prisma.unit.findFirst({
             where: { id: unitId, unitType: { notIn: ["ALL", "ARCHIVE", "GROUP"] } },
@@ -72,9 +69,9 @@ export async function POST(request: NextRequest) {
             data.push({
                 itemId: item.id, unitId: unit.id, memberId, variant, quantity, note,
                 status: "REQUESTED", source: "FAMILY", orderRef,
-                requestedForName: childName, contactName, contactPhone,
+                requestedForName: childName,
                 unitPrice: item.sellPrice, currency: item.currency,
-                requestedByName: `${contactName} (family)`,
+                requestedByName: "Family",
             });
         }
         await prisma.itemRequest.createMany({ data });

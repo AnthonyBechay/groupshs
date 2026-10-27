@@ -1,10 +1,10 @@
 import { prisma } from "@/db";
-import { getSession, canAccessUnit } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
-import { CAN_CANCEL, LEADER_NEXT, OPEN_REQUEST_STATUSES, STOREKEEPER_NEXT, itemFitsUnit } from "@/lib/stock";
+import { CAN_CANCEL, CAN_EDIT, OPEN_REQUEST_STATUSES, itemFitsUnit } from "@/lib/stock";
 import { canRequestFor, canUseStock, isStorekeeper } from "@/lib/stock-access";
-import { newOrderRef, viewableRequestsWhere } from "@/lib/stock-service";
+import { newOrderRef, stepsFor, viewableRequestsWhere } from "@/lib/stock-service";
 
 const requestInclude = {
     item: {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         const rows = await prisma.itemRequest.findMany({ where, include: requestInclude, orderBy: { createdAt: "desc" }, take: 1000 });
         const storekeeper = isStorekeeper(session);
         return NextResponse.json(rows.map(r => {
-            const leader = canAccessUnit(session, r.unitId);
+            const leader = canRequestFor(session, r.unitId);
             // Buying prices are the storekeeper's business, not the units'.
             const item = storekeeper ? r.item : { ...r.item, costPrice: null };
             return {
@@ -42,12 +42,12 @@ export async function GET(request: NextRequest) {
                 item,
                 unitPrice: r.unitPrice ?? r.item.sellPrice,
                 currency: r.currency ?? r.item.currency,
-                next: [...new Set([
-                    ...(storekeeper ? STOREKEEPER_NEXT[r.status] ?? [] : []),
-                    ...(leader ? LEADER_NEXT[r.status] ?? [] : []),
-                ])],
+                next: stepsFor(session, r),
                 canGive: storekeeper,
-                canCancel: CAN_CANCEL.includes(r.status) && canRequestFor(session, r.unitId),
+                canCancel: leader && CAN_CANCEL.includes(r.status),
+                canEdit: leader && CAN_EDIT.includes(r.status),
+                // Paid and who it is for stay editable after hand-over: money often comes later.
+                canManage: leader && !["REJECTED", "CANCELLED"].includes(r.status),
             };
         }));
     } catch (error) {
@@ -57,15 +57,26 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST { unitId, memberId?, items: [{ itemId, variant?, quantity?, note? }] }
+ * POST { unitId, memberId?, items: [{ itemId, variant?, quantity?, note? }], sameAs? }
  * — a leader's order for one scout (or the unit). Leaders are the ones who
  * approve, so it starts approved and goes straight to the QG list.
+ *
+ * sameAs: the id of an existing request. The new lines join that person's
+ * order — same scout or typed name, same family reference — which is how a
+ * leader adds a forgotten item to what a family ordered.
  */
 export async function POST(request: NextRequest) {
     try {
         const session = await getSession();
         const body = await request.json().catch(() => ({}));
-        const unitId = typeof body.unitId === "string" ? body.unitId : "";
+        const sameAs = typeof body.sameAs === "string" && body.sameAs
+            ? await prisma.itemRequest.findUnique({
+                where: { id: body.sameAs },
+                select: { unitId: true, memberId: true, requestedForName: true, contactName: true, contactPhone: true, source: true, orderRef: true },
+            })
+            : null;
+        if (body.sameAs && !sameAs) return NextResponse.json({ error: "That order no longer exists" }, { status: 404 });
+        const unitId = sameAs?.unitId ?? (typeof body.unitId === "string" ? body.unitId : "");
         if (!session || !unitId || !canRequestFor(session, unitId)) {
             return NextResponse.json({ error: "You can only request items for a unit you lead" }, { status: 403 });
         }
@@ -76,7 +87,7 @@ export async function POST(request: NextRequest) {
         if (!lines.length) return NextResponse.json({ error: "Add at least one item" }, { status: 400 });
         // One scout for the whole order (or none: for the unit). Older clients
         // sent it per line; that still works.
-        const orderMember = typeof body.memberId === "string" && body.memberId ? body.memberId : null;
+        const orderMember = sameAs ? sameAs.memberId : typeof body.memberId === "string" && body.memberId ? body.memberId : null;
 
         const items = await prisma.stockItem.findMany({
             where: { id: { in: lines.map(l => String(l.itemId)) }, requestable: true, archived: false },
@@ -88,7 +99,7 @@ export async function POST(request: NextRequest) {
             select: { id: true },
         });
 
-        const orderRef = newOrderRef();
+        const orderRef = sameAs?.orderRef ?? newOrderRef();
         const data: Prisma.ItemRequestCreateManyInput[] = [];
         for (const l of lines) {
             const item = items.find(i => i.id === l.itemId);
@@ -107,7 +118,9 @@ export async function POST(request: NextRequest) {
             data.push({
                 itemId: item.id, unitId, memberId: memberId || null, variant, quantity,
                 note: typeof l.note === "string" && l.note.trim() ? l.note.trim().slice(0, 500) : null,
-                status: "APPROVED", source: "LEADER", orderRef,
+                status: "APPROVED", source: sameAs?.source ?? "LEADER", orderRef,
+                requestedForName: sameAs?.requestedForName ?? null,
+                contactName: sameAs?.contactName ?? null, contactPhone: sameAs?.contactPhone ?? null,
                 unitPrice: item.sellPrice, currency: item.currency,
                 requestedById: session.userId, requestedByName: session.name,
             });

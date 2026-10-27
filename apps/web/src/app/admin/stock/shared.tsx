@@ -28,8 +28,13 @@ export type Request = {
     unit: Unit; member: { id: string; firstName: string; lastName: string } | null;
     source: "LEADER" | "FAMILY"; requestedForName: string | null; contactName: string | null; contactPhone: string | null;
     orderRef: string | null; unitPrice: string | null; currency: string | null;
+    paid: boolean; paidAt: string | null;
     /** Steps this user may take from here. */
     next: string[]; canGive: boolean; canCancel: boolean;
+    /** May change item / size / quantity (until bought). */
+    canEdit: boolean;
+    /** Leads this unit: may mark paid and match the scout. */
+    canManage: boolean;
 };
 
 export const placeOf = (i: Pick<Item, "location">) =>
@@ -47,8 +52,7 @@ export function daysUntil(iso: string | null): number | null {
 
 const STATUS_CLS: Record<string, string> = {
     REQUESTED: "bg-sky-100 text-sky-800",
-    APPROVED: "bg-indigo-100 text-indigo-800",
-    ORDERED: "bg-amber-100 text-amber-800",
+    APPROVED: "bg-amber-100 text-amber-800",
     READY: "bg-emerald-100 text-emerald-800",
     DELIVERED: "bg-muted text-muted-foreground",
     REJECTED: "bg-red-100 text-red-800",

@@ -34,6 +34,10 @@ model User {
   // storekeeper (locations, catalog, processing requests); restricted to units
   // = looks after those units' own gear only.
   canManageStock       Boolean @default(false) @map("can_manage_stock")
+  // Sees every unit's uniform/badge requests and the QG shopping list, and may
+  // mark them bought — for whoever goes to the QG for everyone. Does not give
+  // access to other units' members, nor let them approve those units' orders.
+  canSeeAllRequests    Boolean @default(false) @map("can_see_all_requests")
 
   // Empty array = access to all units; otherwise restricted to listed unit IDs
   allowedUnitIds String[] @default([]) @map("allowed_unit_ids")
@@ -829,6 +833,10 @@ model ItemRequest {
   // The selling price when it was asked, so totals do not move with the catalog.
   unitPrice        Decimal? @map("unit_price") @db.Decimal(12, 2)
   currency         String?
+  // Whether the family has paid the unit for it. Independent of the status:
+  // some pay when ordering, some when the item is handed over.
+  paid             Boolean   @default(false)
+  paidAt           DateTime? @map("paid_at")
 
   requestedById   String? @map("requested_by_id")
   requestedByName String? @map("requested_by_name")

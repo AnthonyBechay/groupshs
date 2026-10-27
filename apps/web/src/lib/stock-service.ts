@@ -2,9 +2,9 @@ import { prisma } from "@/db";
 import { randomBytes } from "crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth";
-import { CONDITIONS, CURRENCIES, MEASURES, STOCK_CATEGORIES, parseVariants } from "@/lib/stock";
+import { CONDITIONS, CURRENCIES, MEASURES, REQUEST_NEXT, SHOPPER_NEXT, STOCK_CATEGORIES, parseVariants, type RequestStatus } from "@/lib/stock";
 import { UNIT_TYPES } from "@/lib/scout-config";
-import { isStorekeeper } from "@/lib/stock-access";
+import { canRequestFor, isStorekeeper, seesAllRequests } from "@/lib/stock-access";
 
 type Tx = Prisma.TransactionClient;
 
@@ -20,10 +20,17 @@ export function viewableItemsWhere(s: SessionUser): Prisma.StockItemWhereInput {
     return { OR: [{ unitId: { in: s.allowedUnitIds } }, { unitId: null }] };
 }
 
-/** Requests a user may see: all for the storekeeper, their units' otherwise. */
+/** Requests a user may see: every unit's (see seesAllRequests), their own units' otherwise. */
 export function viewableRequestsWhere(s: SessionUser): Prisma.ItemRequestWhereInput {
-    if (isStorekeeper(s) || s.allowedUnitIds.length === 0) return {};
+    if (seesAllRequests(s)) return {};
     return { unitId: { in: s.allowedUnitIds } };
+}
+
+/** The status steps this user may take on one request. */
+export function stepsFor(s: SessionUser, r: { unitId: string; status: string }): RequestStatus[] {
+    if (canRequestFor(s, r.unitId)) return REQUEST_NEXT[r.status] ?? [];
+    if (seesAllRequests(s)) return SHOPPER_NEXT[r.status] ?? [];
+    return [];
 }
 
 /**

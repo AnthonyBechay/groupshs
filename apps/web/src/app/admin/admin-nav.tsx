@@ -19,6 +19,7 @@ type Permission = {
     canManageHistory: boolean;
     canManageTransitions: boolean;
     canManageStock: boolean;
+    canSeeAllRequests: boolean;
 };
 
 type AdminNavProps = {
@@ -72,7 +73,7 @@ export function AdminNav({ myUnitName, name, isSuperAdmin, permissions: p }: Adm
                 { href: "/admin/transitions", label: "Move Up / Transitions", show: p.canManageTransitions },
                 { href: "/admin/activities", label: "Activities", show: p.canManageActivities },
                 // Leaders with members access request uniforms and badges here.
-                { href: "/admin/stock", label: "Stock & requests", show: p.canManageStock || p.canManageMembers },
+                { href: "/admin/stock", label: "Stock & requests", show: p.canManageStock || p.canManageMembers || p.canSeeAllRequests },
             ],
         },
         {

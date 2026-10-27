@@ -261,17 +261,32 @@ are in `stock.ts` (safe for the browser); access rules in `stock-access.ts`
 |---|---|
 | `canManageStock`, unrestricted | everything: storage, catalog, processing requests |
 | `canManageStock`, restricted | their units' own items; the group's are read-only |
-| `canManageMembers` on a unit | request catalog items for that unit's scouts (starts approved), approve / reject families' orders, mark handed over, cancel until bought |
+| `canManageMembers` on a unit | that unit's requests, all of it: request (starts approved), approve / reject, adjust item / size / quantity until bought, match to a scout, mark paid, bought, handed over |
+| `canSeeAllRequests` | every unit's requests and the QG list; may only mark them **bought** — for whoever goes to the QG for everyone |
+
+Who sees which requests is `viewableRequestsWhere()`; which status steps a
+user may take on one request is `stepsFor()`. Every route (single and bulk)
+goes through `stepsFor()`, so "mark the whole list bought" never approves
+anything on the way. An account with access to all units sees all requests,
+as everywhere in the admin.
+
+The QG (quartier général) is a shop: buying there *is* picking up. So the
+lifecycle is `REQUESTED → APPROVED (to bring from the QG) → READY (bought,
+to hand over) → DELIVERED`. There used to be an `ORDERED` step in between; a
+migration folded those rows into `READY` — do not bring it back. `paid` is
+separate from the status (families pay at different moments).
 
 Catalog items carry `costPrice` (QG — storekeeper only, stripped from every
 other response), `sellPrice` + `currency`, and `forUnitTypes` (empty = every
 scout). Offering is checked server-side with `itemFitsUnit()`. A request
 snapshots `unitPrice` so totals do not move when the catalog changes.
 
-**Families order at `/order`** (public, no account): the unit's maîtrise sees
-and approves those orders; other units' leaders never see them. The child's
-name is linked to a member only on an exact match — otherwise it is kept as
-typed and flagged. Rate-limited per IP, with a honeypot field; the catalog
+**Families order at `/order`** (public, no account): only the unit and the
+child's name, no contact details, since items are handed to the child at a
+meeting. The unit's maîtrise sees and approves those orders; other units'
+leaders never see them. The child's name is linked to a member only on an
+exact match. Otherwise it is kept as typed and flagged, and a leader picks the
+scout (`match`); the typed name stays on the row. Rate-limited per IP, with a honeypot field; the catalog
 endpoint exposes names, options and selling prices only.
 
 ### Users ↔ members, "My unit"

@@ -16,7 +16,7 @@ export default async function AdminPage() {
         { href: "/admin/units", icon: Shield, title: "Units", desc: "Manage scout units (Louveteaux, Eclaireurs, Routiers, Chefs)", show: p.canManageUnits },
         { href: "/admin/members", icon: UserCheck, title: "Members", desc: "Manage members, roles, and progression", show: p.canManageMembers },
         { href: "/admin/transitions", icon: ArrowUpRight, title: "Move Up / Transitions", desc: "Promote members between branches, reassign the maîtrise, record departures", show: p.canManageTransitions },
-        { href: "/admin/stock", icon: Package, title: "Stock & requests", desc: "Equipment, food, uniforms and badges — where they are, who owns them, and what scouts need", show: p.canManageStock || p.canManageMembers },
+        { href: "/admin/stock", icon: Package, title: "Stock & requests", desc: "Equipment, food, uniforms and badges — where they are, who owns them, and what scouts need", show: p.canManageStock || p.canManageMembers || p.canSeeAllRequests },
         { href: "/admin/activities", icon: Calendar, title: "Activities", desc: "Manage camps, journées, and events", show: p.canManageActivities },
         { href: "/admin/gallery", icon: ImageIcon, title: "Gallery", desc: "Manage homepage carousel photos", show: p.canManageGallery },
         { href: "/admin/partners", icon: Handshake, title: "Partners", desc: "Manage partner and sponsor logos", show: p.canManagePartners },

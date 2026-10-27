@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
-import { Check, Copy, PackageOpen, ShoppingCart, Truck } from "lucide-react";
+import { Check, Copy, PackageOpen, ShoppingCart } from "lucide-react";
 import { formatMoney, formatTotals } from "@/lib/stock";
 import { api, type Request } from "./shared";
 
@@ -26,14 +26,14 @@ function aggregate(list: Request[]): Line[] {
 }
 
 /**
- * The trip to the QG. Approved requests become one list to buy, added up per
- * item and size; once bought they are marked as such, then as arrived, and
- * finally handed over unit by unit.
+ * The trip to the QG. The QG is a shop, so buying is picking up: approved
+ * requests become one list, added up per item and size; ticked "bought", they
+ * are ready to hand over, unit by unit. Each person sees the requests they may
+ * see — their units', or every unit's with canSeeAllRequests.
  */
-export function ShoppingList({ requests, onChanged }: { requests: Request[]; onChanged: () => void }) {
+export function ShoppingList({ requests, storekeeper, onChanged }: { requests: Request[]; storekeeper: boolean; onChanged: () => void }) {
     const [busy, setBusy] = useState(false);
-    const toBuy = useMemo(() => aggregate(requests.filter(r => r.status === "APPROVED")), [requests]);
-    const bought = useMemo(() => aggregate(requests.filter(r => r.status === "ORDERED")), [requests]);
+    const toBuy = useMemo(() => aggregate(requests.filter(r => r.status === "APPROVED" && r.next.includes("READY"))), [requests]);
     const ready = requests.filter(r => r.status === "READY");
     const readyByUnit = useMemo(() => {
         const m = new Map<string, Request[]>();
@@ -41,6 +41,7 @@ export function ShoppingList({ requests, onChanged }: { requests: Request[]; onC
         return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
     }, [ready]);
     const waiting = requests.filter(r => r.status === "REQUESTED").length;
+    const unpaid = (list: Request[]) => list.filter(r => !r.paid).length;
 
     async function bulk(ids: string[], to: string, text: string) {
         if (!confirm(text)) return;
@@ -60,45 +61,28 @@ export function ShoppingList({ requests, onChanged }: { requests: Request[]; onC
         <div className="space-y-6">
             {waiting > 0 && (
                 <p className="text-sm rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900 px-4 py-2.5">
-                    {waiting} request{waiting !== 1 ? "s" : ""} still waiting for approval in the Requests tab — they join this list once approved.
+                    {waiting} request{waiting !== 1 ? "s" : ""} still waiting for approval in the Requests tab. They join this list once approved.
                 </p>
             )}
 
             <Section
-                icon={ShoppingCart} title="To buy at the QG" count={toBuy.reduce((n, l) => n + l.quantity, 0)}
-                summary={toBuy.length > 0 && [cost(toBuy) && `costs ${cost(toBuy)}`, sell(toBuy) && `families pay ${sell(toBuy)}`].filter(Boolean).join(" · ")}
+                icon={ShoppingCart} title="To bring from the QG" count={toBuy.reduce((n, l) => n + l.quantity, 0)}
+                summary={toBuy.length > 0 && [storekeeper && cost(toBuy) && `costs ${cost(toBuy)}`, sell(toBuy) && `families pay ${sell(toBuy)}`].filter(Boolean).join(" · ")}
                 actions={toBuy.length > 0 && (
                     <>
                         <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigator.clipboard.writeText(listText).catch(() => prompt("Copy this:", listText))}>
                             <Copy className="w-4 h-4" /> Copy list
                         </Button>
-                        <Button size="sm" className="gap-1.5" disabled={busy} onClick={() => bulk(toBuy.flatMap(l => l.ids), "ORDERED", "Mark everything on this list as bought?")}>
+                        <Button size="sm" className="gap-1.5" disabled={busy} onClick={() => bulk(toBuy.flatMap(l => l.ids), "READY", "Mark everything on this list as bought? It moves to \"ready to hand over\".")}>
                             <Check className="w-4 h-4" /> All bought
                         </Button>
                     </>
                 )}
             >
-                {toBuy.length === 0 ? <Empty>Nothing approved to buy.</Empty> : toBuy.map(l => (
-                    <AggregateRow key={l.key} line={l} action={
-                        <Button size="sm" variant="ghost" className="text-xs gap-1" disabled={busy} onClick={() => bulk(l.ids, "ORDERED", `Mark ${l.quantity} × ${l.name} as bought?`)}>
+                {toBuy.length === 0 ? <Empty>Nothing to bring from the QG.</Empty> : toBuy.map(l => (
+                    <AggregateRow key={l.key} line={l} storekeeper={storekeeper} action={
+                        <Button size="sm" variant="ghost" className="text-xs gap-1" disabled={busy} onClick={() => bulk(l.ids, "READY", `Mark ${l.quantity} × ${l.name}${l.variant ? ` (${l.variant})` : ""} as bought?`)}>
                             <Check className="w-3.5 h-3.5" /> Bought
-                        </Button>
-                    } />
-                ))}
-            </Section>
-
-            <Section
-                icon={Truck} title="Bought, not arrived yet" count={bought.reduce((n, l) => n + l.quantity, 0)}
-                actions={bought.length > 0 && (
-                    <Button size="sm" variant="outline" className="gap-1.5" disabled={busy} onClick={() => bulk(bought.flatMap(l => l.ids), "READY", "Mark everything bought as arrived?")}>
-                        <PackageOpen className="w-4 h-4" /> All arrived
-                    </Button>
-                )}
-            >
-                {bought.length === 0 ? <Empty>Nothing on its way.</Empty> : bought.map(l => (
-                    <AggregateRow key={l.key} line={l} action={
-                        <Button size="sm" variant="ghost" className="text-xs gap-1" disabled={busy} onClick={() => bulk(l.ids, "READY", `Mark ${l.quantity} × ${l.name} as arrived?`)}>
-                            <PackageOpen className="w-3.5 h-3.5" /> Arrived
                         </Button>
                     } />
                 ))}
@@ -108,19 +92,24 @@ export function ShoppingList({ requests, onChanged }: { requests: Request[]; onC
                 {readyByUnit.length === 0 ? <Empty>Nothing waiting to be handed over.</Empty> : readyByUnit.map(([unit, list]) => (
                     <div key={unit} className="px-4 py-3">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <p className="text-sm font-bold">{unit}</p>
-                            <Button size="sm" variant="outline" className="text-xs gap-1" disabled={busy} onClick={() => bulk(list.map(r => r.id), "DELIVERED", `Mark everything for ${unit} as delivered?`)}>
-                                <Check className="w-3.5 h-3.5" /> All delivered
-                            </Button>
+                            <p className="text-sm font-bold">{unit}{unpaid(list) > 0 && <span className="ml-2 text-xs font-semibold text-amber-700">{unpaid(list)} unpaid</span>}</p>
+                            {list.some(r => r.next.includes("DELIVERED")) && (
+                                <Button size="sm" variant="outline" className="text-xs gap-1" disabled={busy} onClick={() => bulk(list.filter(r => r.next.includes("DELIVERED")).map(r => r.id), "DELIVERED", `Mark everything for ${unit} as handed over?`)}>
+                                    <Check className="w-3.5 h-3.5" /> All handed over
+                                </Button>
+                            )}
                         </div>
                         <ul className="text-sm space-y-0.5">
                             {list.map(r => (
                                 <li key={r.id} className="flex items-center gap-2">
                                     <span className="flex-1">
                                         {r.quantity > 1 && `${r.quantity} × `}{r.item.name}{r.variant && ` · ${r.variant}`}
-                                        <span className="text-muted-foreground"> — {r.member ? `${r.member.firstName} ${r.member.lastName}` : "the unit"}</span>
+                                        <span className="text-muted-foreground"> · {r.member ? `${r.member.firstName} ${r.member.lastName}` : r.requestedForName || "the unit"}</span>
+                                        {!r.paid && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800">unpaid</span>}
                                     </span>
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={busy} onClick={() => bulk([r.id], "DELIVERED", "Mark as delivered?")}>Delivered</Button>
+                                    {r.next.includes("DELIVERED") && (
+                                        <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={busy} onClick={() => bulk([r.id], "DELIVERED", "Mark as handed over?")}>Handed over</Button>
+                                    )}
                                 </li>
                             ))}
                         </ul>
@@ -148,14 +137,14 @@ function Section({ icon: Icon, title, count, summary, actions, children }: {
     );
 }
 
-function AggregateRow({ line, action }: { line: Line; action: React.ReactNode }) {
+function AggregateRow({ line, action, storekeeper }: { line: Line; action: React.ReactNode; storekeeper: boolean }) {
     return (
         <div className="px-4 py-2.5 flex items-center gap-3">
             <span className="w-12 text-lg font-black text-right">{line.quantity}</span>
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold">
                     {line.name}{line.variant && <span className="font-normal text-muted-foreground"> · {line.variant}</span>}
-                    {line.cost && <span className="font-normal text-muted-foreground"> · {formatMoney(line.cost, line.currency)} each at the QG</span>}
+                    {storekeeper && line.cost && <span className="font-normal text-muted-foreground"> · {formatMoney(line.cost, line.currency)} each at the QG</span>}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">{[...line.units.entries()].map(([u, n]) => `${u}: ${n}`).join(" · ")}</p>
             </div>

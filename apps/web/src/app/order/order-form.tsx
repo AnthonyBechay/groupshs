@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { categoryLabel, formatMoney, formatTotals, itemFitsUnit } from "@/lib/stock";
 import { compareUnitsByBranch } from "@/lib/scout-config";
@@ -17,9 +17,10 @@ type Item = {
 type Line = { itemId: string; variant: string; quantity: number };
 
 /**
- * The family side of uniform and badge orders. Three steps on one page: your
- * child, what you need, your details. The unit's leaders confirm every order
- * before anything is bought, so nothing here commits the family to a payment.
+ * The family side of uniform and badge orders: the child, then what they need.
+ * No contact details — the leaders hand the items to the child at a meeting.
+ * Phones first: every control is thumb-sized, text inputs are 16px (smaller
+ * makes iOS zoom in), and the basket follows as a bar at the bottom.
  */
 export function OrderForm() {
     const [units, setUnits] = useState<Unit[]>([]);
@@ -27,23 +28,21 @@ export function OrderForm() {
     const [loading, setLoading] = useState(true);
     const [unitId, setUnitId] = useState("");
     const [childName, setChildName] = useState("");
-    const [contactName, setContactName] = useState("");
-    const [contactPhone, setContactPhone] = useState("");
-    const [note, setNote] = useState("");
     const [website, setWebsite] = useState("");
     const [cart, setCart] = useState<Line[]>([]);
     const [picked, setPicked] = useState<Record<string, string>>({});
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [done, setDone] = useState<{ orderRef: string; total: string | null; unitName: string } | null>(null);
+    const nameRef = useRef<HTMLInputElement>(null);
+    const basketRef = useRef<HTMLElement>(null);
     useUnsavedChanges(cart.length > 0 && !done, "Your order is not sent yet. Leave and lose it?");
 
     useEffect(() => {
         fetch("/api/order/catalog").then(r => r.json()).then(d => {
             setUnits((d.units ?? []).sort(compareUnitsByBranch));
             setItems(d.items ?? []);
-            setLoading(false);
-        });
+        }).catch(() => setError("Could not load the list. Please refresh the page.")).finally(() => setLoading(false));
     }, []);
 
     const unit = units.find(u => u.id === unitId);
@@ -55,6 +54,15 @@ export function OrderForm() {
     }, [offered]);
     const itemOf = (id: string) => items.find(i => i.id === id);
     const total = formatTotals(cart.map(l => ({ amount: itemOf(l.itemId)?.sellPrice, quantity: l.quantity, currency: itemOf(l.itemId)?.currency })));
+    const count = cart.reduce((n, l) => n + l.quantity, 0);
+    const inCart = (id: string) => cart.filter(l => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
+
+    function chooseUnit(id: string) {
+        if (id === unitId) return;
+        if (cart.length && !confirm("Changing the unit empties the basket. Continue?")) return;
+        setUnitId(id);
+        setCart([]);
+    }
 
     function add(i: Item) {
         const variant = picked[i.id] ?? "";
@@ -68,17 +76,23 @@ export function OrderForm() {
     }
     const setQty = (n: number, q: number) => setCart(c => (q < 1 ? c.filter((_, j) => j !== n) : c.map((l, j) => (j === n ? { ...l, quantity: Math.min(20, q) } : l))));
 
-    async function submit(e: React.FormEvent) {
-        e.preventDefault();
+    async function submit(e?: React.FormEvent) {
+        e?.preventDefault();
+        if (!childName.trim()) {
+            setError("Type your child's name");
+            nameRef.current?.focus();
+            nameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            return;
+        }
         if (!cart.length) { setError("Add at least one item"); return; }
         setBusy(true); setError("");
         const res = await fetch("/api/order", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ unitId, childName, contactName, contactPhone, note, website, items: cart }),
-        });
-        const d = await res.json().catch(() => ({}));
+            body: JSON.stringify({ unitId, childName, website, items: cart }),
+        }).catch(() => null);
+        const d = res ? await res.json().catch(() => ({})) : {};
         setBusy(false);
-        if (!res.ok) { setError(d.error || "Something went wrong"); return; }
+        if (!res?.ok) { setError(d.error || "Something went wrong. Please try again."); return; }
         setDone(d);
         window.scrollTo({ top: 0 });
     }
@@ -87,76 +101,89 @@ export function OrderForm() {
 
     if (done) {
         return (
-            <div className="text-center py-14">
+            <div className="text-center py-12 px-2">
                 <CheckCircle2 className="w-14 h-14 text-emerald-600 mx-auto mb-4" />
-                <h1 className="text-2xl font-bold">Thank you — your order is sent</h1>
-                <p className="text-muted-foreground mt-2">
-                    The leaders of {done.unitName} will confirm it with you.{done.total && <> Expected total: <strong className="text-foreground">{done.total}</strong>.</>}
+                <h1 className="text-2xl font-bold">Thank you, your order is sent</h1>
+                <p className="text-muted-foreground mt-3">
+                    The leaders of {done.unitName} will hand it to your child at a meeting.
+                    {done.total && <> Total: <strong className="text-foreground">{done.total}</strong>.</>}
                 </p>
-                <p className="mt-4 text-sm">Your reference: <strong className="font-mono text-lg">{done.orderRef}</strong></p>
+                <p className="mt-5 text-sm">Reference: <strong className="font-mono text-lg">{done.orderRef}</strong></p>
+                <Button variant="outline" className="mt-8 h-11" onClick={() => { setDone(null); setCart([]); setChildName(""); }}>
+                    Order for another child
+                </Button>
             </div>
         );
     }
 
     return (
-        <form onSubmit={submit} className="space-y-6">
+        <form onSubmit={submit} className={`space-y-5 ${cart.length ? "pb-28" : ""}`}>
             <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-primary">Group SHS</p>
-                <h1 className="text-3xl font-black mt-1">Uniform & badges</h1>
+                <h1 className="text-2xl sm:text-3xl font-black mt-1">Uniform & badges</h1>
                 <p className="text-sm text-muted-foreground mt-2">
-                    Order what your child needs. Nothing is charged here: your child&apos;s leaders confirm the order and tell you how to collect and pay.
+                    Choose what your child needs. Nothing is paid here: the leaders confirm the order and hand it to your child.
                 </p>
             </div>
 
-            <section className="bg-card border rounded-2xl p-5 space-y-4">
+            <section className="bg-card border rounded-2xl p-4 sm:p-5 space-y-4">
                 <h2 className="font-bold"><span className="text-primary mr-1.5">1</span> Your child</h2>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {units.map(u => {
                         const t = unitTheme(u.unitType);
                         return (
-                            <button key={u.id} type="button" onClick={() => { setUnitId(u.id); setCart([]); }}
-                                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm font-semibold transition-all ${unitId === u.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted"}`}>
-                                <span className={`w-2.5 h-2.5 rounded-full ${t.dot}`} /> {u.name}
+                            <button key={u.id} type="button" onClick={() => chooseUnit(u.id)} aria-pressed={unitId === u.id}
+                                className={`flex items-center gap-2 min-h-12 px-3 py-2 rounded-xl border text-sm font-semibold text-left transition-all ${unitId === u.id ? "ring-2 ring-primary border-primary bg-primary/5" : "hover:bg-muted active:bg-muted"}`}>
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${t.dot}`} /> <span className="min-w-0">{u.name}</span>
                             </button>
                         );
                     })}
                 </div>
-                <label className="block space-y-1.5 max-w-md">
-                    <span className="text-xs font-medium">Your child&apos;s first and last name</span>
-                    <Input value={childName} onChange={e => setChildName(e.target.value)} required placeholder="e.g. Karim Khoury" />
+                <label className="block space-y-1.5">
+                    <span className="text-sm font-medium">First and last name</span>
+                    <Input ref={nameRef} value={childName} onChange={e => setChildName(e.target.value)} placeholder="e.g. Karim Khoury"
+                        autoComplete="off" autoCapitalize="words" className="h-12 text-base" />
                 </label>
             </section>
 
             {unit && (
-                <section className="bg-card border rounded-2xl p-5 space-y-5">
-                    <h2 className="font-bold"><span className="text-primary mr-1.5">2</span> What you need <span className="font-normal text-sm text-muted-foreground">— for {unit.name}</span></h2>
+                <section className="bg-card border rounded-2xl p-4 sm:p-5 space-y-5">
+                    <h2 className="font-bold"><span className="text-primary mr-1.5">2</span> What they need <span className="font-normal text-sm text-muted-foreground">· {unit.name}</span></h2>
                     {offered.length === 0 ? <p className="text-sm text-muted-foreground">Nothing is available to order for this unit yet.</p> : byCategory.map(([cat, list]) => (
                         <div key={cat} className="space-y-2">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{categoryLabel(cat)}</h3>
                             <div className="grid sm:grid-cols-2 gap-3">
-                                {list.map(i => (
-                                    <div key={i.id} className="rounded-xl border p-3 flex gap-3">
-                                        {i.photoUrl && (
-                                            /* eslint-disable-next-line @next/next/no-img-element */
-                                            <img src={i.photoUrl} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
-                                        )}
-                                        <div className="flex-1 min-w-0 space-y-2">
-                                            <div>
-                                                <p className="text-sm font-semibold">{i.name}</p>
-                                                <p className="text-xs text-muted-foreground">{formatMoney(i.sellPrice, i.currency) ?? "Price on confirmation"}{i.description ? ` · ${i.description}` : ""}</p>
+                                {list.map(i => {
+                                    const n = inCart(i.id);
+                                    return (
+                                        <div key={i.id} className={`rounded-xl border p-3 space-y-3 ${n ? "border-primary/40 bg-primary/5" : ""}`}>
+                                            <div className="flex gap-3">
+                                                {i.photoUrl && (
+                                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                                    <img src={i.photoUrl} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-semibold leading-snug">{i.name}</p>
+                                                    <p className="text-sm font-semibold mt-0.5">{formatMoney(i.sellPrice, i.currency) ?? <span className="font-normal text-muted-foreground">Price on confirmation</span>}</p>
+                                                    {i.description && <p className="text-xs text-muted-foreground mt-0.5">{i.description}</p>}
+                                                </div>
+                                                {n > 0 && <span className="self-start text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-white shrink-0">{n} in basket</span>}
                                             </div>
                                             <div className="flex gap-2">
                                                 {i.variants.length > 0 && (
-                                                    <select value={picked[i.id] ?? ""} onChange={e => setPicked(p => ({ ...p, [i.id]: e.target.value }))} className="h-9 rounded-md border border-input bg-background px-2 text-sm flex-1 min-w-0">
+                                                    <select value={picked[i.id] ?? ""} onChange={e => setPicked(p => ({ ...p, [i.id]: e.target.value }))}
+                                                        className="h-11 rounded-md border border-input bg-background px-2 text-base flex-1 min-w-0" aria-label={`Size / option for ${i.name}`}>
                                                         <option value="">Size / option…</option>
                                                         {i.variants.map(v => <option key={v} value={v}>{v}</option>)}
                                                     </select>
                                                 )}
-                                                <Button type="button" size="sm" variant="outline" className="gap-1 shrink-0" onClick={() => add(i)}><Plus className="w-4 h-4" /> Add</Button>
+                                                <Button type="button" variant="outline" className={`h-11 gap-1 shrink-0 ${i.variants.length ? "" : "flex-1"}`} onClick={() => add(i)}>
+                                                    <Plus className="w-4 h-4" /> Add
+                                                </Button>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}
@@ -164,21 +191,24 @@ export function OrderForm() {
             )}
 
             {cart.length > 0 && (
-                <section className="bg-card border-2 border-primary/30 rounded-2xl p-5 space-y-3">
-                    <h2 className="font-bold flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-primary" /> Your order</h2>
+                <section ref={basketRef} className="bg-card border-2 border-primary/30 rounded-2xl p-4 sm:p-5 space-y-3 scroll-mt-4">
+                    <h2 className="font-bold flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-primary" /> Basket</h2>
                     <ul className="divide-y">
                         {cart.map((l, n) => {
                             const i = itemOf(l.itemId)!;
                             const line = formatTotals([{ amount: i.sellPrice, quantity: l.quantity, currency: i.currency }]);
                             return (
-                                <li key={`${l.itemId}|${l.variant}`} className="py-2 flex items-center gap-3">
-                                    <span className="flex-1 text-sm">{i.name}{l.variant && <span className="text-muted-foreground"> · {l.variant}</span>}</span>
-                                    <span className="inline-flex items-center gap-1">
-                                        <button type="button" onClick={() => setQty(n, l.quantity - 1)} className="w-7 h-7 rounded border flex items-center justify-center" aria-label="Less">{l.quantity === 1 ? <Trash2 className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}</button>
-                                        <span className="w-6 text-center text-sm font-semibold">{l.quantity}</span>
-                                        <button type="button" onClick={() => setQty(n, l.quantity + 1)} className="w-7 h-7 rounded border flex items-center justify-center" aria-label="More"><Plus className="w-3.5 h-3.5" /></button>
+                                <li key={`${l.itemId}|${l.variant}`} className="py-2.5 flex items-center gap-2">
+                                    <span className="flex-1 min-w-0 text-sm">
+                                        <span className="font-medium">{i.name}</span>
+                                        {l.variant && <span className="block text-xs text-muted-foreground">{l.variant}</span>}
                                     </span>
-                                    <span className="w-20 text-right text-sm font-semibold">{line ?? "—"}</span>
+                                    <span className="inline-flex items-center gap-1 shrink-0">
+                                        <button type="button" onClick={() => setQty(n, l.quantity - 1)} className="w-9 h-9 rounded-lg border flex items-center justify-center active:bg-muted" aria-label="One less">{l.quantity === 1 ? <Trash2 className="w-4 h-4" /> : <Minus className="w-4 h-4" />}</button>
+                                        <span className="w-7 text-center font-semibold">{l.quantity}</span>
+                                        <button type="button" onClick={() => setQty(n, l.quantity + 1)} className="w-9 h-9 rounded-lg border flex items-center justify-center active:bg-muted" aria-label="One more"><Plus className="w-4 h-4" /></button>
+                                    </span>
+                                    <span className="w-16 text-right text-sm font-semibold shrink-0">{line ?? "—"}</span>
                                 </li>
                             );
                         })}
@@ -187,23 +217,26 @@ export function OrderForm() {
                 </section>
             )}
 
-            {unit && (
-                <section className="bg-card border rounded-2xl p-5 space-y-4">
-                    <h2 className="font-bold"><span className="text-primary mr-1.5">3</span> Your details</h2>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                        <label className="space-y-1.5"><span className="text-xs font-medium">Your name</span><Input value={contactName} onChange={e => setContactName(e.target.value)} required placeholder="e.g. Rita Khoury (mother)" /></label>
-                        <label className="space-y-1.5"><span className="text-xs font-medium">Phone</span><Input type="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)} required placeholder="03 123 456" /></label>
+            {/* Left empty by people; bots fill it in. */}
+            <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden className="hidden" />
+            {error && !cart.length && <p className="text-sm text-destructive">{error}</p>}
+
+            {cart.length > 0 && (
+                <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[env(safe-area-inset-bottom)]">
+                    <div className="max-w-3xl mx-auto px-4 py-3 space-y-2">
+                        {error && <p className="text-sm text-destructive">{error}</p>}
+                        <div className="flex items-center gap-3">
+                            <button type="button" onClick={() => basketRef.current?.scrollIntoView({ behavior: "smooth" })} className="flex-1 min-w-0 text-left">
+                                <span className="block text-xs text-muted-foreground">{count} item{count !== 1 ? "s" : ""}{childName.trim() ? ` for ${childName.trim()}` : ""}</span>
+                                <span className="block font-bold truncate">{total ?? "Basket"}</span>
+                            </button>
+                            <Button type="submit" disabled={busy} className="h-12 px-6 gap-2 text-base shrink-0">
+                                {busy && <Loader2 className="w-4 h-4 animate-spin" />} Send order
+                            </Button>
+                        </div>
                     </div>
-                    <label className="block space-y-1.5"><span className="text-xs font-medium">Note for the leaders (optional)</span><Input value={note} onChange={e => setNote(e.target.value)} /></label>
-                    {/* Left empty by people; bots fill it in. */}
-                    <input type="text" name="website" value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden className="hidden" />
-                    {error && <p className="text-sm text-destructive">{error}</p>}
-                    <Button type="submit" disabled={busy || !cart.length} className="gap-2 w-full sm:w-auto">
-                        {busy && <Loader2 className="w-4 h-4 animate-spin" />} Send my order{total ? ` · ${total}` : ""}
-                    </Button>
-                </section>
+                </div>
             )}
-            {!unit && error && <p className="text-sm text-destructive">{error}</p>}
         </form>
     );
 }

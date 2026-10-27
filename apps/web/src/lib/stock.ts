@@ -9,9 +9,12 @@
  *                requests (approve, buy at the QG, hand over).
  *   unit stock   canManageStock restricted to units: that unit's own items
  *                (and its sub-groups'); the group's stock is read-only.
- *   leaders      canManageMembers on a unit: request catalog items for that
- *                unit's scouts (approved straight away), approve or reject
- *                what families ordered, confirm hand-over, cancel until bought.
+ *   leaders      canManageMembers on a unit: everything about that unit's
+ *                requests — approve what families ordered, adjust it, match it
+ *                to the right scout, mark it paid, bought, handed over.
+ *   shopper      canSeeAllRequests: sees every unit's requests and the QG
+ *                list, and may mark them bought — for whoever goes to the QG
+ *                for the whole group.
  */
 
 export const STOCK_CATEGORIES = [
@@ -41,12 +44,17 @@ export const MEASURES = ["pcs", "pairs", "sets", "kg", "g", "L", "packs", "boxes
 
 // ─── Requests ───────────────────────────────────────────────────────────────
 
+/**
+ * The QG (quartier général) is the scouts' shop: buying there is picking up,
+ * so there is no "ordered, waiting for delivery" step. Approved → someone
+ * brings it from the QG → it waits to be handed over → the scout has it.
+ * (A former ORDERED status was folded into READY by a migration.)
+ */
 export const REQUEST_STATUSES = [
-    { value: "REQUESTED", label: "Requested" },
-    { value: "APPROVED", label: "Approved" },
-    { value: "ORDERED", label: "Bought / ordered" },
+    { value: "REQUESTED", label: "To approve" },
+    { value: "APPROVED", label: "To bring from the QG" },
     { value: "READY", label: "Ready to hand over" },
-    { value: "DELIVERED", label: "Delivered" },
+    { value: "DELIVERED", label: "Handed over" },
     { value: "REJECTED", label: "Rejected" },
     { value: "CANCELLED", label: "Cancelled" },
 ] as const;
@@ -54,40 +62,35 @@ export type RequestStatus = (typeof REQUEST_STATUSES)[number]["value"];
 export const requestStatusLabel = (v: string) => REQUEST_STATUSES.find(s => s.value === v)?.label ?? v;
 
 /** Still waiting for something to happen. */
-export const OPEN_REQUEST_STATUSES: RequestStatus[] = ["REQUESTED", "APPROVED", "ORDERED", "READY"];
+export const OPEN_REQUEST_STATUSES: RequestStatus[] = ["REQUESTED", "APPROVED", "READY"];
 
 /**
- * What the storekeeper can move a request to. "Give from stock" is separate
- * (it also takes the quantity out of stock) and allowed while nothing has
- * been bought for it yet.
+ * The steps open to whoever answers for the request's unit: its maîtrise, or
+ * the storekeeper (who answers for every unit). "Give from stock" is separate
+ * (it also takes the quantity out of stock).
  */
-export const STOREKEEPER_NEXT: Record<string, RequestStatus[]> = {
+export const REQUEST_NEXT: Record<string, RequestStatus[]> = {
     REQUESTED: ["APPROVED", "REJECTED"],
-    APPROVED: ["ORDERED", "REJECTED"],
-    ORDERED: ["READY"],
+    APPROVED: ["READY", "REJECTED"],
     READY: ["DELIVERED"],
 };
+
+/**
+ * Someone allowed to see every unit's requests (canSeeAllRequests) but who
+ * does not lead that unit: they may only mark it bought. Approving and
+ * handing over stay with the unit.
+ */
+export const SHOPPER_NEXT: Record<string, RequestStatus[]> = {
+    APPROVED: ["READY"],
+};
+
+export const canTakeStep = (rules: Record<string, RequestStatus[]>, from: string, to: string) =>
+    (rules[from] ?? []).includes(to as RequestStatus);
+
 export const CAN_GIVE_FROM_STOCK: string[] = ["REQUESTED", "APPROVED"];
-/** A leader can withdraw a request until it has been bought. */
+/** Until it has been bought, a request can be withdrawn or adjusted (item, size, quantity, who it is for). */
 export const CAN_CANCEL: string[] = ["REQUESTED", "APPROVED"];
-
-export function canMoveRequest(from: string, to: string): boolean {
-    return (STOREKEEPER_NEXT[from] ?? []).includes(to as RequestStatus);
-}
-
-/**
- * What a unit's own maîtrise can do with its unit's requests: decide on what
- * families ordered, and confirm handing it to the scout. Buying at the QG
- * stays with the storekeeper.
- */
-export const LEADER_NEXT: Record<string, RequestStatus[]> = {
-    REQUESTED: ["APPROVED", "REJECTED"],
-    READY: ["DELIVERED"],
-};
-
-export function canLeaderMoveRequest(from: string, to: string): boolean {
-    return (LEADER_NEXT[from] ?? []).includes(to as RequestStatus);
-}
+export const CAN_EDIT: string[] = CAN_CANCEL;
 
 // ─── Catalog ────────────────────────────────────────────────────────────────
 
