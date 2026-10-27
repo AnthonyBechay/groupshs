@@ -1,7 +1,9 @@
 import { prisma } from "@/db";
+import { randomBytes } from "crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth";
-import { CONDITIONS, MEASURES, STOCK_CATEGORIES } from "@/lib/stock";
+import { CONDITIONS, CURRENCIES, MEASURES, STOCK_CATEGORIES, parseVariants } from "@/lib/stock";
+import { UNIT_TYPES } from "@/lib/scout-config";
 import { isStorekeeper } from "@/lib/stock-access";
 
 type Tx = Prisma.TransactionClient;
@@ -107,15 +109,28 @@ export async function parseItemBody(body: Record<string, unknown>, s: SessionUse
     }
 
     // The catalog of things leaders can request is the storekeeper's to shape.
-    if ("requestable" in body || "variants" in body || "price" in body) {
+    const CATALOG_KEYS = ["requestable", "variants", "costPrice", "sellPrice", "currency", "forUnitTypes"];
+    if (CATALOG_KEYS.some(k => k in body)) {
         if (!isStorekeeper(s)) return { error: "Only the storekeeper can change what leaders may request" };
         if ("requestable" in body) data.requestable = body.requestable === true;
-        if ("variants" in body) {
-            data.variants = Array.isArray(body.variants)
-                ? [...new Set(body.variants.map(v => (typeof v === "string" ? v.trim().slice(0, 40) : "")).filter(Boolean))].slice(0, 40)
+        if ("variants" in body) data.variants = parseVariants(body.variants);
+        for (const k of ["costPrice", "sellPrice"] as const) {
+            if (!(k in body)) continue;
+            const v = body[k];
+            if (v === "" || v == null) { data[k] = null; continue; }
+            const n = Number(String(v).replace(/[,\s$]/g, ""));
+            if (!Number.isFinite(n) || n < 0 || n > 1e9) return { error: "Prices are amounts, like 12 or 12.50" };
+            data[k] = Math.round(n * 100) / 100;
+        }
+        if ("currency" in body) data.currency = CURRENCIES.some(c => c.value === body.currency) ? body.currency : "USD";
+        if ("forUnitTypes" in body) {
+            data.forUnitTypes = Array.isArray(body.forUnitTypes)
+                ? [...new Set(body.forUnitTypes.filter((t: unknown): t is string => typeof t === "string" && (UNIT_TYPES as readonly string[]).includes(t)))]
                 : [];
         }
-        if ("price" in body) data.price = str(body.price, 60);
     }
     return { data };
 }
+
+/** Short reference shared by the lines of one order, quoted to families. */
+export const newOrderRef = () => randomBytes(4).toString("hex").toUpperCase();

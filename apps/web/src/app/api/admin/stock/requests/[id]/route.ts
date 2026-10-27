@@ -1,13 +1,14 @@
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { CAN_CANCEL, CAN_GIVE_FROM_STOCK, canMoveRequest, requestStatusLabel } from "@/lib/stock";
+import { CAN_CANCEL, CAN_GIVE_FROM_STOCK, canLeaderMoveRequest, canMoveRequest, requestStatusLabel } from "@/lib/stock";
 import { canRequestFor, isStorekeeper } from "@/lib/stock-access";
 import { StockError, moveStock } from "@/lib/stock-service";
 
 /**
  * PATCH
- *   { action: "move", to, note? }  storekeeper: approve, reject, bought, ready, delivered
+ *   { action: "move", to, note? }  storekeeper: any next step; the unit's maîtrise:
+ *                                  approve / reject, and delivered once ready
  *   { action: "give", note? }      storekeeper: hand it out from stock (quantity goes down)
  *   { action: "cancel" }           the unit's leaders, until it has been bought
  */
@@ -26,6 +27,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             if (!canRequestFor(session, r.unitId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
             if (!CAN_CANCEL.includes(r.status)) return NextResponse.json({ error: `It is already ${requestStatusLabel(r.status).toLowerCase()}` }, { status: 409 });
             const updated = await prisma.itemRequest.update({ where: { id }, data: { status: "CANCELLED", statusNote: note ?? r.statusNote } });
+            return NextResponse.json(updated);
+        }
+
+        if (body.action === "move" && !isStorekeeper(session)) {
+            if (!canRequestFor(session, r.unitId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+            if (!canLeaderMoveRequest(r.status, body.to)) {
+                return NextResponse.json({ error: `Only the storekeeper can move it from ${requestStatusLabel(r.status)} to ${requestStatusLabel(body.to)}` }, { status: 403 });
+            }
+            const updated = await prisma.itemRequest.update({
+                where: { id }, data: { status: body.to, handledByName: session.name, statusNote: note ?? r.statusNote },
+            });
             return NextResponse.json(updated);
         }
 

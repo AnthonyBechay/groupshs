@@ -1,13 +1,18 @@
 import { prisma } from "@/db";
-import { getSession } from "@/lib/auth";
+import { getSession, canAccessUnit } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
-import { CAN_CANCEL, OPEN_REQUEST_STATUSES } from "@/lib/stock";
+import { CAN_CANCEL, LEADER_NEXT, OPEN_REQUEST_STATUSES, STOREKEEPER_NEXT, itemFitsUnit } from "@/lib/stock";
 import { canRequestFor, canUseStock, isStorekeeper } from "@/lib/stock-access";
-import { viewableRequestsWhere } from "@/lib/stock-service";
+import { newOrderRef, viewableRequestsWhere } from "@/lib/stock-service";
 
 const requestInclude = {
-    item: { select: { id: true, name: true, category: true, quantity: true, variants: true, price: true, unitOfMeasure: true } },
+    item: {
+        select: {
+            id: true, name: true, category: true, quantity: true, variants: true,
+            sellPrice: true, costPrice: true, currency: true, unitOfMeasure: true, photoUrl: true,
+        },
+    },
     unit: { select: { id: true, name: true, unitType: true } },
     member: { select: { id: true, firstName: true, lastName: true } },
 } as const;
@@ -26,13 +31,25 @@ export async function GET(request: NextRequest) {
             ...(unitId ? { unitId } : {}),
             ...(status === "open" ? { status: { in: OPEN_REQUEST_STATUSES } } : status === "all" ? {} : { status }),
         };
-        const rows = await prisma.itemRequest.findMany({ where, include: requestInclude, orderBy: { createdAt: "desc" }, take: 500 });
+        const rows = await prisma.itemRequest.findMany({ where, include: requestInclude, orderBy: { createdAt: "desc" }, take: 1000 });
         const storekeeper = isStorekeeper(session);
-        return NextResponse.json(rows.map(r => ({
-            ...r,
-            canProcess: storekeeper,
-            canCancel: CAN_CANCEL.includes(r.status) && canRequestFor(session, r.unitId),
-        })));
+        return NextResponse.json(rows.map(r => {
+            const leader = canAccessUnit(session, r.unitId);
+            // Buying prices are the storekeeper's business, not the units'.
+            const item = storekeeper ? r.item : { ...r.item, costPrice: null };
+            return {
+                ...r,
+                item,
+                unitPrice: r.unitPrice ?? r.item.sellPrice,
+                currency: r.currency ?? r.item.currency,
+                next: [...new Set([
+                    ...(storekeeper ? STOREKEEPER_NEXT[r.status] ?? [] : []),
+                    ...(leader ? LEADER_NEXT[r.status] ?? [] : []),
+                ])],
+                canGive: storekeeper,
+                canCancel: CAN_CANCEL.includes(r.status) && canRequestFor(session, r.unitId),
+            };
+        }));
     } catch (error) {
         console.error("Error listing requests:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -40,8 +57,9 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST { unitId, items: [{ itemId, memberId?, variant?, quantity? , note? }] }
- * — one or several requests at once, e.g. a shirt and a scarf for a new scout.
+ * POST { unitId, memberId?, items: [{ itemId, variant?, quantity?, note? }] }
+ * — a leader's order for one scout (or the unit). Leaders are the ones who
+ * approve, so it starts approved and goes straight to the QG list.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -51,24 +69,32 @@ export async function POST(request: NextRequest) {
         if (!session || !unitId || !canRequestFor(session, unitId)) {
             return NextResponse.json({ error: "You can only request items for a unit you lead" }, { status: 403 });
         }
+        const unit = await prisma.unit.findUnique({ where: { id: unitId }, select: { unitType: true } });
+        if (!unit) return NextResponse.json({ error: "Unit not found" }, { status: 404 });
+
         const lines: Record<string, unknown>[] = Array.isArray(body.items) ? body.items.slice(0, 50) : [];
         if (!lines.length) return NextResponse.json({ error: "Add at least one item" }, { status: 400 });
+        // One scout for the whole order (or none: for the unit). Older clients
+        // sent it per line; that still works.
+        const orderMember = typeof body.memberId === "string" && body.memberId ? body.memberId : null;
 
         const items = await prisma.stockItem.findMany({
             where: { id: { in: lines.map(l => String(l.itemId)) }, requestable: true, archived: false },
-            select: { id: true, name: true, variants: true },
+            select: { id: true, name: true, variants: true, forUnitTypes: true, sellPrice: true, currency: true },
         });
-        const memberIds = [...new Set(lines.map(l => l.memberId).filter((v): v is string => typeof v === "string" && !!v))];
+        const memberIds = [...new Set([orderMember, ...lines.map(l => l.memberId)].filter((v): v is string => typeof v === "string" && !!v))];
         const members = await prisma.member.findMany({
             where: { id: { in: memberIds }, status: "ACTIVE", OR: [{ unitId }, { servesUnitId: unitId }] },
             select: { id: true },
         });
 
+        const orderRef = newOrderRef();
         const data: Prisma.ItemRequestCreateManyInput[] = [];
         for (const l of lines) {
             const item = items.find(i => i.id === l.itemId);
             if (!item) return NextResponse.json({ error: "One of the items cannot be requested" }, { status: 400 });
-            const memberId = typeof l.memberId === "string" && l.memberId ? l.memberId : null;
+            if (!itemFitsUnit(item, unit.unitType)) return NextResponse.json({ error: `"${item.name}" is not offered to this unit` }, { status: 400 });
+            const memberId = (typeof l.memberId === "string" && l.memberId) || orderMember;
             if (memberId && !members.some(m => m.id === memberId)) {
                 return NextResponse.json({ error: "Requests are for scouts of this unit" }, { status: 400 });
             }
@@ -79,13 +105,15 @@ export async function POST(request: NextRequest) {
             const quantity = Number(l.quantity ?? 1);
             if (!Number.isInteger(quantity) || quantity < 1 || quantity > 200) return NextResponse.json({ error: "Quantity must be between 1 and 200" }, { status: 400 });
             data.push({
-                itemId: item.id, unitId, memberId, variant, quantity,
+                itemId: item.id, unitId, memberId: memberId || null, variant, quantity,
                 note: typeof l.note === "string" && l.note.trim() ? l.note.trim().slice(0, 500) : null,
+                status: "APPROVED", source: "LEADER", orderRef,
+                unitPrice: item.sellPrice, currency: item.currency,
                 requestedById: session.userId, requestedByName: session.name,
             });
         }
         await prisma.itemRequest.createMany({ data });
-        return NextResponse.json({ created: data.length });
+        return NextResponse.json({ created: data.length, orderRef });
     } catch (error) {
         console.error("Error creating requests:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });

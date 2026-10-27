@@ -261,7 +261,18 @@ are in `stock.ts` (safe for the browser); access rules in `stock-access.ts`
 |---|---|
 | `canManageStock`, unrestricted | everything: storage, catalog, processing requests |
 | `canManageStock`, restricted | their units' own items; the group's are read-only |
-| `canManageMembers` on a unit | request catalog items for that unit's scouts, cancel until bought |
+| `canManageMembers` on a unit | request catalog items for that unit's scouts (starts approved), approve / reject families' orders, mark handed over, cancel until bought |
+
+Catalog items carry `costPrice` (QG — storekeeper only, stripped from every
+other response), `sellPrice` + `currency`, and `forUnitTypes` (empty = every
+scout). Offering is checked server-side with `itemFitsUnit()`. A request
+snapshots `unitPrice` so totals do not move when the catalog changes.
+
+**Families order at `/order`** (public, no account): the unit's maîtrise sees
+and approves those orders; other units' leaders never see them. The child's
+name is linked to a member only on an exact match — otherwise it is kept as
+typed and flagged. Rate-limited per IP, with a honeypot field; the catalog
+endpoint exposes names, options and selling prices only.
 
 ### Users ↔ members, "My unit"
 

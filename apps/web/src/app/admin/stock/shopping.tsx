@@ -3,16 +3,20 @@
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { Check, Copy, PackageOpen, ShoppingCart, Truck } from "lucide-react";
+import { formatMoney, formatTotals } from "@/lib/stock";
 import { api, type Request } from "./shared";
 
-type Line = { key: string; name: string; variant: string | null; price: string | null; quantity: number; ids: string[]; units: Map<string, number> };
+type Line = { key: string; name: string; variant: string | null; cost: string | null; sell: string | null; currency: string; quantity: number; ids: string[]; units: Map<string, number> };
 
 /** Requests in one status, added up per item and size. */
 function aggregate(list: Request[]): Line[] {
     const lines = new Map<string, Line>();
     for (const r of list) {
         const key = `${r.item.id}|${r.variant ?? ""}`;
-        const l: Line = lines.get(key) ?? { key, name: r.item.name, variant: r.variant, price: r.item.price, quantity: 0, ids: [], units: new Map<string, number>() };
+        const l: Line = lines.get(key) ?? {
+            key, name: r.item.name, variant: r.variant, cost: r.item.costPrice, sell: r.unitPrice,
+            currency: r.currency ?? r.item.currency, quantity: 0, ids: [], units: new Map<string, number>(),
+        };
         l.quantity += r.quantity;
         l.ids.push(r.id);
         l.units.set(r.unit.name, (l.units.get(r.unit.name) ?? 0) + r.quantity);
@@ -48,6 +52,9 @@ export function ShoppingList({ requests, onChanged }: { requests: Request[]; onC
     }
 
     const listText = toBuy.map(l => `${l.quantity} × ${l.name}${l.variant ? ` (${l.variant})` : ""}`).join("\n");
+    // What the trip costs the group, and what families will pay back.
+    const cost = (ls: Line[]) => formatTotals(ls.map(l => ({ amount: l.cost, quantity: l.quantity, currency: l.currency })));
+    const sell = (ls: Line[]) => formatTotals(ls.map(l => ({ amount: l.sell, quantity: l.quantity, currency: l.currency })));
 
     return (
         <div className="space-y-6">
@@ -59,6 +66,7 @@ export function ShoppingList({ requests, onChanged }: { requests: Request[]; onC
 
             <Section
                 icon={ShoppingCart} title="To buy at the QG" count={toBuy.reduce((n, l) => n + l.quantity, 0)}
+                summary={toBuy.length > 0 && [cost(toBuy) && `costs ${cost(toBuy)}`, sell(toBuy) && `families pay ${sell(toBuy)}`].filter(Boolean).join(" · ")}
                 actions={toBuy.length > 0 && (
                     <>
                         <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigator.clipboard.writeText(listText).catch(() => prompt("Copy this:", listText))}>
@@ -123,13 +131,16 @@ export function ShoppingList({ requests, onChanged }: { requests: Request[]; onC
     );
 }
 
-function Section({ icon: Icon, title, count, actions, children }: {
-    icon: typeof ShoppingCart; title: string; count: number; actions?: React.ReactNode; children: React.ReactNode;
+function Section({ icon: Icon, title, count, summary, actions, children }: {
+    icon: typeof ShoppingCart; title: string; count: number; summary?: string | false; actions?: React.ReactNode; children: React.ReactNode;
 }) {
     return (
         <section className="rounded-2xl border bg-card overflow-hidden">
             <div className="px-4 py-3 border-b bg-muted/30 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-bold flex items-center gap-2"><Icon className="w-4 h-4 text-primary" /> {title} <span className="font-normal text-muted-foreground">({count})</span></h2>
+                <h2 className="text-sm font-bold flex items-center gap-2 flex-wrap">
+                    <Icon className="w-4 h-4 text-primary" /> {title} <span className="font-normal text-muted-foreground">({count})</span>
+                    {summary && <span className="font-normal text-xs text-muted-foreground">· {summary}</span>}
+                </h2>
                 <div className="flex gap-2">{actions}</div>
             </div>
             <div className="divide-y">{children}</div>
@@ -142,7 +153,10 @@ function AggregateRow({ line, action }: { line: Line; action: React.ReactNode })
         <div className="px-4 py-2.5 flex items-center gap-3">
             <span className="w-12 text-lg font-black text-right">{line.quantity}</span>
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">{line.name}{line.variant && <span className="font-normal text-muted-foreground"> · {line.variant}</span>}{line.price && <span className="font-normal text-muted-foreground"> · {line.price} each</span>}</p>
+                <p className="text-sm font-semibold">
+                    {line.name}{line.variant && <span className="font-normal text-muted-foreground"> · {line.variant}</span>}
+                    {line.cost && <span className="font-normal text-muted-foreground"> · {formatMoney(line.cost, line.currency)} each at the QG</span>}
+                </p>
                 <p className="text-xs text-muted-foreground truncate">{[...line.units.entries()].map(([u, n]) => `${u}: ${n}`).join(" · ")}</p>
             </div>
             {action}

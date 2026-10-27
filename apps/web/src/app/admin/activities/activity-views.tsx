@@ -266,9 +266,14 @@ export function CalendarView({ month, sessions, onMonth }: {
 }) {
     const today = todayKey();
     const { days } = monthGrid(month);
+    // A camp is one session but several days: show it on each of them.
     const byDay = useMemo(() => {
         const m = new Map<string, SessionRow[]>();
-        for (const s of sessions) m.set(key(s.date), [...(m.get(key(s.date)) ?? []), s]);
+        for (const s of sessions) {
+            const first = key(s.date);
+            const last = !s.activity.recurrence && s.activity.endDate && key(s.activity.endDate) > first ? key(s.activity.endDate) : first;
+            for (let d = first, n = 0; d <= last && n < 62; d = addDays(d, 1), n++) m.set(d, [...(m.get(d) ?? []), s]);
+        }
         return m;
     }, [sessions]);
 
@@ -303,14 +308,15 @@ export function CalendarView({ month, sessions, onMonth }: {
                             <div className="space-y-1">
                                 {list.slice(0, 3).map(s => {
                                     const theme = unitTheme(s.activity.unit.unitType);
+                                    const continues = key(s.date) < d;
                                     return (
                                         <Link
                                             key={s.id}
                                             href={`/admin/activities/${s.activity.id}/sessions/${s.id}`}
                                             title={`${s.activity.title} · ${s.activity.unit.name}`}
-                                            className={`block truncate rounded px-1.5 py-0.5 text-[11px] font-semibold ${theme.chip} ${s.status === "CANCELLED" ? "line-through opacity-60" : ""}`}
+                                            className={`block truncate rounded px-1.5 py-0.5 text-[11px] font-semibold ${theme.chip} ${s.status === "CANCELLED" ? "line-through opacity-60" : ""} ${continues ? "rounded-l-none opacity-80" : ""}`}
                                         >
-                                            {s.activity.title}
+                                            {continues ? "↳ " : ""}{s.activity.title}
                                         </Link>
                                     );
                                 })}

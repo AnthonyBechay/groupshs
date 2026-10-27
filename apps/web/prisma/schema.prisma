@@ -758,7 +758,13 @@ model StockItem {
   // usually bought from the QG on demand, sometimes handed out from stock.
   requestable Boolean  @default(false)
   variants    String[] @default([])   // sizes or options to choose from
-  price       String?                 // free text: "$12", "450,000 LL"
+  price       String?                 // legacy free text; costPrice / sellPrice replace it
+  costPrice   Decimal? @map("cost_price") @db.Decimal(12, 2)  // what the group pays at the QG
+  sellPrice   Decimal? @map("sell_price") @db.Decimal(12, 2)  // what a family pays
+  currency    String   @default("USD")                        // USD | LBP
+  // Which branches it is for: a Louveteau's shirt is not a Troupe's. Empty =
+  // common to every scout (a scarf, a group badge).
+  forUnitTypes String[] @default([]) @map("for_unit_types")
 
   photoUrl String? @map("photo_url")
   notes    String?
@@ -813,6 +819,17 @@ model ItemRequest {
   fromStock  Boolean @default(false) @map("from_stock")
   statusNote String? @map("status_note")
 
+  // LEADER: asked by the unit's maîtrise (starts approved).
+  // FAMILY: ordered by parents on the public page (waits for the maîtrise).
+  source           String  @default("LEADER")
+  requestedForName String? @map("requested_for_name") // the child, when not matched to a member
+  contactName      String? @map("contact_name")
+  contactPhone     String? @map("contact_phone")
+  orderRef         String? @map("order_ref")          // lines sent together share it
+  // The selling price when it was asked, so totals do not move with the catalog.
+  unitPrice        Decimal? @map("unit_price") @db.Decimal(12, 2)
+  currency         String?
+
   requestedById   String? @map("requested_by_id")
   requestedByName String? @map("requested_by_name")
   handledByName   String? @map("handled_by_name")
@@ -823,5 +840,6 @@ model ItemRequest {
   @@index([status])
   @@index([unitId])
   @@index([itemId])
+  @@index([orderRef])
   @@map("item_request")
 }

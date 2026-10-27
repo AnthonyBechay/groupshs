@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { OPEN_REQUEST_STATUSES } from "@/lib/stock";
-import { canEditItem, canSeeInventory, canUseStock } from "@/lib/stock-access";
+import { canEditItem, canSeeInventory, canUseStock, isStorekeeper } from "@/lib/stock-access";
 import { itemInclude, parseItemBody, viewableItemsWhere } from "@/lib/stock-service";
 
 /**
@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
             },
             orderBy: [{ category: "asc" }, { name: "asc" }],
         });
-        return NextResponse.json(items.map(i => ({ ...i, canEdit: canEditItem(session, i) })));
+        // What the group pays at the QG is the storekeeper's business only.
+        const storekeeper = isStorekeeper(session);
+        return NextResponse.json(items.map(i => ({ ...i, costPrice: storekeeper ? i.costPrice : null, canEdit: canEditItem(session, i) })));
     } catch (error) {
         console.error("Error listing stock:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });

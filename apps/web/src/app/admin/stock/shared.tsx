@@ -13,6 +13,7 @@ export type Item = {
     unit: Unit | null; subgroup: { id: string; name: string } | null;
     location: { id: string; name: string; parent: { id: string; name: string } | null } | null;
     requestable: boolean; variants: string[]; price: string | null;
+    costPrice: string | null; sellPrice: string | null; currency: string; forUnitTypes: string[];
     photoUrl: string | null; notes: string | null; archived: boolean;
     canEdit: boolean; _count: { requests: number };
 };
@@ -20,9 +21,15 @@ export type Item = {
 export type Request = {
     id: string; status: string; variant: string | null; quantity: number; note: string | null; statusNote: string | null;
     fromStock: boolean; requestedByName: string | null; handledByName: string | null; createdAt: string; updatedAt: string;
-    item: { id: string; name: string; category: string; quantity: number; variants: string[]; price: string | null; unitOfMeasure: string };
+    item: {
+        id: string; name: string; category: string; quantity: number; variants: string[]; unitOfMeasure: string;
+        sellPrice: string | null; costPrice: string | null; currency: string; photoUrl: string | null;
+    };
     unit: Unit; member: { id: string; firstName: string; lastName: string } | null;
-    canProcess: boolean; canCancel: boolean;
+    source: "LEADER" | "FAMILY"; requestedForName: string | null; contactName: string | null; contactPhone: string | null;
+    orderRef: string | null; unitPrice: string | null; currency: string | null;
+    /** Steps this user may take from here. */
+    next: string[]; canGive: boolean; canCancel: boolean;
 };
 
 export const placeOf = (i: Pick<Item, "location">) =>

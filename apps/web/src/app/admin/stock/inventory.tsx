@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Archive, History, Loader2, Minus, Pencil, Plus, Search, Tag, X } from "lucide-react";
-import { CONDITIONS, MEASURES, STOCK_CATEGORIES } from "@/lib/stock";
+import { CONDITIONS, CURRENCIES, MAX_VARIANTS, MEASURES, STOCK_CATEGORIES, formatMoney, parseVariants } from "@/lib/stock";
+import { UNIT_TYPES, unitTypeLabel } from "@/lib/scout-config";
 import {
     CategoryChip, ConditionText, SELECT, api, daysUntil, isLow, ownerOf, placeOf,
     type Item, type Room, type Subgroup, type Unit,
@@ -115,7 +116,12 @@ export function Inventory({ items, units, subgroups, rooms, storekeeper, onChang
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="font-semibold">{i.name}</span>
                                                 <CategoryChip value={i.category} />
-                                                {i.requestable && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary flex items-center gap-1"><Tag className="w-3 h-3" /> Requestable</span>}
+                                                {i.requestable && (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary flex items-center gap-1">
+                                                        <Tag className="w-3 h-3" /> {formatMoney(i.sellPrice, i.currency) ?? "Requestable"}
+                                                        {i.forUnitTypes.length > 0 && ` · ${i.forUnitTypes.map(unitTypeLabel).join(", ")}`}
+                                                    </span>
+                                                )}
                                             </div>
                                             {(i.description || exp != null) && (
                                                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -173,8 +179,13 @@ function ItemPanel({ item, units, subgroups, rooms, storekeeper, onClose, onSave
         minQuantity: item?.minQuantity != null ? String(item.minQuantity) : "", condition: item?.condition ?? "GOOD",
         expiresAt: item?.expiresAt?.slice(0, 10) ?? "", unitId: item?.unitId ?? "", subgroupId: item?.subgroupId ?? "",
         locationId: item?.locationId ?? "", notes: item?.notes ?? "",
-        requestable: item?.requestable ?? false, variants: (item?.variants ?? []).join(", "), price: item?.price ?? "",
+        requestable: item?.requestable ?? false, variants: (item?.variants ?? []).join(", "),
+        costPrice: item?.costPrice != null ? String(Number(item.costPrice)) : "",
+        sellPrice: item?.sellPrice != null ? String(Number(item.sellPrice)) : "",
+        currency: item?.currency ?? "USD",
     });
+    const [forUnitTypes, setForUnitTypes] = useState<string[]>(item?.forUnitTypes ?? []);
+    const options = useMemo(() => parseVariants(f.variants), [f.variants]);
     const [count, setCount] = useState("");
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
@@ -199,7 +210,12 @@ function ItemPanel({ item, units, subgroups, rooms, storekeeper, onClose, onSave
             unitId: f.unitId, subgroupId: f.subgroupId, locationId: f.locationId, notes: f.notes,
         };
         if (!item) body.quantity = f.quantity;
-        if (storekeeper) Object.assign(body, { requestable: f.requestable, variants: f.variants.split(","), price: f.price });
+        if (storekeeper) {
+            Object.assign(body, {
+                requestable: f.requestable, variants: options, forUnitTypes,
+                costPrice: f.costPrice, sellPrice: f.sellPrice, currency: f.currency,
+            });
+        }
         const r = await api(item ? `/api/admin/stock/items/${item.id}` : "/api/admin/stock/items", item ? "PATCH" : "POST", body);
         if (r.ok && item && count !== "" && Number(count) !== item.quantity) {
             const c = await api(`/api/admin/stock/items/${item.id}/adjust`, "POST", { count: Number(count), reason: "Recount" });
@@ -301,9 +317,54 @@ function ItemPanel({ item, units, subgroups, rooms, storekeeper, onClose, onSave
                                 </span>
                             </label>
                             {f.requestable && (
-                                <div className="grid sm:grid-cols-[1fr_8rem] gap-3">
-                                    <Field label="Sizes / options, comma separated"><Input value={f.variants} onChange={e => set("variants", e.target.value)} placeholder="S, M, L, XL" /></Field>
-                                    <Field label="Price"><Input value={f.price} onChange={e => set("price", e.target.value)} placeholder="$12" /></Field>
+                                <div className="space-y-3">
+                                    <Field label={`Sizes / options — separated by commas or new lines (${options.length}/${MAX_VARIANTS})`}>
+                                        <textarea
+                                            value={f.variants}
+                                            onChange={e => set("variants", e.target.value)}
+                                            rows={3}
+                                            placeholder="S, M, L, XL — or one per line: Promesse, Loup Blanc, Première Étoile…"
+                                            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        />
+                                    </Field>
+                                    {options.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
+                                            {options.map(o => <span key={o} className="text-[11px] px-2 py-0.5 rounded-full bg-muted">{o}</span>)}
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-[1fr_1fr_6rem] gap-3">
+                                        <Field label="Buying price (QG)"><Input inputMode="decimal" value={f.costPrice} onChange={e => set("costPrice", e.target.value)} placeholder="10" /></Field>
+                                        <Field label="Selling price (families)"><Input inputMode="decimal" value={f.sellPrice} onChange={e => set("sellPrice", e.target.value)} placeholder="12" /></Field>
+                                        <Field label="Currency">
+                                            <select value={f.currency} onChange={e => set("currency", e.target.value)} className={`${SELECT} w-full`}>
+                                                {CURRENCIES.map(c => <option key={c.value} value={c.value}>{c.value}</option>)}
+                                            </select>
+                                        </Field>
+                                    </div>
+                                    {f.costPrice && f.sellPrice && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Margin per piece: {formatMoney(Number(f.sellPrice) - Number(f.costPrice), f.currency)}
+                                        </p>
+                                    )}
+                                    <div className="space-y-1.5">
+                                        <p className="text-xs font-medium">For which branches</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            <button type="button" onClick={() => setForUnitTypes([])}
+                                                className={`text-xs px-2.5 py-1 rounded-full border ${forUnitTypes.length === 0 ? "bg-primary text-white border-primary" : "hover:bg-muted"}`}>
+                                                Every scout
+                                            </button>
+                                            {UNIT_TYPES.filter(t => !["ALL", "ARCHIVE"].includes(t)).map(t => {
+                                                const on = forUnitTypes.includes(t);
+                                                return (
+                                                    <button key={t} type="button" onClick={() => setForUnitTypes(v => (on ? v.filter(x => x !== t) : [...v, t]))}
+                                                        className={`text-xs px-2.5 py-1 rounded-full border ${on ? "bg-primary text-white border-primary" : "hover:bg-muted"}`}>
+                                                        {unitTypeLabel(t)}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground">A Louveteau&apos;s shirt is not a Troupe&apos;s: pick its branches. &quot;Every scout&quot; for a scarf or a group badge.</p>
+                                    </div>
                                 </div>
                             )}
                         </div>

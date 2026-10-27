@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Boxes, ClipboardList, Package, ShoppingCart, Warehouse } from "lucide-react";
+import { Boxes, ClipboardList, Copy, ExternalLink, Package, ShoppingCart, Warehouse } from "lucide-react";
 import { useUrlState } from "@/hooks/use-url-state";
 import { compareUnitsByBranch } from "@/lib/scout-config";
 import { api, type Item, type Request, type Room, type Subgroup, type Unit } from "./shared";
@@ -73,11 +73,27 @@ export function StockApp({ storekeeper, inventory, canRequest }: { storekeeper: 
                                 : "Request uniforms and badges for the scouts of your unit, and follow them."}
                     </p>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center rounded-md border text-sm">
+                    <a href="/order" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 h-9 px-3 hover:bg-muted rounded-l-md">
+                        <ExternalLink className="w-4 h-4" /> Family order page
+                    </a>
+                    <button
+                        type="button"
+                        title="Copy the link to send to parents"
+                        onClick={() => { const url = `${window.location.origin}/order`; navigator.clipboard.writeText(url).catch(() => prompt("Copy this:", url)); }}
+                        className="h-9 px-2.5 border-l hover:bg-muted rounded-r-md"
+                        aria-label="Copy link"
+                    >
+                        <Copy className="w-4 h-4" />
+                    </button>
+                </span>
                 {storekeeper && (
                     <Link href="/admin/stock/storage" className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md border text-sm font-medium hover:bg-muted">
                         <Warehouse className="w-4 h-4" /> Storage rooms & shelves
                     </Link>
                 )}
+                </div>
             </div>
 
             {tabs.length > 1 && (

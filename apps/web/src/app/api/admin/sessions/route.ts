@@ -30,7 +30,14 @@ export async function GET(request: NextRequest) {
         if (sp.get("includeHidden") !== "true") activityWhere.hidden = false;
 
         const sessions = await prisma.activitySession.findMany({
-            where: { date: { gte: toDay(from), lte: toDay(to) }, activity: activityWhere },
+            where: {
+                activity: activityWhere,
+                OR: [
+                    { date: { gte: toDay(from), lte: toDay(to) } },
+                    // A camp that began before the window but is still running in it.
+                    { date: { lt: toDay(from) }, activity: { recurrence: null, endDate: { gte: toDay(from) } } },
+                ],
+            },
             include: {
                 activity: {
                     select: {
